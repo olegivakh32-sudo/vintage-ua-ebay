@@ -20,8 +20,7 @@ PICKER_SCOPE = (
     "photospicker.mediaitems.readonly"
 )
 
-PICKER_API = "https://photospicker.googleapis.com/v1"
-
+PICKER_API = "https://photoslibrary.googleapis.com/v1"
 
 def google_headers():
     token = session.get("google_access_token")
