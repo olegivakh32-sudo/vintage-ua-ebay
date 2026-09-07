@@ -10,7 +10,7 @@ app.secret_key = os.environ.get("APP_SECRET", "temporary-development-key")
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 
-REDIRECT_URI = "https://vintage-ua-ebay-1.onrender.com/google/callback"
+PICKER_API = "https://photoslibrary.googleapis.com/v1"
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
