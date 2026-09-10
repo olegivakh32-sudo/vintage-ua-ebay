@@ -16,12 +16,12 @@ app = Flask(__name__)
 
 app.secret_key = os.environ.get(
     "APP_SECRET",
-    "temporary-development-key",
+    "temporary-development-key"
 )
 
-# ==================================================
+# =========================================================
 # CONFIG
-# ==================================================
+# =========================================================
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
@@ -48,20 +48,128 @@ PICKER_API = (
     "https://photospicker.googleapis.com/v1"
 )
 
-OPENAI_RESPONSES_URL = (
+OPENAI_URL = (
     "https://api.openai.com/v1/responses"
 )
 
-# Temporary caches.
-# Render restart clears these.
+# Photos are temporary.
+# We intentionally do NOT depend on this cache
+# for AI analysis/research results.
 PHOTO_CACHE = {}
-ANALYSIS_CACHE = {}
-RESEARCH_CACHE = {}
 
 
-# ==================================================
-# HELPERS
-# ==================================================
+# =========================================================
+# HTML HELPERS
+# =========================================================
+
+def page(title, body):
+    return f"""
+    <!doctype html>
+    <html>
+    <head>
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1">
+        <title>{html.escape(title)}</title>
+    </head>
+
+    <body style="
+        font-family:Arial,sans-serif;
+        padding:18px;
+        max-width:1000px;
+        margin:auto;
+        line-height:1.5;">
+
+        {body}
+
+    </body>
+    </html>
+    """
+
+
+def text_to_html(text):
+    return (
+        html.escape(text)
+        .replace("\n", "<br>")
+    )
+
+
+def hidden_field(name, value):
+    return (
+        f'<textarea name="{html.escape(name)}" '
+        f'style="display:none;">'
+        f'{html.escape(value)}</textarea>'
+    )
+
+
+# =========================================================
+# OPENAI HELPERS
+# =========================================================
+
+def extract_openai_text(data):
+
+    direct = data.get("output_text")
+
+    if direct:
+        return direct
+
+    texts = []
+
+    for item in data.get("output", []):
+
+        if item.get("type") != "message":
+            continue
+
+        for content in item.get("content", []):
+
+            if content.get("type") == "output_text":
+
+                text = content.get("text")
+
+                if text:
+                    texts.append(text)
+
+    return "\n".join(texts)
+
+
+def call_openai(payload, timeout=270):
+
+    response = requests.post(
+        OPENAI_URL,
+        headers={
+            "Authorization":
+                f"Bearer {OPENAI_API_KEY}",
+            "Content-Type":
+                "application/json",
+        },
+        json=payload,
+        timeout=timeout,
+    )
+
+    if not response.ok:
+
+        raise RuntimeError(
+            f"OpenAI HTTP {response.status_code}\n"
+            + response.text[:5000]
+        )
+
+    data = response.json()
+
+    result = extract_openai_text(data)
+
+    if not result:
+
+        raise RuntimeError(
+            "OpenAI returned no text.\n"
+            + str(data)[:5000]
+        )
+
+    return result
+
+
+# =========================================================
+# GOOGLE HELPERS
+# =========================================================
 
 def google_headers():
 
@@ -71,219 +179,234 @@ def google_headers():
 
     return {
         "Authorization":
-            f"Bearer {token}",
+            f"Bearer {token}"
     }
 
 
-def escape_multiline(text):
+def get_selected_items():
+
+    picker_session_id = session.get(
+        "picker_session_id"
+    )
+
+    if not picker_session_id:
+
+        return None, "No Picker session."
+
+    items = []
+    page_token = None
+
+    while True:
+
+        params = {
+            "sessionId":
+                picker_session_id,
+            "pageSize":
+                100,
+        }
+
+        if page_token:
+
+            params["pageToken"] = (
+                page_token
+            )
+
+        response = requests.get(
+            f"{PICKER_API}/mediaItems",
+            headers=google_headers(),
+            params=params,
+            timeout=30,
+        )
+
+        if not response.ok:
+
+            return None, response.text
+
+        data = response.json()
+
+        items.extend(
+            data.get(
+                "mediaItems",
+                []
+            )
+        )
+
+        page_token = data.get(
+            "nextPageToken"
+        )
+
+        if not page_token:
+            break
+
+    return items, None
+
+
+def google_photo_to_data_url(item):
+
+    token = session.get(
+        "google_access_token"
+    )
+
+    media_file = item.get(
+        "mediaFile",
+        {}
+    )
+
+    base_url = media_file.get(
+        "baseUrl"
+    )
+
+    if not base_url:
+
+        raise RuntimeError(
+            "Google baseUrl missing."
+        )
+
+    # 1024 px is sufficient for the first pass
+    # and keeps API cost/request size under control.
+    url = base_url + "=w1024-h1024"
+
+    response = requests.get(
+        url,
+        headers={
+            "Authorization":
+                f"Bearer {token}"
+        },
+        timeout=45,
+    )
+
+    if not response.ok:
+
+        raise RuntimeError(
+            "Could not download Google photo. "
+            f"HTTP {response.status_code}"
+        )
+
+    content_type = response.headers.get(
+        "Content-Type",
+        media_file.get(
+            "mimeType",
+            "image/jpeg"
+        )
+    )
+
+    encoded = base64.b64encode(
+        response.content
+    ).decode("utf-8")
 
     return (
-        html.escape(text)
-        .replace("\n", "<br>")
+        f"data:{content_type};"
+        f"base64,{encoded}"
     )
 
 
-def extract_openai_text(data):
-
-    direct_text = data.get(
-        "output_text"
-    )
-
-    if direct_text:
-        return direct_text
-
-    texts = []
-
-    for output_item in data.get(
-        "output",
-        [],
-    ):
-
-        if (
-            output_item.get("type")
-            != "message"
-        ):
-            continue
-
-        for content_item in output_item.get(
-            "content",
-            [],
-        ):
-
-            if (
-                content_item.get("type")
-                == "output_text"
-            ):
-
-                text = content_item.get(
-                    "text"
-                )
-
-                if text:
-                    texts.append(text)
-
-    return "\n".join(texts)
-
-
-# ==================================================
+# =========================================================
 # HOME
-# ==================================================
+# =========================================================
 
 @app.route("/")
 def home():
 
-    connected = bool(
+    google_connected = bool(
         session.get(
             "google_access_token"
         )
     )
 
-    openai_ready = bool(
-        OPENAI_API_KEY
-    )
+    if google_connected:
 
-    if connected:
-
-        google_section = """
+        google_block = """
         <p style="color:green;">
-            <b>
-                Google Photos connected ✓
-            </b>
+            <b>Google Photos connected ✓</b>
         </p>
 
         <p>
             <a href="/picker/start">
-
                 <button style="
                     font-size:20px;
-                    padding:12px 20px;">
-
-                    Select LOT photos
-
+                    padding:12px 18px;">
+                    Start LOT 001
                 </button>
-
             </a>
         </p>
         """
 
     else:
 
-        google_section = """
+        google_block = """
         <p>
             <a href="/google/login">
-
                 <button style="
                     font-size:20px;
-                    padding:12px 20px;">
-
+                    padding:12px 18px;">
                     Connect Google Photos
-
                 </button>
-
             </a>
         </p>
         """
 
-    if openai_ready:
+    if OPENAI_API_KEY:
 
-        ai_status = """
+        openai_block = """
         <p style="color:green;">
-            <b>
-                OpenAI API connected ✓
-            </b>
+            <b>OpenAI API connected ✓</b>
         </p>
         """
 
     else:
 
-        ai_status = """
+        openai_block = """
         <p style="color:red;">
-            <b>
-                OpenAI API key missing
-            </b>
+            <b>OpenAI API key missing</b>
         </p>
         """
 
-    return f"""
-    <!doctype html>
+    body = f"""
+    <h2>Vintage UA eBay</h2>
 
-    <html>
+    <p>Server is running ✓</p>
 
-    <head>
+    {google_block}
+    {openai_block}
 
-        <meta
-            name="viewport"
-            content="
-            width=device-width,
-            initial-scale=1">
+    <hr>
 
-        <title>
-            Vintage UA eBay
-        </title>
+    <h3>LOT workflow</h3>
 
-    </head>
-
-    <body style="
-        font-family:Arial;
-        padding:20px;
-        max-width:1000px;
-        margin:auto;">
-
-        <h2>
-            Vintage UA eBay
-        </h2>
-
-        <p>
-            Server is running ✓
-        </p>
-
-        {google_section}
-
-        {ai_status}
-
-        <hr>
-
-        <p>
-            Workflow:
-        </p>
-
-        <p>
-            24 photos →
-            AI analysis →
-            identification research →
-            eBay market research →
-            shipping →
-            listing preparation
-        </p>
-
-    </body>
-
-    </html>
+    <p>
+        24 photos →
+        visual AI analysis →
+        identification research →
+        eBay market research →
+        shipping →
+        final listing
+    </p>
     """
+
+    return page(
+        "Vintage UA eBay",
+        body
+    )
 
 
 @app.route("/health")
 def health():
 
     return {
-
         "status": "ok",
-
         "google_configured": bool(
             GOOGLE_CLIENT_ID
-            and
-            GOOGLE_CLIENT_SECRET
+            and GOOGLE_CLIENT_SECRET
         ),
-
         "openai_configured": bool(
             OPENAI_API_KEY
         ),
     }
 
 
-# ==================================================
+# =========================================================
 # GOOGLE OAUTH
-# ==================================================
+# =========================================================
 
 @app.route("/google/login")
 def google_login():
@@ -291,9 +414,8 @@ def google_login():
     if not GOOGLE_CLIENT_ID:
 
         return (
-            "GOOGLE_CLIENT_ID is "
-            "not configured.",
-            500,
+            "GOOGLE_CLIENT_ID missing",
+            500
         )
 
     state = secrets.token_urlsafe(32)
@@ -303,37 +425,26 @@ def google_login():
     ] = state
 
     params = {
-
         "client_id":
             GOOGLE_CLIENT_ID,
-
         "redirect_uri":
             REDIRECT_URI,
-
         "response_type":
             "code",
-
         "scope":
             PICKER_SCOPE,
-
         "access_type":
             "offline",
-
         "prompt":
             "consent",
-
         "state":
             state,
     }
 
     prepared = requests.Request(
-
         "GET",
-
         GOOGLE_AUTH_URL,
-
-        params=params,
-
+        params=params
     ).prepare()
 
     return redirect(
@@ -344,15 +455,13 @@ def google_login():
 @app.route("/google/callback")
 def google_callback():
 
-    error = request.args.get(
-        "error"
-    )
-
-    if error:
+    if request.args.get("error"):
 
         return (
             "Google authorization error: "
-            + html.escape(error),
+            + html.escape(
+                request.args.get("error")
+            ),
             400,
         )
 
@@ -362,13 +471,12 @@ def google_callback():
 
     saved_state = session.pop(
         "google_oauth_state",
-        None,
+        None
     )
 
     if (
         not saved_state
-        or
-        received_state != saved_state
+        or received_state != saved_state
     ):
 
         return (
@@ -383,50 +491,40 @@ def google_callback():
     if not code:
 
         return (
-            "Authorization code "
-            "was not returned.",
-            400,
+            "Authorization code missing.",
+            400
         )
 
-    token_response = requests.post(
-
+    response = requests.post(
         GOOGLE_TOKEN_URL,
-
         data={
-
             "code":
                 code,
-
             "client_id":
                 GOOGLE_CLIENT_ID,
-
             "client_secret":
                 GOOGLE_CLIENT_SECRET,
-
             "redirect_uri":
                 REDIRECT_URI,
-
             "grant_type":
                 "authorization_code",
         },
-
         timeout=30,
     )
 
-    if not token_response.ok:
+    if not response.ok:
 
         return (
             "Google token exchange failed."
-            "<br><br>"
+            "<br><pre>"
             + html.escape(
-                token_response.text
-            ),
+                response.text
+            )
+            + "</pre>",
             500,
         )
 
-    token_data = (
-        token_response.json()
-    )
+    token_data = response.json()
 
     session[
         "google_access_token"
@@ -447,9 +545,9 @@ def google_callback():
     return redirect("/")
 
 
-# ==================================================
-# CREATE GOOGLE PHOTOS PICKER SESSION
-# ==================================================
+# =========================================================
+# GOOGLE PICKER START
+# =========================================================
 
 @app.route("/picker/start")
 def picker_start():
@@ -463,17 +561,13 @@ def picker_start():
         )
 
     response = requests.post(
-
         f"{PICKER_API}/sessions",
-
         headers={
             **google_headers(),
             "Content-Type":
                 "application/json",
         },
-
         json={},
-
         timeout=30,
     )
 
@@ -481,7 +575,7 @@ def picker_start():
 
         session.pop(
             "google_access_token",
-            None,
+            None
         )
 
         return redirect(
@@ -491,208 +585,89 @@ def picker_start():
     if not response.ok:
 
         return (
-            "Could not create "
-            "Google Photos Picker session."
-            "<br><br>"
+            "Could not create Picker session."
+            "<br><pre>"
             + html.escape(
                 response.text
-            ),
+            )
+            + "</pre>",
             500,
         )
 
     data = response.json()
 
-    picker_session_id = data.get(
-        "id"
-    )
+    picker_id = data.get("id")
+    picker_uri = data.get("pickerUri")
 
-    picker_uri = data.get(
-        "pickerUri"
-    )
-
-    if not picker_session_id:
+    if not picker_id or not picker_uri:
 
         return (
-            "Google did not return "
-            "Picker session ID.",
-            500,
-        )
-
-    if not picker_uri:
-
-        return (
-            "Google did not return "
-            "Picker URI.",
+            "Google Picker session data missing.",
             500,
         )
 
     session[
         "picker_session_id"
-    ] = picker_session_id
+    ] = picker_id
 
-    return f"""
-    <!doctype html>
+    body = f"""
+    <h2>LOT 001</h2>
 
-    <html>
+    <h3>Step 1</h3>
 
-    <head>
+    <p>
+        Select exactly <b>24 photos</b>
+        of one item.
+    </p>
 
-        <meta
-            name="viewport"
-            content="
-            width=device-width,
-            initial-scale=1">
+    <p>
+        <a
+            href="{html.escape(picker_uri)}"
+            target="_blank">
 
-        <title>
-            Select LOT photos
-        </title>
+            <button style="
+                font-size:20px;
+                padding:12px 18px;">
 
-    </head>
+                Open Google Photos
 
-    <body style="
-        font-family:Arial;
-        padding:20px;
-        max-width:900px;
-        margin:auto;">
+            </button>
+        </a>
+    </p>
 
-        <h2>
-            LOT 001
-        </h2>
+    <hr>
 
-        <p>
-            <b>Step 1.</b>
-            Select exactly
-            <b>24 photos</b>.
-        </p>
+    <h3>Step 2</h3>
 
-        <p>
+    <p>
+        After Google Photos says Done,
+        return here.
+    </p>
 
-            <a
-                href="
-                {html.escape(picker_uri)}"
-                target="_blank">
+    <p>
+        <a href="/picker/items">
 
-                <button style="
-                    font-size:20px;
-                    padding:12px 20px;">
+            <button style="
+                font-size:20px;
+                padding:12px 18px;">
 
-                    Open Google Photos
+                Continue
 
-                </button>
+            </button>
 
-            </a>
-
-        </p>
-
-        <hr>
-
-        <p>
-            <b>Step 2.</b>
-            After selecting photos,
-            return here.
-        </p>
-
-        <p>
-
-            <a href="/picker/items">
-
-                <button style="
-                    font-size:20px;
-                    padding:12px 20px;">
-
-                    I selected the photos —
-                    Continue
-
-                </button>
-
-            </a>
-
-        </p>
-
-    </body>
-
-    </html>
+        </a>
+    </p>
     """
 
-
-# ==================================================
-# GET SELECTED ITEMS
-# ==================================================
-
-def get_selected_items():
-
-    picker_session_id = session.get(
-        "picker_session_id"
+    return page(
+        "LOT 001",
+        body
     )
 
-    if not picker_session_id:
 
-        return (
-            None,
-            "No Picker session."
-        )
-
-    items = []
-
-    page_token = None
-
-    while True:
-
-        params = {
-
-            "sessionId":
-                picker_session_id,
-
-            "pageSize":
-                100,
-        }
-
-        if page_token:
-
-            params[
-                "pageToken"
-            ] = page_token
-
-        response = requests.get(
-
-            f"{PICKER_API}/mediaItems",
-
-            headers=google_headers(),
-
-            params=params,
-
-            timeout=30,
-        )
-
-        if not response.ok:
-
-            return (
-                None,
-                response.text
-            )
-
-        data = response.json()
-
-        items.extend(
-            data.get(
-                "mediaItems",
-                [],
-            )
-        )
-
-        page_token = data.get(
-            "nextPageToken"
-        )
-
-        if not page_token:
-            break
-
-    return items, None
-
-
-# ==================================================
-# LOT PHOTO PAGE
-# ==================================================
+# =========================================================
+# PHOTO PAGE
+# =========================================================
 
 @app.route("/picker/items")
 def picker_items():
@@ -705,75 +680,45 @@ def picker_items():
             "/google/login"
         )
 
-    picker_session_id = session.get(
-        "picker_session_id"
-    )
-
-    if not picker_session_id:
-
-        return redirect(
-            "/picker/start"
-        )
-
-    items, error = (
-        get_selected_items()
-    )
+    items, error = get_selected_items()
 
     if error:
 
         return (
-            "Could not get "
-            "selected photos."
-            "<br><br>"
-            + html.escape(error),
+            "Could not get selected photos."
+            "<br><pre>"
+            + html.escape(error)
+            + "</pre>",
             500,
         )
 
     if not items:
 
-        return """
-        <!doctype html>
+        body = """
+        <h2>No photos yet</h2>
 
-        <html>
+        <p>
+            Google returned zero photos.
+        </p>
 
-        <head>
-
-            <meta
-                name="viewport"
-                content="
-                width=device-width,
-                initial-scale=1">
-
-        </head>
-
-        <body style="
-            font-family:Arial;
-            padding:20px;">
-
-            <h2>
-                Waiting for photos
-            </h2>
-
-            <p>
-                Google returned zero
-                selected photos.
-            </p>
-
+        <p>
             <a href="/picker/items">
-
-                <button>
-                    Check again
-                </button>
-
+                Check again
             </a>
-
-        </body>
-
-        </html>
+        </p>
         """
 
+        return page(
+            "No photos",
+            body
+        )
+
+    picker_id = session.get(
+        "picker_session_id"
+    )
+
     PHOTO_CACHE[
-        picker_session_id
+        picker_id
     ] = items
 
     count = len(items)
@@ -782,62 +727,39 @@ def picker_items():
 
     for index, item in enumerate(
         items,
-        start=1,
+        start=1
     ):
 
-        media_file = item.get(
-            "mediaFile",
-            {},
-        )
-
         filename = html.escape(
-            media_file.get(
+            item.get(
+                "mediaFile",
+                {}
+            ).get(
                 "filename",
-                f"Photo {index}",
-            )
-        )
-
-        mime_type = html.escape(
-            media_file.get(
-                "mimeType",
-                "",
+                f"Photo {index}"
             )
         )
 
         cards += f"""
         <div style="
             border:1px solid #ccc;
-            border-radius:8px;
-            padding:8px;
-            text-align:center;
-            background:#fff;">
+            border-radius:7px;
+            padding:6px;
+            text-align:center;">
 
             <img
                 src="/picker/thumb/{index}"
-                alt="{filename}"
                 loading="lazy"
                 style="
                     width:100%;
-                    height:180px;
-                    object-fit:contain;
-                    background:#f3f3f3;
-                    border-radius:5px;">
-
-            <div style="
-                margin-top:7px;
-                font-size:13px;
-                word-break:break-word;">
-
-                <b>{index}.</b>
-                {filename}
-
-            </div>
+                    height:160px;
+                    object-fit:contain;">
 
             <div style="
                 font-size:11px;
-                color:#666;">
+                margin-top:5px;">
 
-                {mime_type}
+                {index}. {filename}
 
             </div>
 
@@ -846,25 +768,25 @@ def picker_items():
 
     if count == 24:
 
-        status = (
-            "✓ Correct — "
-            "24 photos selected."
-        )
+        status = """
+        <p style="color:green;">
+            <b>
+                ✓ Correct — 24 photos selected
+            </b>
+        </p>
+        """
 
-        status_color = "green"
-
-        analyze_button = """
+        button = """
         <form
             action="/picker/analyze"
-            method="post"
-            style="margin-top:25px;">
+            method="post">
 
             <button
                 type="submit"
                 style="
                     font-size:20px;
-                    padding:14px 22px;
-                    font-weight:bold;">
+                    padding:14px 20px;
+                    margin-top:20px;">
 
                 Analyze LOT 001 with AI
 
@@ -875,1162 +797,817 @@ def picker_items():
 
     else:
 
-        status = (
-            f"Attention: expected "
-            f"24 photos, received "
-            f"{count}."
-        )
-
-        status_color = "red"
-
-        analyze_button = ""
-
-    return f"""
-    <!doctype html>
-
-    <html>
-
-    <head>
-
-        <meta
-            name="viewport"
-            content="
-            width=device-width,
-            initial-scale=1">
-
-        <title>
-            LOT 001
-        </title>
-
-    </head>
-
-    <body style="
-        font-family:Arial;
-        padding:15px;
-        max-width:1200px;
-        margin:auto;
-        background:#fafafa;">
-
-        <h2>
-            LOT 001
-        </h2>
-
-        <h3>
-            Photos: {count}/24
-        </h3>
-
-        <p style="
-            color:{status_color};
-            font-size:18px;">
-
+        status = f"""
+        <p style="color:red;">
             <b>
-                {status}
+                Expected 24 photos.
+                Selected: {count}
             </b>
-
         </p>
+        """
 
-        <div style="
-            display:grid;
-            grid-template-columns:
-                repeat(
-                    auto-fill,
-                    minmax(
-                        150px,
-                        1fr
-                    )
-                );
-            gap:12px;">
+        button = ""
 
-            {cards}
+    body = f"""
+    <h2>LOT 001</h2>
 
-        </div>
+    <h3>
+        Photos: {count}/24
+    </h3>
 
-        {analyze_button}
+    {status}
 
-        <p style="
-            margin-top:25px;">
+    <div style="
+        display:grid;
+        grid-template-columns:
+            repeat(
+                auto-fill,
+                minmax(135px, 1fr)
+            );
+        gap:10px;">
 
-            <a href="/">
-                Return home
-            </a>
+        {cards}
 
-        </p>
+    </div>
 
-    </body>
+    {button}
 
-    </html>
+    <p style="margin-top:25px;">
+        <a href="/">
+            Return home
+        </a>
+    </p>
     """
 
+    return page(
+        "LOT 001 Photos",
+        body
+    )
 
-# ==================================================
-# THUMBNAILS
-# ==================================================
+
+# =========================================================
+# THUMBNAIL
+# =========================================================
 
 @app.route(
     "/picker/thumb/<int:index>"
 )
 def picker_thumb(index):
 
+    picker_id = session.get(
+        "picker_session_id"
+    )
+
     token = session.get(
         "google_access_token"
     )
 
-    picker_session_id = session.get(
-        "picker_session_id"
-    )
-
-    if not token:
-
-        return (
-            "Google token missing.",
-            401,
-        )
-
     items = PHOTO_CACHE.get(
-        picker_session_id
+        picker_id,
+        []
     )
 
-    if not items:
+    if not token or not items:
 
         return (
-            "Photo cache expired.",
-            404,
+            "Photo cache expired",
+            404
         )
 
     if (
         index < 1
-        or
-        index > len(items)
+        or index > len(items)
     ):
 
         return (
-            "Photo not found.",
-            404,
+            "Photo not found",
+            404
         )
 
-    item = items[
-        index - 1
-    ]
+    item = items[index - 1]
 
-    media_file = item.get(
+    base_url = item.get(
         "mediaFile",
-        {},
-    )
-
-    base_url = media_file.get(
+        {}
+    ).get(
         "baseUrl"
     )
 
     if not base_url:
 
         return (
-            "baseUrl missing.",
-            404,
+            "baseUrl missing",
+            404
         )
 
-    image_url = (
-        base_url
-        + "=w600-h600"
-    )
-
     response = requests.get(
-
-        image_url,
-
+        base_url + "=w600-h600",
         headers={
             "Authorization":
                 f"Bearer {token}"
         },
-
         timeout=30,
     )
 
     if not response.ok:
 
         return (
-            "Could not download image.",
+            "Image download failed",
             response.status_code,
         )
 
-    content_type = (
-        response.headers.get(
-            "Content-Type",
-            "image/jpeg",
-        )
-    )
-
     return Response(
         response.content,
-        content_type=content_type,
-    )
-
-
-# ==================================================
-# DOWNLOAD PHOTO FOR OPENAI
-# ==================================================
-
-def google_photo_to_data_url(
-    item
-):
-
-    token = session.get(
-        "google_access_token"
-    )
-
-    media_file = item.get(
-        "mediaFile",
-        {},
-    )
-
-    base_url = media_file.get(
-        "baseUrl"
-    )
-
-    if not base_url:
-
-        raise Exception(
-            "Google photo "
-            "baseUrl missing."
-        )
-
-    # Smaller copy for first AI pass.
-    image_url = (
-        base_url
-        + "=w1024-h1024"
-    )
-
-    response = requests.get(
-
-        image_url,
-
-        headers={
-            "Authorization":
-                f"Bearer {token}"
-        },
-
-        timeout=45,
-    )
-
-    if not response.ok:
-
-        raise Exception(
-            "Google image "
-            "download failed: "
-            + response.text[:300]
-        )
-
-    content_type = (
-        response.headers.get(
+        content_type=response.headers.get(
             "Content-Type",
-            media_file.get(
-                "mimeType",
-                "image/jpeg",
-            ),
+            "image/jpeg"
         )
     )
 
-    encoded = base64.b64encode(
-        response.content
-    ).decode(
-        "utf-8"
-    )
 
-    return (
-        f"data:{content_type};"
-        f"base64,{encoded}"
-    )
-
-
-# ==================================================
-# AI PHOTO ANALYSIS
-# ==================================================
+# =========================================================
+# 24 PHOTO AI ANALYSIS
+# =========================================================
 
 @app.route(
     "/picker/analyze",
-    methods=["POST"],
+    methods=["POST"]
 )
 def picker_analyze():
 
-    picker_session_id = session.get(
+    picker_id = session.get(
         "picker_session_id"
     )
 
     items = PHOTO_CACHE.get(
-        picker_session_id,
-        [],
+        picker_id,
+        []
     )
 
     if len(items) != 24:
 
-        return """
-        <!doctype html>
+        body = """
+        <h2>Photos expired</h2>
 
-        <html>
+        <p>
+            Select the 24 photos again.
+        </p>
 
-        <head>
-
-            <meta
-                name="viewport"
-                content="
-                width=device-width,
-                initial-scale=1">
-
-        </head>
-
-        <body style="
-            font-family:Arial;
-            padding:20px;">
-
-            <h2>
-                LOT photos expired
-            </h2>
-
-            <p>
-                Temporary Render cache
-                does not contain
-                24 photos.
-            </p>
-
-            <p>
-                Select the
-                24 photos again.
-            </p>
-
+        <p>
             <a href="/picker/start">
-
-                <button>
-                    Select LOT photos
-                </button>
-
+                Start again
             </a>
+        </p>
+        """
 
-        </body>
-
-        </html>
-        """, 400
+        return page(
+            "Photos expired",
+            body
+        ), 400
 
     if not OPENAI_API_KEY:
 
         return (
-            "OPENAI_API_KEY is "
-            "not configured in Render.",
-            500,
+            "OPENAI_API_KEY missing",
+            500
         )
 
-    content = []
-
     prompt = """
-You are analysing a vintage or collectible item
-for an eBay.com seller located in Ukraine.
+You are analysing ONE vintage collectible lot
+for an eBay.com seller.
 
 Study ALL 24 photographs together.
 
-All photographs belong to ONE single lot.
+Do not invent information.
 
-Do not invent:
-- manufacturer
-- brand
-- model number
-- year
-- country
-- material
-- markings
-- defects
-- missing parts
-- authenticity
-
-Clearly separate:
-1. What is directly visible.
-2. What is likely.
-3. What cannot be confirmed.
+Separate what is:
+- directly visible
+- likely
+- unconfirmed
 
 Pay special attention to:
-- object type
-- manufacturer or brand
-- country
-- approximate period
-- exact model or model family
-- logos
-- stamps
-- labels
-- markings
-- materials
-- mechanism
-- completeness
-- missing parts
-- condition
-- cracks
-- chips
-- scratches
-- corrosion
-- repairs
-- modifications
-- detached parts
-- anything affecting eBay value
+object type,
+manufacturer,
+brand,
+country,
+period,
+model,
+marks,
+logos,
+stamps,
+materials,
+mechanism,
+completeness,
+missing parts,
+condition,
+damage,
+repairs and modifications.
 
-Return the answer IN UKRAINIAN.
+Return IN UKRAINIAN.
 
-Use exactly these sections:
+Use these sections:
 
 LOT 001 — ПОПЕРЕДНІЙ AI-АНАЛІЗ
 
 1. ЩО ЦЕ
-
 2. ВИРОБНИК / БРЕНД
-
 3. КРАЇНА ТА ПЕРІОД
-
 4. МОДЕЛЬ / МОДИФІКАЦІЯ
-
 5. МАРКУВАННЯ ТА НАПИСИ
-
 6. КОМПЛЕКТНІСТЬ
-
 7. СТАН
-
 8. ВИДИМІ ДЕФЕКТИ
-
 9. ЩО ПОТРІБНО ПЕРЕВІРИТИ ВРУЧНУ
-
 10. ЯКИХ ФОТО НЕ ВИСТАЧАЄ
-
-11. ПОПЕРЕДНЯ ОЦІНКА ВПЕВНЕНОСТІ 0–100%
-
+11. ОЦІНКА ВПЕВНЕНОСТІ 0–100%
 12. НАСТУПНИЙ КРОК
 
-Do NOT estimate the selling price yet.
-
-Do NOT claim that you searched eBay.
-
-Market research will be performed separately.
+Do not research market value yet.
+Do not claim to have searched eBay.
 """
 
-    content.append({
-
-        "type":
-            "input_text",
-
-        "text":
-            prompt,
-    })
+    content = [
+        {
+            "type":
+                "input_text",
+            "text":
+                prompt,
+        }
+    ]
 
     try:
 
         for item in items:
 
-            data_url = (
-                google_photo_to_data_url(
-                    item
-                )
-            )
-
             content.append({
-
                 "type":
                     "input_image",
-
                 "image_url":
-                    data_url,
-
+                    google_photo_to_data_url(
+                        item
+                    ),
                 "detail":
                     "low",
             })
 
-    except Exception as exc:
-
-        return (
-            "<h2>"
-            "Photo download error"
-            "</h2>"
-            "<pre>"
-            + html.escape(
-                str(exc)
-            )
-            + "</pre>",
-            500,
-        )
-
-    payload = {
-
-        "model":
-            "gpt-5.6-luna",
-
-        "input": [
+        analysis = call_openai(
             {
-                "role":
-                    "user",
+                "model":
+                    "gpt-5.6-luna",
 
-                "content":
-                    content,
-            }
-        ],
+                "input": [
+                    {
+                        "role":
+                            "user",
+                        "content":
+                            content,
+                    }
+                ],
 
-        "max_output_tokens":
-            3000,
+                "reasoning": {
+                    "effort":
+                        "low"
+                },
 
-        "store":
-            False,
-    }
+                "max_output_tokens":
+                    3000,
 
-    try:
-
-        response = requests.post(
-
-            OPENAI_RESPONSES_URL,
-
-            headers={
-
-                "Authorization":
-                    f"Bearer "
-                    f"{OPENAI_API_KEY}",
-
-                "Content-Type":
-                    "application/json",
+                "store":
+                    False,
             },
-
-            json=payload,
-
-            timeout=280,
+            timeout=270,
         )
 
     except Exception as exc:
 
-        return (
-            "<h2>"
-            "OpenAI connection error"
-            "</h2>"
-            "<pre>"
-            + html.escape(
-                str(exc)
-            )
-            + "</pre>",
-            500,
-        )
+        body = f"""
+        <h2>AI analysis error</h2>
 
-    if not response.ok:
+        <pre style="
+            white-space:pre-wrap;">
+{html.escape(str(exc))}
+        </pre>
 
-        return f"""
-        <!doctype html>
-
-        <html>
-
-        <head>
-
-            <meta
-                name="viewport"
-                content="
-                width=device-width,
-                initial-scale=1">
-
-        </head>
-
-        <body style="
-            font-family:Arial;
-            padding:20px;">
-
-            <h2>
-                OpenAI API error
-            </h2>
-
-            <p>
-                HTTP status:
-                <b>
-                    {response.status_code}
-                </b>
-            </p>
-
-            <pre style="
-                white-space:pre-wrap;
-                word-break:break-word;">
-{html.escape(response.text[:5000])}
-            </pre>
-
-            <p>
-                <a href="/picker/items">
-                    Back to photos
-                </a>
-            </p>
-
-        </body>
-
-        </html>
-        """, response.status_code
-
-    data = response.json()
-
-    result_text = (
-        extract_openai_text(
-            data
-        )
-    )
-
-    if not result_text:
-
-        return (
-            "<h2>"
-            "OpenAI returned no text"
-            "</h2>"
-            "<pre>"
-            + html.escape(
-                str(data)[:5000]
-            )
-            + "</pre>",
-            500,
-        )
-
-    ANALYSIS_CACHE[
-        picker_session_id
-    ] = result_text
-
-    result_html = (
-        escape_multiline(
-            result_text
-        )
-    )
-
-    return f"""
-    <!doctype html>
-
-    <html>
-
-    <head>
-
-        <meta
-            name="viewport"
-            content="
-            width=device-width,
-            initial-scale=1">
-
-        <title>
-            LOT 001 AI Analysis
-        </title>
-
-    </head>
-
-    <body style="
-        font-family:Arial;
-        padding:18px;
-        max-width:900px;
-        margin:auto;
-        line-height:1.55;">
-
-        <h2>
-            LOT 001 — AI analysis
-        </h2>
-
-        <p style="color:green;">
-            <b>
-                ✓ 24 photos analyzed
-            </b>
-        </p>
-
-        <div style="
-            border:1px solid #ccc;
-            border-radius:10px;
-            padding:18px;
-            background:#fafafa;">
-
-            {result_html}
-
-        </div>
-
-        <form
-            action="/picker/research"
-            method="post"
-            style="margin-top:25px;">
-
-            <button
-                type="submit"
-                style="
-                    font-size:20px;
-                    padding:14px 22px;
-                    font-weight:bold;">
-
-                Research identification
-                & eBay market
-
-            </button>
-
-        </form>
-
-        <p style="
-            margin-top:25px;">
-
+        <p>
             <a href="/picker/items">
-                Back to photos
+                Back
             </a>
-
         </p>
+        """
 
-    </body>
+        return page(
+            "AI Error",
+            body
+        ), 500
 
-    </html>
+    # IMPORTANT:
+    # analysis is carried forward in the HTML form.
+    # It is NOT dependent on Render RAM.
+    body = f"""
+    <h2>
+        LOT 001 — AI analysis
+    </h2>
+
+    <p style="color:green;">
+        <b>
+            ✓ 24 photos analyzed
+        </b>
+    </p>
+
+    <div style="
+        border:1px solid #ccc;
+        padding:16px;
+        border-radius:8px;
+        background:#fafafa;">
+
+        {text_to_html(analysis)}
+
+    </div>
+
+    <form
+        action="/picker/research-identification"
+        method="post"
+        style="margin-top:25px;">
+
+        {hidden_field("analysis", analysis)}
+
+        <button
+            type="submit"
+            style="
+                font-size:20px;
+                padding:14px 20px;">
+
+            Step 2 — Research identification
+
+        </button>
+
+    </form>
     """
 
-
-# ==================================================
-# IDENTIFICATION + EBAY MARKET RESEARCH
-# ==================================================
-
-@app.route(
-    "/picker/research",
-    methods=["POST"],
-)
-def picker_research():
-
-    picker_session_id = session.get(
-        "picker_session_id"
+    return page(
+        "LOT 001 AI Analysis",
+        body
     )
 
-    analysis = ANALYSIS_CACHE.get(
-        picker_session_id
+
+# =========================================================
+# RESEARCH STEP 1 — IDENTIFICATION
+# =========================================================
+
+@app.route(
+    "/picker/research-identification",
+    methods=["POST"]
+)
+def research_identification():
+
+    analysis = request.form.get(
+        "analysis",
+        ""
     )
 
     if not analysis:
 
-        return """
-        <!doctype html>
-
-        <html>
-
-        <head>
-
-            <meta
-                name="viewport"
-                content="
-                width=device-width,
-                initial-scale=1">
-
-        </head>
-
-        <body style="
-            font-family:Arial;
-            padding:20px;">
-
-            <h2>
-                AI analysis not found
-            </h2>
-
-            <p>
-                Run the 24-photo
-                AI analysis first.
-            </p>
-
-            <a href="/picker/items">
-                Back to photos
-            </a>
-
-        </body>
-
-        </html>
-        """, 400
-
-    if not OPENAI_API_KEY:
-
         return (
-            "OPENAI_API_KEY is "
-            "not configured.",
-            500,
+            page(
+                "Missing analysis",
+                """
+                <h2>AI analysis missing</h2>
+                <p>
+                    Run photo analysis again.
+                </p>
+                """
+            ),
+            400,
         )
 
-    research_prompt = f"""
-You are performing professional identification
-and market research for a vintage or collectible
-item that will later be listed on eBay.com.
+    prompt = f"""
+You are identifying a vintage collectible item.
 
-The seller is located in Ukraine.
-Primary marketplace: eBay.com USA.
-Currency: USD.
+Previous 24-photo visual analysis:
 
-Below is the previous visual analysis based on
-24 photographs.
-
-================================
-VISUAL ANALYSIS
-================================
-
+-----------------------------
 {analysis}
+-----------------------------
 
-================================
-RESEARCH TASK
-================================
+Use web search.
 
-Use web search extensively.
+Your ONLY task in this step is IDENTIFICATION.
 
-Do NOT assume the visual analysis is correct.
+Do not perform broad price research yet.
 
-Research multiple plausible identifications.
-
-Your first priority is EXACT identification.
-
-Compare available reference objects using:
-
-- case shape
-- dimensions if available
-- dial
-- hands
-- decorative pattern
+Search intelligently for:
+- exact object type
+- manufacturer/factory
+- brand
+- model or series
+- country
+- approximate production period
 - mechanism
-- movement construction
-- pendulum
-- chains
-- weights
-- labels
-- stamps
-- quality marks
-- factory marks
-- logos
-- country marks
+- visible stamps and marks
+- distinguishing case/design details
 
-Search for:
+Compare several plausible candidates.
 
-- manufacturer references
-- catalogues
-- collector references
-- museums
-- archives
-- specialist clock or antique sites
-- auction archives
-- eBay
-- other marketplaces where useful
+Prefer primary or specialist sources,
+catalogues, collector references,
+museums, auction archives and exact matches.
 
-EBAY RULES:
+Do not invent a manufacturer, model, year,
+factory or source.
 
-Strictly separate:
+IMPORTANT:
+A symbol or quality mark is not automatically
+a manufacturer's mark.
 
-A. CONFIRMED SOLD / COMPLETED EBAY LISTINGS
+Return IN UKRAINIAN.
 
-B. ACTIVE EBAY LISTINGS / ASKING PRICES
+Use:
 
-Never describe an active asking price
-as a sold price.
+LOT 001 — ІДЕНТИФІКАЦІЯ
 
-For every confirmed sold comparable,
-provide when available:
-
-- exact listing title
-- eBay item number
-- sold price
-- currency
-- approximate USD equivalent if needed
-- sale date
-- condition
-- working / non-working
-- completeness
-- important differences from LOT 001
-
-If you cannot independently confirm that
-an eBay listing was sold, write:
-
-НЕ ПІДТВЕРДЖЕНО ЯК ПРОДАНИЙ
-
-Prefer exact physical matches.
-
-Do not use generic cuckoo clocks as primary
-comparables when closer examples exist.
-
-Condition adjustment is important.
-
-LOT 001 may be:
-
-- non-working
-- incomplete
-- missing weights
-- damaged
-- dirty
-- for repair
-- for restoration
-- for parts
-
-Do NOT invent:
-
-- manufacturer
-- model number
-- production year
-- factory
-- listing number
-- sold status
-- sale price
-- source
-
-Return the answer IN UKRAINIAN.
-
-Use exactly these sections:
-
-LOT 001 — ДОСЛІДЖЕННЯ
-
-1. НАЙІМОВІРНІША ІДЕНТИФІКАЦІЯ
-
-2. ВИРОБНИК
-
+1. НАЙІМОВІРНІШЕ ВИЗНАЧЕННЯ
+2. ВИРОБНИК / ФАБРИКА
 3. МОДЕЛЬ / СЕРІЯ
+4. КРАЇНА
+5. ПЕРІОД
+6. МЕХАНІЗМ / ТИП
+7. ДОКАЗИ
+8. АЛЬТЕРНАТИВНІ ВАРІАНТИ
+9. ЩО НЕ ПІДТВЕРДЖЕНО
+10. РІВЕНЬ ВПЕВНЕНОСТІ 0–100%
+11. ЯКІ ДОДАТКОВІ ФОТО МОЖУТЬ
+    ПІДТВЕРДИТИ ІДЕНТИФІКАЦІЮ
+12. ОСНОВНІ ДЖЕРЕЛА
 
-4. КРАЇНА І ПЕРІОД
-
-5. ДОКАЗИ ІДЕНТИФІКАЦІЇ
-
-6. ЩО ЗАЛИШАЄТЬСЯ НЕПІДТВЕРДЖЕНИМ
-
-7. CONFIRMED SOLD EBAY COMPS
-
-8. ACTIVE EBAY LISTINGS
-
-9. ІНШІ РИНКОВІ АНАЛОГИ
-
-10. КОРЕКЦІЯ ЗА СТАН ТА НЕКОМПЛЕКТНІСТЬ
-
-11. РЕКОМЕНДОВАНА ЦІНА EBAY.COM
-
-Provide separately:
-
-Quick sale:
-$...
-
-Normal Buy It Now:
-$...
-
-Patient seller:
-$...
-
-Minimum acceptable offer:
-$...
-
-12. РЕКОМЕНДОВАНИЙ EBAY TITLE
-
-Maximum 80 characters.
-
-13. РЕКОМЕНДОВАНА EBAY CATEGORY
-
-14. РЕКОМЕНДОВАНИЙ CONDITION
-
-15. РІВЕНЬ ВПЕВНЕНОСТІ 0–100%
-
-16. ЧИ ПОТРІБНА РУЧНА ПЕРЕВІРКА
-ПЕРЕД ПУБЛІКАЦІЄЮ
-
-17. ДЖЕРЕЛА
-
-Do NOT publish anything to eBay.
-
-Research only.
+Be concise enough to finish promptly.
 """
-
-    payload = {
-
-        "model":
-            "gpt-5.6-terra",
-
-        "tools": [
-            {
-                "type":
-                    "web_search"
-            }
-        ],
-
-        "input":
-            research_prompt,
-
-        "max_output_tokens":
-            6000,
-
-        "store":
-            False,
-    }
 
     try:
 
-        response = requests.post(
+        identification = call_openai(
+            {
+                "model":
+                    "gpt-5.6-terra",
 
-            OPENAI_RESPONSES_URL,
+                "tools": [
+                    {
+                        "type":
+                            "web_search"
+                    }
+                ],
 
-            headers={
+                "reasoning": {
+                    "effort":
+                        "low"
+                },
 
-                "Authorization":
-                    f"Bearer "
-                    f"{OPENAI_API_KEY}",
+                "input":
+                    prompt,
 
-                "Content-Type":
-                    "application/json",
+                "max_output_tokens":
+                    3000,
+
+                "store":
+                    False,
             },
-
-            json=payload,
-
-            timeout=280,
+            timeout=270,
         )
 
     except Exception as exc:
 
-        return (
-            "<h2>"
-            "Research connection error"
-            "</h2>"
-            "<pre>"
-            + html.escape(
-                str(exc)
-            )
-            + "</pre>",
-            500,
-        )
-
-    if not response.ok:
-
-        return f"""
-        <!doctype html>
-
-        <html>
-
-        <head>
-
-            <meta
-                name="viewport"
-                content="
-                width=device-width,
-                initial-scale=1">
-
-        </head>
-
-        <body style="
-            font-family:Arial;
-            padding:20px;">
-
-            <h2>
-                Research API error
-            </h2>
-
-            <p>
-                HTTP status:
-                <b>
-                    {response.status_code}
-                </b>
-            </p>
-
-            <pre style="
-                white-space:pre-wrap;
-                word-break:break-word;">
-{html.escape(response.text[:5000])}
-            </pre>
-
-        </body>
-
-        </html>
-        """, response.status_code
-
-    data = response.json()
-
-    result_text = (
-        extract_openai_text(
-            data
-        )
-    )
-
-    if not result_text:
-
-        return (
-            "<h2>"
-            "Research returned no text"
-            "</h2>"
-            "<pre>"
-            + html.escape(
-                str(data)[:5000]
-            )
-            + "</pre>",
-            500,
-        )
-
-    RESEARCH_CACHE[
-        picker_session_id
-    ] = result_text
-
-    result_html = (
-        escape_multiline(
-            result_text
-        )
-    )
-
-    return f"""
-    <!doctype html>
-
-    <html>
-
-    <head>
-
-        <meta
-            name="viewport"
-            content="
-            width=device-width,
-            initial-scale=1">
-
-        <title>
-            LOT 001 Research
-        </title>
-
-    </head>
-
-    <body style="
-        font-family:Arial;
-        padding:18px;
-        max-width:950px;
-        margin:auto;
-        line-height:1.55;">
-
+        body = f"""
         <h2>
-            LOT 001 —
-            Identification &
-            Market Research
+            Identification research error
         </h2>
 
-        <p style="color:green;">
-            <b>
-                ✓ Web research completed
-            </b>
-        </p>
-
-        <div style="
-            border:1px solid #ccc;
-            border-radius:10px;
-            padding:18px;
-            background:#fafafa;">
-
-            {result_html}
-
-        </div>
-
-        <hr>
-
-        <h3>
-            Next stage
-        </h3>
+        <pre style="
+            white-space:pre-wrap;">
+{html.escape(str(exc))}
+        </pre>
 
         <p>
-            Packed weight +
-            package dimensions +
-            shipping cost Ukraine → USA.
+            Use Back in the browser.
+            Your AI analysis is still
+            on the previous page.
         </p>
+        """
 
-        <p>
-            After shipping data is known,
-            the final eBay listing can
-            be prepared.
-        </p>
+        return page(
+            "Research Error",
+            body
+        ), 500
 
-        <p style="
-            margin-top:25px;">
+    body = f"""
+    <h2>
+        LOT 001 — Identification
+    </h2>
 
-            <a href="/picker/items">
-                Back to photos
-            </a>
+    <p style="color:green;">
+        <b>
+            ✓ Identification research completed
+        </b>
+    </p>
 
-        </p>
+    <div style="
+        border:1px solid #ccc;
+        padding:16px;
+        border-radius:8px;
+        background:#fafafa;">
 
-    </body>
+        {text_to_html(identification)}
 
-    </html>
+    </div>
+
+    <form
+        action="/picker/research-market"
+        method="post"
+        style="margin-top:25px;">
+
+        {hidden_field("analysis", analysis)}
+        {hidden_field("identification", identification)}
+
+        <button
+            type="submit"
+            style="
+                font-size:20px;
+                padding:14px 20px;">
+
+            Step 3 — Research eBay market
+
+        </button>
+
+    </form>
     """
 
+    return page(
+        "LOT 001 Identification",
+        body
+    )
 
-# ==================================================
+
+# =========================================================
+# RESEARCH STEP 2 — EBAY MARKET
+# =========================================================
+
+@app.route(
+    "/picker/research-market",
+    methods=["POST"]
+)
+def research_market():
+
+    analysis = request.form.get(
+        "analysis",
+        ""
+    )
+
+    identification = request.form.get(
+        "identification",
+        ""
+    )
+
+    if not analysis or not identification:
+
+        return (
+            page(
+                "Missing research data",
+                """
+                <h2>Research data missing</h2>
+                <p>
+                    Return to the previous step.
+                </p>
+                """
+            ),
+            400,
+        )
+
+    prompt = f"""
+You are performing eBay.com market research
+for a vintage collectible item.
+
+VISUAL ANALYSIS:
+-----------------------------
+{analysis}
+-----------------------------
+
+IDENTIFICATION RESEARCH:
+-----------------------------
+{identification}
+-----------------------------
+
+Now focus ONLY on MARKET RESEARCH
+and listing recommendation.
+
+Use web search.
+
+Very important:
+
+Separate STRICTLY:
+
+A) confirmed sold/completed eBay listings
+
+B) active eBay listings / asking prices
+
+Never call an active listing a sold listing.
+
+For sold comps, include when verifiable:
+- exact listing title
+- eBay item number
+- sold price
+- currency
+- date
+- condition
+- working/non-working
+- completeness
+- key differences from LOT 001
+
+If sold status cannot be confirmed, write:
+
+НЕ ПІДТВЕРДЖЕНО ЯК ПРОДАНИЙ
+
+Prefer the closest physical/model matches.
+
+Account for:
+- non-working condition
+- missing parts
+- missing weights
+- damage
+- restoration needs
+- shipping from Ukraine
+
+Do not invent:
+listing IDs,
+sold prices,
+dates,
+sources,
+model numbers.
+
+Return IN UKRAINIAN.
+
+Use:
+
+LOT 001 — РИНОК EBAY
+
+1. CONFIRMED SOLD EBAY COMPS
+
+2. ACTIVE EBAY LISTINGS
+
+3. ІНШІ КОРИСНІ РИНКОВІ АНАЛОГИ
+
+4. КОРЕКЦІЯ ЗА СТАН
+ТА НЕКОМПЛЕКТНІСТЬ
+
+5. РЕКОМЕНДОВАНА ЦІНА
+
+Quick sale: $...
+Normal Buy It Now: $...
+Patient seller: $...
+Minimum acceptable offer: $...
+
+6. РЕКОМЕНДОВАНИЙ EBAY TITLE
+Maximum 80 characters.
+
+7. РЕКОМЕНДОВАНА EBAY CATEGORY
+
+8. РЕКОМЕНДОВАНИЙ CONDITION
+
+9. ОСНОВНІ ITEM SPECIFICS
+
+10. РІВЕНЬ ВПЕВНЕНОСТІ 0–100%
+
+11. ЧИ ПОТРІБНА РУЧНА ПЕРЕВІРКА
+ПЕРЕД ПУБЛІКАЦІЄЮ
+
+12. ОСНОВНІ ДЖЕРЕЛА
+
+Do not publish anything to eBay.
+
+Keep the research focused enough
+to complete promptly.
+"""
+
+    try:
+
+        market = call_openai(
+            {
+                "model":
+                    "gpt-5.6-terra",
+
+                "tools": [
+                    {
+                        "type":
+                            "web_search"
+                    }
+                ],
+
+                "reasoning": {
+                    "effort":
+                        "low"
+                },
+
+                "input":
+                    prompt,
+
+                "max_output_tokens":
+                    3500,
+
+                "store":
+                    False,
+            },
+            timeout=270,
+        )
+
+    except Exception as exc:
+
+        body = f"""
+        <h2>
+            eBay market research error
+        </h2>
+
+        <pre style="
+            white-space:pre-wrap;">
+{html.escape(str(exc))}
+        </pre>
+
+        <p>
+            Use Back in the browser.
+            Your identification result
+            remains on the previous page.
+        </p>
+        """
+
+        return page(
+            "Market Research Error",
+            body
+        ), 500
+
+    body = f"""
+    <h2>
+        LOT 001 — Market Research
+    </h2>
+
+    <p style="color:green;">
+        <b>
+            ✓ eBay market research completed
+        </b>
+    </p>
+
+    <h3>Identification</h3>
+
+    <div style="
+        border:1px solid #ddd;
+        padding:14px;
+        border-radius:8px;">
+
+        {text_to_html(identification)}
+
+    </div>
+
+    <h3 style="margin-top:25px;">
+        eBay market
+    </h3>
+
+    <div style="
+        border:1px solid #ccc;
+        padding:16px;
+        border-radius:8px;
+        background:#fafafa;">
+
+        {text_to_html(market)}
+
+    </div>
+
+    <hr style="margin-top:30px;">
+
+    <h3>
+        Next required stage
+    </h3>
+
+    <p>
+        Before publication we still need:
+    </p>
+
+    <p>
+        <b>
+        packed weight + package dimensions
+        + shipping Ukraine → USA
+        </b>
+    </p>
+
+    <p>
+        The system will NOT publish the lot
+        until shipping data is known.
+    </p>
+    """
+
+    return page(
+        "LOT 001 Market Research",
+        body
+    )
+
+
+# =========================================================
 # OLD LINK
-# ==================================================
+# =========================================================
 
 @app.route("/picker/prepare")
 def picker_prepare():
@@ -2040,20 +1617,18 @@ def picker_prepare():
     )
 
 
-# ==================================================
+# =========================================================
 # START
-# ==================================================
+# =========================================================
 
 if __name__ == "__main__":
 
     app.run(
-
         host="0.0.0.0",
-
         port=int(
             os.environ.get(
                 "PORT",
-                10000,
+                10000
             )
         ),
     )
