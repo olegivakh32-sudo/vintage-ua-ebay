@@ -1643,31 +1643,71 @@ Market research only.
         )}
     </div>
 
-    <hr style="margin-top:30px;">
+        <hr style="margin-top:30px;">
 
     <h3>
-        Next required stage
+        Step 4 — Weight & Shipping
     </h3>
 
     <p>
-        Before publication we still need:
+        Enter the approximate weight of the item
+        WITHOUT packaging.
     </p>
 
-    <p>
-        <b>
-            packed weight
-            +
-            package dimensions
-            +
-            shipping cost
-            Ukraine → USA
-        </b>
-    </p>
+    <form
+        action="/picker/shipping"
+        method="post"
+        style="margin-top:20px;"
+    >
+        {hidden_field(
+            "analysis",
+            analysis
+        )}
 
-    <p>
-        The lot must NOT be published
-        until shipping information is known.
-    </p>
+        {hidden_field(
+            "identification",
+            identification
+        )}
+
+        {hidden_field(
+            "market",
+            market
+        )}
+
+        <label>
+            <b>
+                Item weight without packaging (kg):
+            </b>
+        </label>
+
+        <br><br>
+
+        <input
+            type="number"
+            name="item_weight"
+            step="0.01"
+            min="0.01"
+            value="2.4"
+            required
+            style="
+                font-size:20px;
+                padding:12px;
+                width:180px;
+            "
+        >
+
+        <br><br>
+
+        <button
+            type="submit"
+            style="
+                font-size:20px;
+                padding:14px 20px;
+            "
+        >
+            Step 4 — Weight & Shipping
+        </button>
+    </form>
     """
 
     return page(
@@ -1675,7 +1715,200 @@ Market research only.
         body
     )
 
+# ============================================================
+# STEP 4 — WEIGHT & SHIPPING
+# ============================================================
 
+@app.route(
+    "/picker/shipping",
+    methods=["POST"],
+)
+def shipping():
+    analysis = request.form.get("analysis", "")
+    identification = request.form.get("identification", "")
+    market = request.form.get("market", "")
+    item_weight_raw = request.form.get("item_weight", "").strip()
+
+    if not analysis or not identification or not market:
+        return page(
+            "Missing LOT data",
+            """
+            <h2>LOT data missing</h2>
+            <p>Please return to the previous step.</p>
+            """,
+        ), 400
+
+    try:
+        item_weight = float(item_weight_raw.replace(",", "."))
+    except (TypeError, ValueError):
+        return page(
+            "Invalid weight",
+            """
+            <h2>Invalid weight</h2>
+            <p>Please return and enter the item weight in kilograms.</p>
+            """,
+        ), 400
+
+    if item_weight <= 0:
+        return page(
+            "Invalid weight",
+            """
+            <h2>Invalid weight</h2>
+            <p>Weight must be greater than 0 kg.</p>
+            """,
+        ), 400
+
+    # --------------------------------------------------------
+    # Estimated packed weight
+    #
+    # User enters ONLY the unpacked item weight.
+    # The system estimates protective packaging separately.
+    # This is intentionally conservative for international
+    # shipping of vintage / fragile items.
+    # --------------------------------------------------------
+
+    if item_weight <= 0.5:
+        packaging_allowance = 0.30
+    elif item_weight <= 1.0:
+        packaging_allowance = 0.45
+    elif item_weight <= 2.0:
+        packaging_allowance = 0.65
+    elif item_weight <= 3.0:
+        packaging_allowance = 0.85
+    elif item_weight <= 5.0:
+        packaging_allowance = 1.10
+    elif item_weight <= 10.0:
+        packaging_allowance = 1.60
+    else:
+        packaging_allowance = max(
+            2.0,
+            item_weight * 0.18,
+        )
+
+    estimated_packed_weight = round(
+        item_weight + packaging_allowance,
+        2,
+    )
+
+    body = f"""
+    <h2>
+        LOT 001 — Weight & Shipping
+    </h2>
+
+    <p style="color:green;">
+        <b>✓ Item weight received</b>
+    </p>
+
+    <div style="
+        border:1px solid #ddd;
+        padding:16px;
+        border-radius:8px;
+        margin-top:15px;
+    ">
+        <h3>Weight</h3>
+
+        <p>
+            Item weight WITHOUT packaging:
+            <b>{item_weight:.2f} kg</b>
+        </p>
+
+        <p>
+            Estimated packaging allowance:
+            <b>{packaging_allowance:.2f} kg</b>
+        </p>
+
+        <p>
+            Estimated packed shipping weight:
+            <b>{estimated_packed_weight:.2f} kg</b>
+        </p>
+
+        <p style="font-size:14px;">
+            The packed weight is an estimate.
+            The item itself was weighed without packaging.
+        </p>
+    </div>
+
+    <div style="
+        border:1px solid #ddd;
+        padding:16px;
+        border-radius:8px;
+        margin-top:20px;
+    ">
+        <h3>Shipping status</h3>
+
+        <p>
+            <b>Origin:</b> Ukraine
+        </p>
+
+        <p>
+            <b>Primary destination market:</b> USA
+        </p>
+
+        <p>
+            Package dimensions:
+            <b>not yet known</b>
+        </p>
+
+        <p>
+            Actual shipping cost:
+            <b>not yet calculated</b>
+        </p>
+    </div>
+
+    <hr style="margin-top:30px;">
+
+    <h3>LOT 001 status</h3>
+
+    <p>
+        ✓ 24 photos<br>
+        ✓ Visual AI analysis<br>
+        ✓ Verified identification<br>
+        ✓ eBay market research<br>
+        ✓ Item weight: {item_weight:.2f} kg<br>
+        ✓ Estimated packed weight: {estimated_packed_weight:.2f} kg<br>
+        ⏳ Package dimensions<br>
+        ⏳ Shipping cost Ukraine → USA<br>
+        ⏳ Final eBay listing
+    </p>
+
+    <p>
+        <b>
+            Publication remains blocked until the required
+            shipping information is complete.
+        </b>
+    </p>
+
+    <form
+        action="/picker/final-listing"
+        method="post"
+        style="margin-top:25px;"
+    >
+        {hidden_field("analysis", analysis)}
+        {hidden_field("identification", identification)}
+        {hidden_field("market", market)}
+        {hidden_field("item_weight", str(item_weight))}
+        {hidden_field(
+            "estimated_packed_weight",
+            str(estimated_packed_weight)
+        )}
+
+        <button
+            type="submit"
+            style="
+                font-size:20px;
+                padding:14px 20px;
+            "
+            disabled
+        >
+            Final eBay Listing — waiting for shipping
+        </button>
+    </form>
+    """
+
+    return page(
+        "LOT 001 Weight & Shipping",
+        body,
+    )
 # =========================================================
 # OLD LINK
 # =========================================================
