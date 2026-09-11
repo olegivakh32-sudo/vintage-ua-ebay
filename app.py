@@ -1628,6 +1628,19 @@ Market research only.
         {text_to_html(
             identification
         )}
+    </div>     <h3 style="margin-top:25px;">
+        eBay Market Research
+    </h3>
+
+    <div style="
+        border:1px solid #ccc;
+        padding:16px;
+        border-radius:8px;
+        background:#fafafa;
+    ">
+        {text_to_html(
+            market
+        )}
     </div>
 
     <hr style="margin-top:30px;">
