@@ -28,6 +28,7 @@ GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 EBAY_CLIENT_ID = os.environ.get("EBAY_CLIENT_ID")
 EBAY_CLIENT_SECRET = os.environ.get("EBAY_CLIENT_SECRET")
+EBAY_RUNAME = os.environ.get("EBAY_RUNAME")
 REDIRECT_URI = (
     "https://vintage-ua-ebay-1.onrender.com/google/callback"
 )
