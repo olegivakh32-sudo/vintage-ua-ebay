@@ -1789,7 +1789,7 @@ elif item_weight <= 5.0:
         item_weight + packaging_allowance,
         2,
     )
-
+base_shipping_usd = 9 + estimated_packed_weight * 9
     body = f"""
     <h2>
         LOT 001 — Weight & Shipping
