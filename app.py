@@ -1915,9 +1915,9 @@ def shipping():
                 font-size:20px;
                 padding:14px 20px;
             "
-            disabled
+        
         >
-            Final eBay Listing — waiting for shipping
+            Create Final eBay Listing
         </button>
     </form>
     """
@@ -1925,6 +1925,15 @@ def shipping():
     return page(
         "LOT 001 Weight & Shipping",
         body,
+    )
+    @app.route("/picker/final-listing", methods=["POST"])
+def final_listing():
+    return page(
+        "LOT 001 Final eBay Listing",
+        """
+        <h2>LOT 001 — Final eBay Listing</h2>
+        <p>✓ Final listing step connected.</p>
+        """
     )
 # =========================================================
 # OLD LINK
