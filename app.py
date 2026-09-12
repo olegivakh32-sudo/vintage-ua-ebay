@@ -1863,11 +1863,12 @@ body = f"""
     of this fragile vintage clock.
 </p>
 
-        <p>
-            Actual shipping cost:
-            <b>not yet calculated</b>
-        </p>
-    </div>
+
+            <p>
+    Base shipping: <b>${base_shipping_usd:.2f}</b><br>
+    Safety buffer: <b>${shipping_buffer_usd:.2f}</b><br>
+    eBay shipping estimate: <b>${ebay_shipping_usd:.2f}</b>
+</p>
 
     <hr style="margin-top:30px;">
 
