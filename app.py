@@ -132,8 +132,37 @@ def ebay_connect():
     return redirect(build_ebay_auth_url())
 @app.route("/ebay/callback")
 def ebay_callback():
-    return "eBay connected successfully!"
+    code = request.args.get("code")
 
+    if not code:
+        return "eBay authorization code not received", 400
+
+    credentials = f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}"
+    basic_auth = base64.b64encode(credentials.encode()).decode()
+
+    response = requests.post(
+        EBAY_TOKEN_URL,
+        headers={
+            "Authorization": f"Basic {basic_auth}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": EBAY_RUNAME,
+        },
+        timeout=30,
+    )
+
+    if not response.ok:
+        return f"eBay token error: {response.text}", 400
+
+    token_data = response.json()
+
+    session["ebay_access_token"] = token_data["access_token"]
+    session["ebay_refresh_token"] = token_data.get("refresh_token")
+
+    return "eBay connected successfully!"
 # =========================================================
 # OPENAI HELPERS
 # =========================================================
