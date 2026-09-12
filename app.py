@@ -1877,9 +1877,9 @@ elif item_weight <= 5.0:
         ✓ eBay market research<br>
         ✓ Item weight: {item_weight:.2f} kg<br>
         ✓ Estimated packed weight: {estimated_packed_weight:.2f} kg<br>
-        ⏳ ✓ Estimated package dimensions: 45 × 39 × 22 cm<br>
-        ⏳ Shipping cost Ukraine → USA<br>
-        ⏳ Final eBay listing
+        ✓ Estimated package dimensions: 45 × 39 × 22 cm<br>
+        Shipping cost Ukraine → USA<br>
+        Final eBay listing
     </p>
 
     <p>
