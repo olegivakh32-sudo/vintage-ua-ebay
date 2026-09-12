@@ -1928,11 +1928,42 @@ def shipping():
     )
 @app.route("/picker/final-listing", methods=["POST"])
 def final_listing():
+    analysis = request.form.get("analysis", "")
+    identification = request.form.get("identification", "")
+    market = request.form.get("market", "")
+    item_weight = request.form.get("item_weight", "")
+    packed_weight = request.form.get("estimated_packed_weight", "")
+    listing_prompt = f"""
+Create a final eBay.com listing in English.
+
+Verified identification:
+{identification}
+
+Market research:
+{market}
+
+Item weight: {item_weight} kg
+Packed weight: {packed_weight} kg
+Shipping: 1851.33 UAH from Ukraine to USA.
+
+Return:
+1. TITLE — maximum 80 characters
+2. PRICE USD
+3. CONDITION
+4. ITEM SPECIFICS
+5. DESCRIPTION
+6. SEO KEYWORDS
+"""
+    listing_response = call_openai(
+        model="gpt-5.6-terra",
+        input_text=listing_prompt,
+        reasoning_effort="low"
+    )
     return page(
         "LOT 001 Final eBay Listing",
         """
         <h2>LOT 001 — Final eBay Listing</h2>
-        <p>✓ Final listing step connected.</p>
+        <pre style="white-space:pre-wrap;">{html.escape(listing_response)}</pre>.</p>
         """
     )
 # =========================================================
