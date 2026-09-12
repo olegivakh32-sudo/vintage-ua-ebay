@@ -1869,7 +1869,9 @@ def shipping():
     Safety buffer: <b>${shipping_buffer_usd:.2f}</b><br>
     eBay shipping estimate: <b>${ebay_shipping_usd:.2f}</b>
 </p>
-
+<p>
+    Official Ukrposhta calculator: <b>1851.33 UAH</b>
+</p>
     <hr style="margin-top:30px;">
 
     <h3>LOT 001 status</h3>
@@ -1882,8 +1884,8 @@ def shipping():
         ✓ Item weight: {item_weight:.2f} kg<br>
         ✓ Estimated packed weight: {estimated_packed_weight:.2f} kg<br>
         ✓ Estimated package dimensions: 45 × 39 × 22 cm<br>
-        Shipping cost Ukraine → USA<br>
-        Final eBay listing
+        ✓ Shipping cost Ukraine → USA: 1851.33 UAH<br>
+        ⏳ Final eBay listing
     </p>
 
     <p>
