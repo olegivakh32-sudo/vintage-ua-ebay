@@ -1926,7 +1926,7 @@ def shipping():
         "LOT 001 Weight & Shipping",
         body,
     )
-    @app.route("/picker/final-listing", methods=["POST"])
+@app.route("/picker/final-listing", methods=["POST"])
 def final_listing():
     return page(
         "LOT 001 Final eBay Listing",
