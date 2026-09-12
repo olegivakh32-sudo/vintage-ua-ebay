@@ -1,4 +1,4 @@
-import os
+якimport os
 import secrets
 import html
 import base64
@@ -130,6 +130,10 @@ def build_ebay_auth_url():
 @app.route("/ebay/connect")
 def ebay_connect():
     return redirect(build_ebay_auth_url())
+@app.route("/ebay/callback")
+def ebay_callback():
+    return "eBay connected successfully!"
+
 # =========================================================
 # OPENAI HELPERS
 # =========================================================
