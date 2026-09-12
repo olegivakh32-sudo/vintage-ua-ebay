@@ -29,6 +29,8 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 EBAY_CLIENT_ID = os.environ.get("EBAY_CLIENT_ID")
 EBAY_CLIENT_SECRET = os.environ.get("EBAY_CLIENT_SECRET")
 EBAY_RUNAME = os.environ.get("EBAY_RUNAME")
+EBAY_AUTH_URL = "https://auth.ebay.com/oauth2/authorize"
+EBAY_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
 REDIRECT_URI = (
     "https://vintage-ua-ebay-1.onrender.com/google/callback"
 )
