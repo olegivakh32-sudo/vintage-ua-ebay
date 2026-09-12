@@ -1946,13 +1946,19 @@ Item weight: {item_weight} kg
 Packed weight: {packed_weight} kg
 Shipping: 1851.33 UAH from Ukraine to USA.
 
-Return:
+Return plain text only. Do not use Markdown formatting.
 1. TITLE — maximum 80 characters
 2. PRICE USD
 3. CONDITION
 4. ITEM SPECIFICS
 5. DESCRIPTION
 6. SEO KEYWORDS
+
+Important:
+- Do not claim an exact model unless verified.
+- Do not use "Shalash" as the model unless the evidence confirms it.
+- Clearly state that the clock is not working and two weights are missing.
+- Do not invent specifications that were not verified.
 """
     listing_response = call_openai(
         {
