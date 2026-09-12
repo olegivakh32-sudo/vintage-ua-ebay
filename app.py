@@ -127,6 +127,9 @@ def build_ebay_auth_url():
         EBAY_AUTH_URL,
         params=params,
     ).prepare().url
+    @app.route("/ebay/connect")
+def ebay_connect():
+    return redirect(build_ebay_auth_url())
 # =========================================================
 # OPENAI HELPERS
 # =========================================================
