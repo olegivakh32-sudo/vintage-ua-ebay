@@ -1767,16 +1767,16 @@ def shipping():
     # shipping of vintage / fragile items.
     # --------------------------------------------------------
 
-    if item_weight <= 0.5:
+        if item_weight <= 0.5:
         packaging_allowance = 0.30
     elif item_weight <= 1.0:
         packaging_allowance = 0.45
     elif item_weight <= 2.0:
         packaging_allowance = 0.65
     elif item_weight <= 3.0:
-    packaging_allowance = 0.85
-elif item_weight <= 5.0:
-    packaging_allowance = 1.10
+        packaging_allowance = 0.85
+    elif item_weight <= 5.0:
+        packaging_allowance = 1.10
     elif item_weight <= 10.0:
         packaging_allowance = 1.60
     else:
