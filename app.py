@@ -114,6 +114,19 @@ EBAY_SCOPES = [
     "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
     "https://api.ebay.com/oauth/api_scope/sell.finances",
 ]
+def build_ebay_auth_url():
+    params = {
+        "client_id": EBAY_CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri": EBAY_RUNAME,
+        "scope": " ".join(EBAY_SCOPES),
+    }
+
+    return requests.Request(
+        "GET",
+        EBAY_AUTH_URL,
+        params=params,
+    ).prepare().url
 # =========================================================
 # OPENAI HELPERS
 # =========================================================
