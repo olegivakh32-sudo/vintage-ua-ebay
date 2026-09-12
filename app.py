@@ -164,8 +164,7 @@ def ebay_callback():
 
     return "eBay connected successfully!"
 
-    if not code:
-        return "eBay authorization code not received", 400
+    return "eBay authorization code not received", 400
 
     credentials = f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}"
     basic_auth = base64.b64encode(credentials.encode()).decode()
