@@ -1959,6 +1959,8 @@ Important:
 - Do not use "Shalash" as the model unless the evidence confirms it.
 - Clearly state that the clock is not working and two weights are missing.
 - Do not invent specifications that were not verified.
+- PRICE USD must use the Normal / recommended BIN price from Market research exactly.
+- Do not recalculate or lower the price in the final listing.
 """
     listing_response = call_openai(
         {
