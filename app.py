@@ -1965,12 +1965,12 @@ Return:
         timeout=270,
     )
     return page(
-        "LOT 001 Final eBay Listing",
-        """
-        <h2>LOT 001 — Final eBay Listing</h2>
-        <pre style="white-space:pre-wrap;">{html.escape(listing_response)}</pre>.</p>
-        """
-    )
+    "LOT 001 Final eBay Listing",
+    f"""
+    <h2>LOT 001 — Final eBay Listing</h2>
+    <pre style="white-space:pre-wrap;">{html.escape(listing_response)}</pre>
+    """
+)
 # =========================================================
 # OLD LINK
 # =========================================================
