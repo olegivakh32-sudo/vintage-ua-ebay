@@ -1792,7 +1792,7 @@ elif item_weight <= 5.0:
 base_shipping_usd = 9 + estimated_packed_weight * 9
 shipping_buffer_usd = min(7, max(3, base_shipping_usd * 0.07))
 ebay_shipping_usd = base_shipping_usd + shipping_buffer_usd
-   
+ebay_shipping_usd = int(ebay_shipping_usd) + 0.99   
 body = f"""
     <h2>
         LOT 001 — Weight & Shipping
