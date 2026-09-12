@@ -102,7 +102,18 @@ def hidden_field(name, value):
         f'</textarea>'
     )
 
+# =========================================================
+# EBAY HELPERS
+# =========================================================
 
+EBAY_SCOPES = [
+    "https://api.ebay.com/oauth/api_scope",
+    "https://api.ebay.com/oauth/api_scope/sell.inventory",
+    "https://api.ebay.com/oauth/api_scope/sell.account",
+    "https://api.ebay.com/oauth/api_scope/sell.marketing",
+    "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
+    "https://api.ebay.com/oauth/api_scope/sell.finances",
+]
 # =========================================================
 # OPENAI HELPERS
 # =========================================================
