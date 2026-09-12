@@ -162,10 +162,6 @@ def ebay_callback():
     session["ebay_access_token"] = token_data["access_token"]
     session["ebay_refresh_token"] = token_data.get("refresh_token")
 
-    return "eBay connected successfully!"
-
-    return "eBay authorization code not received", 400
-
     credentials = f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}"
     basic_auth = base64.b64encode(credentials.encode()).decode()
 
