@@ -1,4 +1,4 @@
-якimport os
+import os
 import secrets
 import html
 import base64
