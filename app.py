@@ -1954,7 +1954,7 @@ Return:
 5. DESCRIPTION
 6. SEO KEYWORDS
 """
-            listing_response = call_openai(
+    listing_response = call_openai(
         {
             "model": "gpt-5.6-terra",
             "input": listing_prompt,
