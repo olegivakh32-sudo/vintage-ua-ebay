@@ -1954,11 +1954,16 @@ Return:
 5. DESCRIPTION
 6. SEO KEYWORDS
 """
-    listing_response = call_openai(
-        model="gpt-5.6-terra",
-        input_text=listing_prompt,
-        reasoning_effort="low"
-    )
+        listing_response = call_openai(
+        {
+            "model": "gpt-5.6-terra",
+            "input": listing_prompt,
+            "reasoning": {"effort": "low"},
+            "max_output_tokens": 3500,
+            "store": False,
+        },
+        timeout=270,
+        )
     return page(
         "LOT 001 Final eBay Listing",
         """
