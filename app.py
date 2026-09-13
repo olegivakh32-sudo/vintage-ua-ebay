@@ -165,6 +165,30 @@ def ebay_callback():
         session["ebay_refresh_token"] = token_data["refresh_token"]
 
     return "eBay connected successfully!"
+    def get_ebay_access_token():
+    credentials = f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}"
+    basic_auth = base64.b64encode(credentials.encode()).decode()
+
+    response = requests.post(
+        EBAY_TOKEN_URL,
+        headers={
+            "Authorization": f"Basic {basic_auth}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": EBAY_REFRESH_TOKEN,
+            "scope": " ".join(EBAY_SCOPES),
+        },
+        timeout=30,
+    )
+
+    if not response.ok:
+        raise RuntimeError(
+            f"eBay refresh token error: {response.text}"
+        )
+
+    return response.json()["access_token"]
 
 
 # =========================================================
