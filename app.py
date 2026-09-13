@@ -187,7 +187,14 @@ def get_ebay_access_token():
         raise RuntimeError(f"eBay refresh token error: {response.text}")
 
     return response.json()["access_token"]
-
+@app.route("/ebay/test-token")
+def ebay_test_token():
+    try:
+        get_ebay_access_token()
+        return "eBay token refresh OK"
+    except Exception as exc:
+        return f"eBay token refresh failed: {html.escape(str(exc))}", 500
+        
 
 # =========================================================
 # OPENAI HELPERS
