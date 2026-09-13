@@ -177,7 +177,7 @@ def get_ebay_access_token():
         },
         data={
             "grant_type": "refresh_token",
-            "refresh_token": EBAY_REFRESH_TOKEN,
+            "refresh_token": session.get("ebay_refresh_token") or EBAY_REFRESH_TOKEN,,
             "scope": " ".join(EBAY_SCOPES),
         },
         timeout=30,
