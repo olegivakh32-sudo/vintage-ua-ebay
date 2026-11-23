@@ -53,6 +53,7 @@ from flask import (
 )
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 250 * 1024 * 1024
 
 # P045: a fixed fallback secret is unsafe on a public deployment.
 # Keep legacy local startup compatible, but refuse requests without a real secret
@@ -224,6 +225,7 @@ def _save_active_lot_checkpoint():
     if not path or not picker_id:
         return False
     try:
+        _mobile_save_approved_photos(picker_id)
         roles=PHOTO_ROLE_CACHE.get(picker_id) or {}
         payload={
             "saved_at": time.time(),
@@ -290,7 +292,8 @@ def _restore_active_lot_checkpoint():
         session["picker_session_id"]=picker_id
         if data.get("picker_uri"):
             session["picker_uri"]=data.get("picker_uri")
-        # Approval is tied to frozen JPEG bytes. Those bytes are not in a checkpoint.
+        # Exact approved photos are stored separately on the persistent disk.
+        _mobile_restore_approved_photos(picker_id)
         if picker_id not in APPROVED_PHOTO_CACHE:
             session["photo_editor_approved"] = False
         elif "photo_editor_approved" not in session:
@@ -423,6 +426,12 @@ def _safe_photo_edit(image_bytes, brightness=1.0, contrast=1.0, color=1.0, sharp
     out=BytesIO(); image.save(out,format="JPEG",quality=93,optimize=True); return out.getvalue()
 
 def _download_picker_photo(index, edited=False, max_side=2400, edit_settings=None):
+    _local_items=PHOTO_CACHE.get(session.get('picker_session_id')) or []
+    if 1<=index<=len(_local_items) and _local_items[index-1].get('mobile_file'):
+        raw=_mobile_resized(_mobile_local_bytes(_local_items[index-1]),max_side)
+        if edited:
+            es=edit_settings or {};raw=_safe_photo_edit(raw,*(float(es.get(k,1.0)) for k in ('brightness','contrast','color','sharpness')))
+        return raw
     picker_id = session.get("picker_session_id")
     token = session.get("google_access_token")
     items = PHOTO_CACHE.get(picker_id, [])
@@ -666,8 +675,11 @@ def page(title, body):
 
     return f"""
 <!doctype html>
-<html>
+<html lang="uk">
 <head>
+    <meta name="theme-color" content="#102e32">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="/mobile/manifest.webmanifest">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{html.escape(title)}</title>
     <style>
@@ -695,8 +707,9 @@ def page(title, body):
 <body>
   <div class="shell">
     <div class="topbar"><div><div class="brand">Vintage UA eBay Machine — MASTER 2026-10-17 — P069 MISSING SHIPPING ESTIMATES</div><div class="subtitle">Fast listing workflow • sales-optimized • safety checked before publish</div></div></div>
-    <nav><a href="/">Головна</a> · <a href="/markets/compare">США / Україна — прибуток</a> · <a href="/picker/resume-measurements">Виміри без API</a> · <a href="/ebay/hold-queue">HOLD ({_p058_count()})</a></nav>
+    <nav><a href="/mobile">Мобільний застосунок</a> · <a href="/">Головна</a> · <a href="/markets/compare">США / Україна — прибуток</a> · <a href="/picker/resume-measurements">Виміри без API</a> · <a href="/ebay/hold-queue">HOLD ({_p058_count()})</a></nav>
     <main class="content">{body}</main>
+    <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/mobile-sw.js').catch(function(){{}});</script>
     {_P054_BROWSER_BACKUP_SCRIPT}
     {_P058_HOLD_BACKUP_SCRIPT}
   </div>
@@ -1672,6 +1685,8 @@ def _p054_cached_measurement_reply(picker_id,model,prompt):
 
 
 def call_openai(payload, timeout=180, usage_picker_id=None, final_draft_slot=False):
+    if os.environ.get('ALLOW_PAID_AI','0')!='1':
+        raise RuntimeError('Тестовий режим: платний AI вимкнений. Для автоматичного аналізу встановіть ALLOW_PAID_AI=1 на сервері.')
     picker_id,usage=_current_usage_record(usage_picker_id)
     signature=hashlib.sha256(json.dumps(payload,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
     with _p054_lot_lock(picker_id):
@@ -1795,7 +1810,8 @@ def get_selected_items():
     an expired session.
     """
     picker_id = session.get("picker_session_id")
-
+    if str(picker_id or '').startswith('mobile-'):
+        return PHOTO_CACHE.get(picker_id) or [],None
     if not picker_id:
         return None, "NO_PICKER_SESSION"
 
@@ -1854,6 +1870,8 @@ def get_selected_items():
 
 
 def google_photo_to_data_url(item, size=1024, token=None):
+    if item.get('mobile_file'):
+        return 'data:image/jpeg;base64,'+base64.b64encode(_mobile_resized(_mobile_local_bytes(item),size)).decode()
     # Thread-safe: callers running outside Flask request context must pass token explicitly.
     if token is None:
         token = session.get("google_access_token")
@@ -3364,7 +3382,7 @@ def picker_start():
 
 @app.route("/picker/items")
 def picker_items():
-    if not session.get(
+    if not str(session.get('picker_session_id') or '').startswith('mobile-') and not session.get(
         "google_access_token"
     ):
         return redirect(
@@ -3667,6 +3685,9 @@ def picker_items():
     "/picker/thumb/<int:index>"
 )
 def picker_thumb(index):
+    local=PHOTO_CACHE.get(session.get('picker_session_id')) or []
+    if 1<=index<=len(local) and local[index-1].get('mobile_file'):
+        return Response(_mobile_resized(_mobile_local_bytes(local[index-1]),400),content_type='image/jpeg',headers={'Cache-Control':'no-store'})
     picker_id = session.get(
         "picker_session_id"
     )
@@ -11703,7 +11724,13 @@ def skip_current_lot():
 @app.route('/ebay/current-publish',methods=['GET','POST'])
 @_p063_action_lock
 def ebay_current_publish():
+    if request.method == 'POST' and not _p058_csrf_valid():
+        return page('Публікацію відхилено','<h2>Оновіть форму підтвердження публікації.</h2>'),403
     draft=_current_draft(); label=_current_lot_label(); sku=_current_lot_sku()
+    if not draft.get('seller_reviewed') or not draft.get('price_confirmed'):
+        return page('Потрібне підтвердження','<h2>Спочатку підтвердіть чернетку та ціну.</h2>'),409
+    if request.method == 'POST' and os.environ.get('ENABLE_LIVE_PUBLISH','0') != '1':
+        return page('Тестовий режим','<h2>Реальна публікація вимкнена.</h2><p>Лот збережено. Для тесту публікації власник сервера має встановити ENABLE_LIVE_PUBLISH=1.</p>'),409
     if not draft:
         return page(label+' publish stop','<h2>Draft is missing. Restore the lot before publishing.</h2><p>Nothing was sent to eBay.</p>'),409
     _primary_type=_draft_primary_type(draft or {}, str((draft or {}).get('title') or ''))
@@ -11729,21 +11756,6 @@ def ebay_current_publish():
             # result. This is normal after successful publication or after a
             # Render restart. Reconcile with eBay instead of showing a false
             # fatal error or trying to publish again.
-            if len(offers) == 0:
-                discovered = _discover_next_lot_from_ebay()
-                try:
-                    current_no = int(re.search(r'(\d+)$', sku).group(1))
-                except Exception:
-                    current_no = _current_lot_number()
-                if discovered > current_no:
-                    session['current_lot_number'] = discovered
-                    session['lot_counter_schema'] = LOT_COUNTER_SCHEMA_VERSION
-                    return page(
-                        label+' already published',
-                        f'<h2>{label} is already published on eBay.</h2>'
-                        f'<p>The live eBay state was recovered after restart. Nothing was published again.</p>'
-                        f'<form action="/next-lot" method="post"><button type="submit" style="font-size:20px;padding:15px 20px;font-weight:bold">START LOT {discovered:03d}</button></form>'
-                    )
             return page(label+' publish stop',f'<h2>Expected one unpublished Offer, found {len(offers)}.</h2><p>Nothing was published.</p>{_publish_recovery_buttons(label)}'),409
         offer=offers[0]; oid=str(offer.get('offerId') or '')
         invr=_lot002_request('GET',f'https://api.ebay.com/sell/inventory/v1/inventory_item/{sku}',headers=_current_headers(token),timeout=30)
@@ -11788,7 +11800,7 @@ def ebay_current_publish():
             return page(label+' not ready',f'<h2>{label} — NOT READY TO PUBLISH</h2><table border="1" cellpadding="5"><tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}</table><p>publishOffer was not called.</p>{_publish_recovery_buttons(label)}'),409
         aspect_note=(f"<p style='color:#a05a00'><b>Taxonomy advisory:</b> {html.escape(required_advisory)}. Inventory was already accepted by eBay; no unknown value was invented.</p>" if _missing else "<p style='color:#177a3f'><b>✓ Taxonomy item-specific check complete.</b></p>")
         if request.method=='GET':
-            return page(label+' final confirmation',f'<h2>{label} — FINAL PUBLISH CONFIRMATION</h2><p><b>All blocking checks passed, including MAIN PHOTO and photo order.</b></p>{aspect_note}<table border="1" cellpadding="5"><tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}</table><form method="post"><button type="submit" style="font-size:18px;padding:14px 18px;font-weight:bold">PUBLISH {label} LIVE ON EBAY</button></form>{_p059_hold_next_button()}')
+            return page(label+' final confirmation',f'<h2>{label} — FINAL PUBLISH CONFIRMATION</h2><p><b>All blocking checks passed, including MAIN PHOTO and photo order.</b></p>{aspect_note}<table border="1" cellpadding="5"><tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}</table><form method="post"><input type="hidden" name="hold_csrf" value="{_p058_csrf()}"><button type="submit" style="font-size:18px;padding:14px 18px;font-weight:bold">PUBLISH {label} LIVE ON EBAY</button></form>{_p059_hold_next_button()}')
         fresh=_lot002_request('GET',f'https://api.ebay.com/sell/inventory/v1/offer/{oid}',headers=_current_headers(token),timeout=30)
         if fresh.status_code!=200 or (fresh.json() or {}).get('status')!='UNPUBLISHED':
             return page(label+' publish stop',f'<h2>Final re-check failed. publishOffer was not called.</h2>{_publish_recovery_buttons(label)}'),409
@@ -11815,7 +11827,13 @@ def ebay_current_publish():
             else:
                 note="<p><b>Nothing was published.</b> Review the exact eBay response before retrying.</p>"
             return page(label+' publish failed',f'<h2>eBay did not publish {label}</h2><p>HTTP {pub.status_code}</p>{note}<pre style="white-space:pre-wrap;word-break:break-word">{html.escape(pub.text[:8000])}</pre>{_publish_recovery_buttons(label, blocked=True)}'),502
-        pd=pub.json() if pub.text.strip() else {}; lid=str(pd.get('listingId') or ''); ebay_url=f'https://www.ebay.com/itm/{lid}' if lid else 'https://www.ebay.com/'
+        pd=pub.json() if pub.text.strip() else {}; lid=str(pd.get('listingId') or '')
+        if not lid:
+            session['current_publish_block_reason']='PUBLISH_RESULT_UNCERTAIN'
+            try:_p058_capture_current('PUBLISH_RESULT_UNCERTAIN',oid)
+            except Exception:pass
+            return page('Результат потребує перевірки','<h2>eBay не повернув ID оголошення.</h2><p>Публікація могла відбутися. Перевірте Seller Hub перед повторною дією. Статус успіху не встановлено.</p>'),409
+        ebay_url=f'https://www.ebay.com/itm/{lid}' if lid else 'https://www.ebay.com/'
         try:
             published_no = int(re.search(r'(\d+)$', sku).group(1))
         except Exception:
@@ -12103,6 +12121,130 @@ _P054_BROWSER_BACKUP_SCRIPT = r"""
 }());
 </script>
 """
+
+
+# MOBILE TEST 0.1 — additive adapter around the existing P069 Flask pipeline.
+def _mobile_photo_root(pid):
+    root=os.path.join(ACTIVE_LOT_CHECKPOINT_DIR,'mobile_photos',hashlib.sha256(str(pid).encode()).hexdigest())
+    os.makedirs(root,exist_ok=True)
+    return root
+
+def _mobile_write(path,raw):
+    with tempfile.NamedTemporaryFile(dir=os.path.dirname(path),delete=False) as f:
+        f.write(raw);tmp=f.name
+    os.replace(tmp,path)
+
+def _mobile_save_approved_photos(pid):
+    photos=APPROVED_PHOTO_CACHE.get(pid)
+    if not photos:return
+    root=_mobile_photo_root(pid);entries={}
+    for i,snap in photos.items():
+        raw=snap.get('bytes')
+        if not isinstance(raw,bytes) or not raw:continue
+        digest=hashlib.sha256(raw).hexdigest();filename=digest+'.jpg'
+        _mobile_write(os.path.join(root,filename),raw)
+        entries[str(i)]={'file':filename,'sha256':digest}
+    _mobile_write(os.path.join(root,'approved.json'),json.dumps(entries).encode())
+
+def _mobile_restore_approved_photos(pid):
+    if APPROVED_PHOTO_CACHE.get(pid):return
+    root=_mobile_photo_root(pid)
+    try:
+        with open(os.path.join(root,'approved.json')) as f:entries=json.load(f)
+        restored={}
+        for i,entry in entries.items():
+            filename=entry['file']
+            if not re.fullmatch(r'[a-f0-9]{64}\.jpg',filename):return
+            with open(os.path.join(root,filename),'rb') as f:raw=f.read()
+            if hashlib.sha256(raw).hexdigest()!=entry['sha256']:return
+            restored[int(i)]={'bytes':raw,'sha256':entry['sha256']}
+        if restored:APPROVED_PHOTO_CACHE[pid]=restored
+    except (OSError,ValueError,KeyError,TypeError):return
+
+def _mobile_local_bytes(item):
+    key=item.get('mobile_file')
+    if not key:return None
+    if not re.fullmatch(r'[a-f0-9]{64}/[a-f0-9]{32}\.jpg',str(key)):raise ValueError('Invalid local photo')
+    with open(os.path.join(ACTIVE_LOT_CHECKPOINT_DIR,'mobile_photos',key),'rb') as f:return f.read()
+
+def _mobile_resized(raw,size):
+    im=ImageOps.exif_transpose(Image.open(BytesIO(raw))).convert('RGB');im.thumbnail((size,size))
+    out=BytesIO();im.save(out,'JPEG',quality=92);return out.getvalue()
+
+@app.before_request
+def _mobile_test_guards():
+    endpoint=request.endpoint or ''
+    if request.path.startswith('/ebay/') and ('publish' in endpoint or 'republish' in endpoint):
+        if os.environ.get('ENABLE_LIVE_PUBLISH','0')!='1':
+            if request.path!='/ebay/current-publish' or request.method!='GET':
+                return page('Тестовий режим','<h2>Реальна публікація вимкнена</h2><p>Підготовка та Hold доступні. Для публікації налаштуйте ENABLE_LIVE_PUBLISH=1 на сервері.</p>'),409
+
+@app.route('/mobile')
+def mobile_home():
+    pid=session.get('picker_session_id');photos=PHOTO_CACHE.get(pid) or []
+    csrf=_p058_csrf();live=os.environ.get('ENABLE_LIVE_PUBLISH','0')=='1';paid=os.environ.get('ALLOW_PAID_AI','0')=='1'
+    images=''.join('<img style="width:95px;height:95px;object-fit:contain;margin:4px" src="/picker/thumb/'+str(i)+'">' for i in range(1,len(photos)+1))
+    controls=('''<p><a href="/picker/items">Продовжити поточний лот</a> · <a href="/picker/editor">Редактор фото</a></p><form method="post" action="/picker/analyze"><button>Визначити предмет — AI</button></form>''' if photos else '')
+    return page('Vintage UA — мобільний тест',f'''<h1>Vintage UA</h1><p>Мобільна тестова версія на основі вашої програми P069.</p>
+    <p><b>Публікація: {'УВІМКНЕНА' if live else 'ВИМКНЕНА'}</b><br>Платні AI-виклики: {'УВІМКНЕНІ' if paid else 'ВИМКНЕНІ'}</p>
+    <p>Фото, Hold і перевірка інтерфейсу доступні без нового платного AI. Автоматичний аналіз використовує OpenAI API з оригінальної програми.</p>
+    <button id="install-mobile" type="button" onclick="installVintage()">Встановити на телефон</button><p id="install-help"></p>
+    <h2>Фото з телефона ({len(photos)} / 24)</h2>{images}
+    <form action="/mobile/upload" method="post" enctype="multipart/form-data"><input type="hidden" name="hold_csrf" value="{csrf}"><label>Вибрати фото або зробити знімок<input type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" required></label><p><button>Додати до лота</button></p></form>
+    {controls}<p><a href="/ebay/hold-queue">Відкрити Hold</a> · <a href="/">Повна програма</a></p>
+    <script>let deferredInstall;window.addEventListener('beforeinstallprompt',e=>{{e.preventDefault();deferredInstall=e;}});async function installVintage(){{if(deferredInstall){{await deferredInstall.prompt();deferredInstall=null;}}else{{document.getElementById('install-help').textContent='У Chrome: меню ⋮ → Додати на головний екран → Встановити. Потрібне HTTPS-підключення.';}}}}</script>''')
+
+@app.route('/mobile/upload',methods=['POST'])
+def mobile_upload():
+    if not _p058_csrf_valid():return 'Оновіть форму завантаження',403
+    if session.get('last_published_sku'):return 'Почніть новий лот перед додаванням фото.',409
+    files=request.files.getlist('photos')
+    pid=session.get('picker_session_id');items=PHOTO_CACHE.get(pid) or []
+    if items and not str(pid).startswith('mobile-'):
+        return page('Активний лот','<h2>Спочатку завершіть або збережіть поточний Google Photos лот у Hold.</h2>'),409
+    if LOT002_DRAFT_CACHE.get(pid) or ANALYSIS_CACHE.get(pid):return 'Поточний лот уже проаналізовано. Збережіть його в Hold і почніть новий, щоб не втратити дані.',409
+    if not files or len(files)+len(items)>24:return 'Дозволено від 1 до 24 фото на лот',400
+    converted=[]
+    for f in files:
+        raw=f.read(10*1024*1024+1)
+        if len(raw)>10*1024*1024:return 'Фото перевищує 10 МБ',413
+        try:
+            im=Image.open(BytesIO(raw))
+            if im.format not in ('JPEG','PNG','WEBP'):return 'Підтримуються JPEG, PNG, WebP',400
+            im.verify();raw=_mobile_resized(raw,2400)
+        except Exception:return 'Не вдалося прочитати зображення',400
+        converted.append((f.filename,raw))
+    if not pid:
+        _sync_current_lot_once();pid='mobile-'+secrets.token_hex(16);session['picker_session_id']=pid
+    root=_mobile_photo_root(pid);folder=os.path.basename(root)
+    for name,raw in converted:
+        filename=secrets.token_hex(16)+'.jpg';_mobile_write(os.path.join(root,filename),raw)
+        items.append({'id':filename,'mobile_file':folder+'/'+filename,'mediaFile':{'filename':name,'mimeType':'image/jpeg'}})
+    PHOTO_CACHE[pid]=items;session['photo_editor_approved']=False;APPROVED_PHOTO_CACHE.pop(pid,None)
+    # Adding images invalidates stale approval, photo roles and all derived facts.
+    try:os.remove(os.path.join(root,'approved.json'))
+    except FileNotFoundError:pass
+    for cache in (PHOTO_ROLE_CACHE,ANALYSIS_CACHE,IDENTIFICATION_CACHE,MARKET_CACHE,AUTO_FACT_CACHE,ITEM_STRUCTURE_CACHE,MEASUREMENT_CACHE,RESEARCH_SPEC_CACHE,LOT002_DRAFT_CACHE):cache.pop(pid,None)
+    if not _save_active_lot_checkpoint():return 'Не вдалося зберегти лот. Перевірте диск сервера.',503
+    return redirect('/mobile',code=303)
+
+@app.route('/mobile/manifest.webmanifest')
+def mobile_manifest():
+    return Response(json.dumps({'id':'/mobile','name':'Vintage UA eBay Machine','short_name':'Vintage UA','lang':'uk','start_url':'/mobile','scope':'/','display':'standalone','theme_color':'#102e32','background_color':'#f6f7f9','icons':[{'src':'/mobile/icon/'+str(size)+'.png','sizes':str(size)+'x'+str(size),'type':'image/png'} for size in (192,512)]}),content_type='application/manifest+json')
+
+@app.route('/mobile/icon/<int:size>.png')
+def mobile_icon(size):
+    if size not in (192,512):return '',404
+    from PIL import ImageDraw,ImageFont
+    im=Image.new('RGB',(size,size),'#102e32');d=ImageDraw.Draw(im);d.rounded_rectangle((size*.15,size*.15,size*.85,size*.85),radius=size*.14,fill='#087f68')
+    try:font=ImageFont.truetype('DejaVuSans-Bold.ttf',int(size*.3))
+    except OSError:font=ImageFont.load_default(size=int(size*.3))
+    d.text((size/2,size/2),'UA',font=font,anchor='mm',fill='white');out=BytesIO();im.save(out,'PNG');return Response(out.getvalue(),content_type='image/png')
+
+@app.route('/mobile-sw.js')
+def mobile_service_worker():
+    # No lot, token, API response or private photo is cached by the service worker.
+    return Response("self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{if(e.request.mode==='navigate')e.respondWith(fetch(e.request).catch(()=>new Response('<html lang=uk><meta name=viewport content=width=device-width><h1>Потрібен інтернет</h1><p>Відновіть з’єднання та відкрийте застосунок повторно.</p></html>',{headers:{'Content-Type':'text/html; charset=utf-8'}})))})",content_type='application/javascript',headers={'Service-Worker-Allowed':'/','Cache-Control':'no-cache'})
 
 
 if __name__ == "__main__":
