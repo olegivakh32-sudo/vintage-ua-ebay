@@ -3,7 +3,7 @@
 import math
 import re
 
-from PIL import Image, ImageFilter, ImageOps
+from PIL import Image, ImageFilter, ImageOps, ImageStat
 
 
 _DARK_EDGE = re.compile(rb"[\xac-\xff][\x00-\x92]")
@@ -104,3 +104,30 @@ def _has_digit_cluster(image):
         if len(same_row) >= 2:
             return True
     return False
+
+
+def image_sharpness(image):
+    """Relative edge strength at a common sample size for review and cover sorting."""
+    sample = image.convert('L')
+    sample.thumbnail((256, 256), Image.Resampling.LANCZOS)
+    width, height = sample.size
+    if width < 8 or height < 8:
+        return 0.0
+    inner = (2, 2, width - 2, height - 2)
+    contrast = ImageStat.Stat(sample.crop(inner)).stddev[0]
+    if contrast < 4:
+        return 0.0
+    edges = sample.filter(ImageFilter.FIND_EDGES).crop(inner)
+    return round(ImageStat.Stat(edges).rms[0] / contrast, 4)
+
+
+def duplicate_photo_indices(fingerprints):
+    """Return later exact matches, leaving the first occurrence available."""
+    first = {}
+    duplicates = {}
+    for index, fingerprint in fingerprints.items():
+        if fingerprint:
+            original = first.setdefault(fingerprint, index)
+            if index != original:
+                duplicates[index] = original
+    return duplicates

@@ -44,7 +44,7 @@ from io import BytesIO
 from itsdangerous import BadSignature, URLSafeSerializer
 from PIL import Image, ImageEnhance, ImageOps, ImageStat, ImageFilter
 
-from mobile_photos import measurement_hint
+from mobile_photos import duplicate_photo_indices, image_sharpness, measurement_hint
 
 from flask import (
     Flask,
@@ -258,6 +258,7 @@ def _save_active_lot_checkpoint():
             "picker_uri": session.get("picker_uri"),
             "photo_editor_approved": bool(session.get("photo_editor_approved")),
             "main_photo_index": session.get("main_photo_index"),
+            "main_photo_mode": session.get("main_photo_mode"),
             "photo_order": session.get("photo_order"),
             "photo_selection_signature": session.get("photo_selection_signature"),
             "photos": _json_safe_photo_items(PHOTO_CACHE.get(picker_id, [])),
@@ -324,7 +325,7 @@ def _restore_active_lot_checkpoint():
             session["photo_editor_approved"] = False
         elif "photo_editor_approved" not in session:
             session["photo_editor_approved"] = True
-        for k in ("main_photo_index","photo_order","photo_selection_signature","photo_role_review"):
+        for k in ("main_photo_index","main_photo_mode","photo_order","photo_selection_signature","photo_role_review"):
             if k not in session and data.get(k) is not None:
                 session[k]=data.get(k)
         photos=data.get("photos") or []
@@ -559,13 +560,20 @@ def picker_editor():
     roles = PHOTO_ROLE_CACHE.get(picker_id) if ready else {}
     if mobile and (not ready or request.args.get('roles') == '1' or not (set(roles.values()) & EBAY_PHOTO_ROLES)):
         options = []
+        for item in items:
+            _mobile_evidence_hint(item)
+        duplicates = duplicate_photo_indices({i: item.get('photo_fingerprint') for i, item in enumerate(items, 1)})
         for i, item in enumerate(items, 1):
-            hint = _mobile_evidence_hint(item)
+            hint = item.get('measurement_hint')
             checked = ' checked' if roles.get(i) in EBAY_PHOTO_ROLES else ''
             status = {'ruler': 'Можлива лінійка', 'scale': 'Можливі ваги', 'display': 'Цифровий дисплей'}.get(hint)
             if not status:
                 status = ('Службовий кадр' if roles.get(i) == 'EVIDENCE_ONLY'
                           else 'Потребує перевірки' if not checked else 'Фото товару')
+            if i in duplicates:
+                status += f' · Збігається з фото {duplicates[i]}'
+            elif item.get('photo_sharpness', 1) < .065:
+                status += ' · Перевірте різкість'
             options.append(
                 f'<label class="photo-choice"><img src="/picker/thumb/{i}?size=200" loading="lazy" decoding="async" alt="">'
                 f'<span><input type="checkbox" name="product_photo" value="{i}"{checked}> Фото {i}</span>'
@@ -593,11 +601,13 @@ def picker_editor():
     if missing:
         return _p085_recover_editor(picker_id, items, eligible)
     cards = []
+    auto_main = session.get('main_photo_mode') == 'auto' or not session.get('photo_editor_approved')
+    effective_main = session.get('main_photo_index')
     for i in eligible:
         cards.append(f"""
         <div style='border:1px solid #ddd;border-radius:10px;padding:8px;margin-bottom:14px'>
           <h3 style='margin:4px 0 8px'>Фото {i}</h3>
-          <label style='display:block;margin:6px 0 10px;font-size:17px;font-weight:bold'><input type='radio' name='main_photo' value='{i}' form='photo-approval-form' {'checked' if session.get('main_photo_index') == i else ''}> Головне фото</label>
+          <label style='display:block;margin:6px 0 10px;font-size:17px;font-weight:bold'><input type='radio' name='main_photo' value='{i}' form='photo-approval-form' {'checked' if not auto_main and effective_main == i else ''}> Головне фото</label>
           <div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>
             <div><b>Оригінал</b><br><img src='/picker/thumb/{i}' loading='lazy' decoding='async' style='width:100%;max-height:280px;object-fit:contain;background:#f4f4f4'></div>
             <div><b>Після редагування</b><br><img class='edited-preview' data-i='{i}' src='/picker/edited/{i}?b=1&c=1&s=1&h=1' loading='lazy' decoding='async' style='width:100%;max-height:280px;object-fit:contain;background:#f4f4f4'></div>
@@ -621,6 +631,9 @@ def picker_editor():
       {status}
       <p>{len(eligible)} для eBay · {excluded} поза оголошенням. {review_link}</p>
       <div class="editor-tools">
+        <label><input type='radio' name='main_photo' value='0' form='photo-approval-form' {'checked' if auto_main else ''}>
+          Вибрати головне фото автоматично</label>
+        <p>Поточний вибір: {effective_main or 'ще немає'}</p>
         <b>Налаштування для всіх фото</b>
         <button type='button' id='preset-natural'>Природні кольори</button>
         <button type='button' id='preset-bright'>Світліше</button>
@@ -709,9 +722,16 @@ def _auto_main_score(jpeg_bytes):
         size_score=1.8-abs(area-target)*3.2
         if area>0.72: size_score-=2.0
         fill = min(1.0, len(xs)*step*step/max(1,(x1-x0+1)*(y1-y0+1)))
-        return size_score+fill*1.4-center_pen*1.5-edge_pen*1.6
+        sharpness = image_sharpness(im)
+        return size_score + fill*1.4 - center_pen*1.5 - edge_pen*1.6 + min(sharpness, .6)*3
     except Exception:
         return -999.0
+
+
+def _preferred_main_photo(approved, candidates, roles):
+    product_views = [index for index in candidates if roles.get(index) == 'EBAY_PRODUCT']
+    return max(product_views or candidates,
+               key=lambda index: (_auto_main_score((approved.get(index) or {}).get('bytes', b'')), -index))
 
 
 @app.route("/picker/editor/approve", methods=["POST"])
@@ -757,8 +777,10 @@ def picker_editor_approve():
         return page("Редактор фото", "<h2>Не вдалося затвердити фото</h2><pre>" + html.escape("\n".join(failures)) + "</pre><p><a href='/picker/editor'>Back</a></p>"), 409
     APPROVED_PHOTO_CACHE[picker_id] = approved
     if main_index not in eligible:
-        scored=[(_auto_main_score(approved[i]["bytes"]), i) for i in eligible]
-        main_index=max(scored, key=lambda x:(x[0],-x[1]))[1] if scored else 1
+        main_index = _preferred_main_photo(approved, eligible, PHOTO_ROLE_CACHE.get(picker_id) or {})
+        session['main_photo_mode'] = 'auto'
+    else:
+        session['main_photo_mode'] = 'manual'
     session["main_photo_index"] = main_index
     # Seller-authoritative order: chosen MAIN first, then the exact visible Picker order.
     session["photo_order"] = ([main_index] if main_index in eligible else []) + [i for i in eligible if i != main_index]
@@ -3820,6 +3842,7 @@ def picker_start():
     session["photo_editor_approved"] = False
     session.pop("photo_selection_signature", None)
     session.pop("main_photo_index", None)
+    session.pop('main_photo_mode', None)
     session.pop("photo_order", None)
     for cache in (ANALYSIS_CACHE, IDENTIFICATION_CACHE, MARKET_CACHE, AUTO_FACT_CACHE, ITEM_STRUCTURE_CACHE, MEASUREMENT_CACHE, SELLER_MEASUREMENT_CACHE, PENDING_MEASUREMENT_OVERRIDE_CACHE, MEASUREMENT_RERUN_BASELINE_CACHE, RESEARCH_SPEC_CACHE, PHOTO_ROLE_CACHE, AI_USAGE_CACHE, AI_RESPONSE_CACHE, LOT002_DRAFT_CACHE, MARKET_COMPARISON_CACHE):
         cache.pop(picker_id, None)
@@ -4008,6 +4031,7 @@ def picker_items():
             AI_USAGE_CACHE[picker_id]=dict(AI_USAGE_CACHE.get(append_from) or {})
         session["photo_editor_approved"]=False
         session.pop("main_photo_index",None)
+        session.pop('main_photo_mode', None)
         session.pop("photo_order",None)
 
     # Google Photos may refresh mediaFile.baseUrl every time /mediaItems is read.
@@ -4035,6 +4059,7 @@ def picker_items():
         if previous_signature != current_signature:
             session["photo_editor_approved"] = False
             session.pop("main_photo_index", None)
+            session.pop('main_photo_mode', None)
             session.pop("photo_order", None)
             session["photo_selection_signature"] = list(current_signature)
             for cache in (ANALYSIS_CACHE, IDENTIFICATION_CACHE, MARKET_CACHE, AUTO_FACT_CACHE, ITEM_STRUCTURE_CACHE, MEASUREMENT_CACHE, SELLER_MEASUREMENT_CACHE, PENDING_MEASUREMENT_OVERRIDE_CACHE, MEASUREMENT_RERUN_BASELINE_CACHE, RESEARCH_SPEC_CACHE, PHOTO_ROLE_CACHE, AI_USAGE_CACHE, AI_RESPONSE_CACHE, LOT002_DRAFT_CACHE, MARKET_COMPARISON_CACHE):
@@ -4282,11 +4307,10 @@ def _ebay_photo_indices(items, picker_id=None):
     if session.get('photo_editor_approved') and approved:
         eligible=[i for i in eligible if i in approved]
     main=int(session.get('main_photo_index') or 0)
-    if main not in eligible:
-        approved=APPROVED_PHOTO_CACHE.get(picker_id) or {}
-        scored=[(_auto_main_score((approved.get(i) or {}).get('bytes',b'')),i) for i in eligible]
-        main=max(scored, key=lambda x:(x[0],-x[1]))[1] if scored else (eligible[0] if eligible else 0)
-        if main: session['main_photo_index']=main
+    if main not in eligible and eligible:
+        main = _preferred_main_photo(approved, eligible, roles)
+        session['main_photo_index'] = main
+        session['main_photo_mode'] = 'auto'
     ordered=([main] if main in eligible else [])+[i for i in eligible if i!=main]
     return ordered[:24]
 
@@ -4392,6 +4416,14 @@ Use only tested_status: Untested, Tested working, Tested not working, Not applic
                 if previous.get(i) == 'EVIDENCE_ONLY' or hint in {'ruler', 'scale'}:
                     parsed_roles[i] = 'EVIDENCE_ONLY'
                 elif hint == 'display' and parsed_roles[i] in EBAY_PHOTO_ROLES:
+                    parsed_roles[i] = 'NEEDS_REVIEW'
+            duplicates = duplicate_photo_indices({
+                i: items[i-1].get('photo_fingerprint') for i in parsed_roles
+                if parsed_roles[i] in EBAY_PHOTO_ROLES
+            })
+            for i in duplicates:
+                # A previous explicit seller selection remains authoritative for duplicates.
+                if previous.get(i) not in EBAY_PHOTO_ROLES:
                     parsed_roles[i] = 'NEEDS_REVIEW'
             _use_photo_roles(picker_id, items, parsed_roles)
             ANALYSIS_CACHE[picker_id] = analysis
@@ -12444,7 +12476,7 @@ def _p058_open_record(rid):
         _p058_capture_current('SWITCHED_TO_HOLD')
     session['hold_next_lot']=max(int(session.get('hold_next_lot') or 4),int(session.get('current_lot_number') or 4),_p058_next_number())
     # Switching to an older held item is explicit; preserve the independent next-lot counter.
-    for key in ('picker_session_id','current_lot_number','main_photo_index','photo_order','photo_selection_signature',
+    for key in ('picker_session_id','current_lot_number','main_photo_index','main_photo_mode','photo_order','photo_selection_signature',
                 'photo_editor_approved','photo_role_review','last_published_sku','last_published_lot_number','current_publish_block_reason'):
         session.pop(key,None)
     session['active_lot_checkpoint_id']='hold-'+str(rid)
@@ -12775,6 +12807,7 @@ def skip_current_lot():
     session.pop('picker_session_id',None)
     session.pop('photo_editor_approved',None)
     session.pop('main_photo_index',None)
+    session.pop('main_photo_mode', None)
     session.pop('photo_order',None)
     return redirect('/')
 
@@ -12987,7 +13020,7 @@ def next_lot():
         current = 4
     session['current_lot_number'] = max(4, current, discovered, int(session.get('hold_next_lot') or 4), _p058_next_number())
     session['lot_counter_schema'] = LOT_COUNTER_SCHEMA_VERSION
-    for key in ('picker_session_id','picker_uri','photo_editor_approved','main_photo_index','photo_order','photo_selection_signature','shipping_usd','item_weight','item_dimensions','last_published_sku','last_published_lot_number'):
+    for key in ('picker_session_id','picker_uri','photo_editor_approved','main_photo_index','main_photo_mode','photo_order','photo_selection_signature','shipping_usd','item_weight','item_dimensions','last_published_sku','last_published_lot_number'):
         session.pop(key,None)
     _clear_active_lot_checkpoint()
     return redirect('/picker/start?new=1')
@@ -13330,11 +13363,14 @@ def _mobile_local_bytes(item):
     with open(os.path.join(ACTIVE_LOT_CHECKPOINT_DIR,'mobile_photos',key),'rb') as f:return f.read()
 
 def _mobile_evidence_hint(item):
-    if item.get('measurement_hint_version') == PHOTO_REVIEW_VERSION:
+    if item.get('measurement_hint_version') == PHOTO_REVIEW_VERSION and item.get('photo_fingerprint'):
         return item.get('measurement_hint')
     try:
-        with Image.open(BytesIO(_mobile_local_bytes(item))) as image:
+        raw = _mobile_local_bytes(item)
+        with Image.open(BytesIO(raw)) as image:
             hint = measurement_hint(image, (item.get('mediaFile') or {}).get('filename'))
+            item['photo_sharpness'] = image_sharpness(image)
+        item['photo_fingerprint'] = hashlib.sha256(raw).hexdigest()
     except (OSError, ValueError, TypeError):
         hint = None
     item.update(measurement_hint=hint, measurement_hint_version=PHOTO_REVIEW_VERSION)
@@ -13382,7 +13418,9 @@ def mobile_home():
         <input type="hidden" name="hold_csrf" value="{csrf}">
         <input type="hidden" name="upload_batch" value="{html.escape(batch_token, quote=True)}">
         <label for="mobile-photos">Додати фото ({len(photos)} з 24)</label>
-        <input id="mobile-photos" type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" required>
+        <input id="mobile-photos" type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp">
+        <label for="mobile-camera">Зробити фото камерою</label>
+        <input id="mobile-camera" type="file" name="camera_photo" accept="image/jpeg,image/png,image/webp" capture="environment">
         <p><button type="submit">Завантажити фото</button></p>
         <progress id="upload-progress" max="100" aria-label="Перебіг завантаження" hidden></progress>
         <p id="upload-status" role="status"></p>
@@ -13423,7 +13461,7 @@ def _mobile_prepare_photo(raw, name):
         hint = measurement_hint(oriented, name)
         encoded = BytesIO()
         oriented.save(encoded, 'JPEG', quality=92)
-        return name, encoded.getvalue(), hint
+        return name, encoded.getvalue(), hint, image_sharpness(oriented)
 
 
 def _mobile_save_batch(pid, items, converted, batch_id, digest):
@@ -13439,14 +13477,15 @@ def _mobile_save_batch(pid, items, converted, batch_id, digest):
             session['picker_session_id'] = pid
         root = _mobile_photo_root(pid)
         updated = list(items)
-        for name, raw, hint in converted:
+        for name, raw, hint, sharpness in converted:
             filename = secrets.token_hex(16) + '.jpg'
             path = os.path.join(root, filename)
             paths.append(path)
             _mobile_write(path, raw)
             photo = {'id': filename, 'mobile_file': os.path.basename(root) + '/' + filename,
                      'mediaFile': {'filename': name, 'mimeType': 'image/jpeg'},
-                     'measurement_hint': hint, 'measurement_hint_version': PHOTO_REVIEW_VERSION}
+                     'measurement_hint': hint, 'measurement_hint_version': PHOTO_REVIEW_VERSION,
+                     'photo_fingerprint': hashlib.sha256(raw).hexdigest(), 'photo_sharpness': sharpness}
             if batch_id:
                 photo.update(upload_batch=batch_id, upload_digest=digest)
             updated.append(photo)
@@ -13457,7 +13496,7 @@ def _mobile_save_batch(pid, items, converted, batch_id, digest):
         removed = [(cache, cache.pop(pid)) for cache in invalidated if pid in cache]
         PHOTO_CACHE[pid] = updated
         session['photo_editor_approved'] = False
-        for key in ('photo_role_review', 'photo_order', 'main_photo_index'):
+        for key in ('photo_role_review', 'photo_order', 'main_photo_index', 'main_photo_mode'):
             session.pop(key, None)
         if not _save_active_lot_checkpoint():
             raise OSError('Checkpoint write failed')
@@ -13514,7 +13553,7 @@ def _mobile_receive_batch(batch):
     items = PHOTO_CACHE.get(pid) or []
     batch_id = batch.get('batch')
     previous = next((item for item in items if batch_id and item.get('upload_batch') == batch_id), None)
-    files = request.files.getlist('photos')
+    files = [photo for field in ('photos', 'camera_photo') for photo in request.files.getlist(field) if photo.filename]
     if not files or len(files) > 24:
         return _mobile_upload_error('Дозволено від 1 до 24 фото на лот.', 400)
     if previous is None:

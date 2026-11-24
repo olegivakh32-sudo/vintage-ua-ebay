@@ -5,7 +5,7 @@
     const status = document.querySelector('#upload-status');
     const progress = document.querySelector('#upload-progress');
     const reload = document.querySelector('#upload-reload');
-    const input = form.elements.photos;
+    const inputs = [form.elements.photos, form.elements.camera_photo];
     let prepared;
 
     async function prepare(file) {
@@ -39,14 +39,17 @@
     form.addEventListener('submit', async event => {
         event.preventDefault();
         if (button.disabled) return;
-        const files = [...input.files];
-        if (!prepared && !files.length) return;
+        const files = inputs.flatMap(input => [...input.files]);
+        if (!prepared && !files.length) {
+            status.textContent = 'Оберіть фото або скористайтеся камерою.';
+            return;
+        }
         if (!prepared && files.length > Number(form.dataset.remaining)) {
             status.textContent = 'У лоті може бути щонайбільше 24 фото.';
             return;
         }
         button.disabled = true;
-        input.disabled = true;
+        inputs.forEach(input => { input.disabled = true; });
         progress.hidden = false;
         progress.removeAttribute('value');
         reload.hidden = true;
@@ -91,7 +94,7 @@
                 prepared = undefined;
                 button.textContent = 'Завантажити фото';
                 button.disabled = false;
-                input.disabled = false;
+                inputs.forEach(input => { input.disabled = false; });
             }
         };
         const lostAnswer = () => offerRetry(

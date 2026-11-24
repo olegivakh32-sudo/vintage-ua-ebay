@@ -278,3 +278,43 @@ class AndroidTests(unittest.TestCase):
             m.session.update(picker_session_id=picker, photo_editor_approved=True, main_photo_index=1)
             self.assertEqual(m._ebay_photo_indices(m.PHOTO_CACHE[picker], picker), [])
             self.assertFalse(m._p056_approved_photo_snapshot_ok(picker, [1, 2]))
+
+    def test_automatic_photo_quality_keeps_originals_and_prioritizes_the_sharp_overview(self):
+        from PIL import ImageFilter
+
+        image = Image.new('RGB', (400, 300), 'white')
+        ImageDraw.Draw(image).rectangle((110, 75, 295, 231), fill='blue')
+        detail = image.crop((100, 60, 310, 245))
+        images = [image.filter(ImageFilter.GaussianBlur(9)), image, image, detail]
+        photos = []
+        for index, item in enumerate(images, 1):
+            output = BytesIO()
+            item.save(output, 'JPEG')
+            output.seek(0)
+            photos.append((output, f'IMG_{index}.jpg'))
+        result = self.client.post('/mobile/upload', data={
+            'hold_csrf': self.csrf, 'photos': photos[:3], 'camera_photo': photos[3],
+        })
+        self.assertEqual(result.status_code, 303)
+        role_page = self.client.get('/picker/editor').get_data(as_text=True)
+        self.assertIn('Збігається з фото 2', role_page)
+        self.assertIn('Перевірте різкість', role_page)
+
+        report = ('PHOTO_ROLES_JSON: {"roles":{"1":"EBAY_PRODUCT","2":"EBAY_PRODUCT",'
+                  '"3":"EBAY_PRODUCT","4":"EBAY_EVIDENCE"}}')
+        with (patch.dict(m.os.environ, {'ALLOW_PAID_AI': '1'}),
+              patch.object(m, 'OPENAI_API_KEY', 'fixture'),
+              patch.object(m, 'call_openai', return_value=report)):
+            self.assertEqual(self.client.post('/picker/analyze').status_code, 200)
+        self.assertEqual(self.client.post('/picker/editor/approve', data={'main_photo': 0}).status_code, 302)
+        with self.client.session_transaction() as session:
+            picker = session['picker_session_id']
+            self.assertEqual(session['main_photo_mode'], 'auto')
+            self.assertEqual(session['photo_order'], [2, 1, 4])
+        self.assertEqual(len(m.PHOTO_CACHE[picker]), 4)
+        self.assertEqual(m.PHOTO_ROLE_CACHE[picker][3], 'NEEDS_REVIEW')
+        self.assertEqual(self.client.get('/picker/thumb/3').status_code, 200)
+        self.assertEqual(self.client.post('/picker/editor/approve', data={'main_photo': 4}).status_code, 302)
+        with self.client.session_transaction() as session:
+            self.assertEqual(session['main_photo_mode'], 'manual')
+            self.assertEqual(session['photo_order'][0], 4)
