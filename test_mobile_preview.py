@@ -55,6 +55,48 @@ class PreviewStorageTests(unittest.TestCase):
         self.assertFalse(root.exists())
 
 
+@unittest.skipUnless(os.environ.get('VINTAGE_RUN_LOAD_TESTS') == '1',
+                     'Enable for the local 100-lot upload and HOLD exercise')
+class PreviewLoadTests(unittest.TestCase):
+    def test_100_lots_upload_and_hold_without_duplicate_records(self):
+        from io import BytesIO
+        import json
+        from time import monotonic
+
+        from PIL import Image
+        from test_mobile import m
+
+        started = monotonic()
+        image = BytesIO()
+        Image.new('RGB', (320, 240), 'blue').save(image, 'JPEG')
+        jpeg = image.getvalue()
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch.object(m, 'ACTIVE_LOT_CHECKPOINT_DIR', str(Path(tmp) / 'active')),
+            patch.dict(os.environ, {'HOLD_QUEUE_DIR': str(Path(tmp) / 'hold')}),
+            patch.object(m.requests.sessions.Session, 'request', side_effect=AssertionError('No external calls')),
+        ):
+            for lot in range(100, 200):
+                client = m.app.test_client()
+                with client.session_transaction() as state:
+                    state['current_lot_number'] = lot
+                    state['hold_csrf'] = f'fixture-{lot}'
+                upload = client.post('/mobile/upload', data={
+                    'hold_csrf': f'fixture-{lot}',
+                    'photos': [(BytesIO(jpeg), f'IMG_{index}.jpg') for index in range(12)],
+                })
+                self.assertEqual(upload.status_code, 303, f'LOT {lot} upload')
+                for _ in range(2):
+                    held = client.post('/ebay/hold-queue/add', data={'hold_csrf': f'fixture-{lot}'})
+                    self.assertEqual(held.status_code, 303, f'LOT {lot} HOLD')
+            with m._p058_db() as db:
+                records = db.execute("SELECT sku, data FROM hold_lots WHERE status='active' ORDER BY sku").fetchall()
+            self.assertEqual([row['sku'] for row in records], [f'LOT-{lot}' for lot in range(100, 200)])
+            for row in records:
+                self.assertEqual(json.loads(row['data'])['photo_count'], 12, row['sku'])
+        print(f'Offline upload/HOLD exercise: 100 lots, 1200 synthetic photos, {monotonic() - started:.2f}s')
+
+
 @unittest.skipUnless(os.environ.get('VINTAGE_RUN_PREVIEW_HTTP_TESTS') == '1',
                      'Enable for real loopback HTTP and subprocess restart verification')
 class PreviewRestartTests(unittest.TestCase):

@@ -151,6 +151,35 @@ class WorkflowTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "AI"):
                 m.call_openai(dict(payload, input="Cache miss"), usage_picker_id="cached-test")
 
+    def test_ai_metrics_count_transport_errors_but_skip_cached_and_blocked_requests(self):
+        picker = 'usage-fixture'
+        success = {'model': 'gpt-5.6-luna', 'input': 'Success'}
+        failure = {'model': 'gpt-5.6-luna', 'input': 'Timeout'}
+        content = {'model': 'gpt-5.6-luna', 'output_text': 'OK',
+                   'usage': {'input_tokens': 40, 'output_tokens': 10}}
+        with (
+            patch.dict(m.AI_USAGE_CACHE, {}),
+            patch.dict(m.AI_RESPONSE_CACHE, {}),
+            patch.dict(m.os.environ, {'ALLOW_PAID_AI': '1'}),
+            patch.object(m, 'OPENAI_API_KEY', 'stub'),
+            patch.object(m.time, 'monotonic', side_effect=[1, 1.25, 2, 2.75]),
+            patch.object(m.requests, 'post', side_effect=[
+                response(200, content), m.requests.exceptions.Timeout(),
+            ]) as provider,
+        ):
+            self.assertEqual(m.call_openai(success, usage_picker_id=picker), 'OK')
+            self.assertEqual(m.call_openai(success, usage_picker_id=picker), 'OK')
+            for _ in range(2):
+                with self.assertRaisesRegex(RuntimeError, 'uncertain|UNCERTAIN'):
+                    m.call_openai(failure, usage_picker_id=picker)
+            self.assertEqual(provider.call_count, 2)
+            usage = m.AI_USAGE_CACHE[picker]
+            self.assertEqual(usage['models'], {'gpt-5.6-luna': 2})
+            self.assertEqual(usage['request_duration_ms'], 1000)
+            self.assertEqual((usage['attempts'], usage['calls'], usage['cache_hits'], usage['failures']),
+                             (2, 1, 1, 1))
+            self.assertEqual((usage['input_tokens'], usage['output_tokens']), (40, 10))
+
     def test_eps_retry_preserves_all_unchanged_approved_photos(self):
         picker = "eps-24-test"
         sku = "LOT-500"

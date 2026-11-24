@@ -194,12 +194,17 @@ def _usage_summary_html(picker_id=None):
     except Exception:
         picker_id = picker_id or "_no_picker"
     u = AI_USAGE_CACHE.get(picker_id) or {}
+    model_counts = ', '.join(f'{model} × {count}' for model, count in sorted((u.get('models') or {}).items()))
     return (
         "<p style='padding:8px 10px;background:#eef7ff;border-left:4px solid #2b6cb0'>"
-        f"<b>ШІ для цього лота</b> {int(u.get('calls') or 0)} запитів, "
-        f"спроб: {int(u.get('attempts') or u.get('calls') or 0)}; повторів із кешу: {int(u.get('cache_hits') or 0)}; "
-        f"оцінка витрат <b>${float(u.get('estimated_cost_usd') or 0):.4f}</b>. "
-        "<small>Фактичні витрати можуть відрізнятися від оцінки.</small></p>"
+        f"<b>ШІ для цього лота</b> {int(u.get('calls') or 0)} відповідей, "
+        f"{int(u.get('attempts') or u.get('calls') or 0)} спроб, "
+        f"{int(u.get('cache_hits') or 0)} з кешу, {int(u.get('failures') or 0)} помилок. "
+        f"Вхідні токени — {int(u.get('input_tokens') or 0)}, вихідні — {int(u.get('output_tokens') or 0)}. "
+        f"Тривалість запитів — {int(u.get('request_duration_ms') or 0) / 1000:.1f} с. "
+        f"Оцінка витрат <b>${float(u.get('estimated_cost_usd') or 0):.4f}</b>. "
+        + (f"<small>Моделі: {html.escape(model_counts)}.</small> " if model_counts else "")
+        + "<small>Фактичні витрати можуть відрізнятися від оцінки.</small></p>"
     )
 
 # =========================================================
@@ -1929,19 +1934,29 @@ def call_openai(payload, timeout=180, usage_picker_id=None, final_draft_slot=Fal
         cap=MAX_AI_CALLS_PER_LOT+(1 if final_draft_slot else 0)
         if MAX_AI_CALLS_PER_LOT>0 and picker_id!='_no_picker' and attempts>=cap:
             raise RuntimeError('OPERATOR AI CALL CAP — request-attempt budget reached. Cached results remain available.')
-        usage['attempts']=attempts+1
-        records[signature]={'status':'IN_FLIGHT','saved_at':time.time()}
+        usage['attempts'] = attempts + 1
+        model = str(payload.get('model') or 'unknown')
+        models = usage.setdefault('models', {})
+        models[model] = models.get(model, 0) + 1
+        records[signature] = {'status': 'IN_FLIGHT', 'saved_at': time.time()}
         _p054_checkpoint_if_context()
+        started = time.monotonic()
         try:
-            result=_p054_openai_request(payload,timeout,usage_picker_id,final_draft_slot)
+            result = _p054_openai_request(payload, timeout, picker_id, final_draft_slot)
         except Exception as exc:
-            uncertain='uncertain' in str(exc).lower() or bool(re.search(r'OpenAI HTTP 5[0-9][0-9]',str(exc))) or isinstance(exc,(requests.exceptions.Timeout,requests.exceptions.ConnectionError))
-            records[signature]={'status':'UNCERTAIN' if uncertain else 'FAILED','saved_at':time.time()}
-            _p054_checkpoint_if_context()
+            uncertain = ('uncertain' in str(exc).lower() or bool(re.search(r'OpenAI HTTP 5[0-9][0-9]', str(exc)))
+                         or isinstance(exc, (requests.exceptions.Timeout, requests.exceptions.ConnectionError)))
+            records[signature] = {'status': 'UNCERTAIN' if uncertain else 'FAILED', 'saved_at': time.time()}
+            usage['failures'] = int(usage.get('failures') or 0) + 1
             raise
-        records[signature]={'status':'COMPLETE','text':result,'saved_at':time.time(),**_p054_prompt_metadata(payload)}
-        _p054_checkpoint_if_context()
-        return result
+        else:
+            records[signature] = {'status': 'COMPLETE', 'text': result, 'saved_at': time.time(),
+                                  **_p054_prompt_metadata(payload)}
+            return result
+        finally:
+            duration = round((time.monotonic() - started) * 1000)
+            usage['request_duration_ms'] = int(usage.get('request_duration_ms') or 0) + duration
+            _p054_checkpoint_if_context()
 
 
 def _p054_openai_request(payload, timeout=180, usage_picker_id=None, final_draft_slot=False):
