@@ -103,6 +103,39 @@ class MobileTests(unittest.TestCase):
 
 
 class OperatorAccessTests(unittest.TestCase):
+    def test_ebay_setup_requires_https_owner_and_fresh_oauth_state(self):
+        from base64 import b64encode
+        from urllib.parse import parse_qs, urlsplit
+
+        client = m.app.test_client()
+        headers = {'Authorization': 'Basic ' + b64encode(b'vintage:fixture-password').decode()}
+        base_url = 'https://localhost'
+        with (
+            patch.dict(os.environ, {'VINTAGE_OPERATOR_PASSWORD': 'fixture-password'}),
+            patch.object(m, 'EBAY_CLIENT_ID', 'fixture-id'),
+            patch.object(m, 'EBAY_CLIENT_SECRET', 'fixture-secret'),
+            patch.object(m, 'EBAY_RUNAME', 'fixture-runame'),
+            patch.object(m.requests, 'post') as provider,
+        ):
+            self.assertEqual(client.get('/ebay/connect', headers=headers).status_code, 403)
+            self.assertEqual(client.get('/ebay/connect', base_url=base_url).status_code, 401)
+            result = client.get('/ebay/connect', headers=headers, base_url=base_url)
+            self.assertEqual(result.status_code, 302)
+            state = parse_qs(urlsplit(result.location).query)['state'][0]
+            args = {'headers': headers, 'base_url': base_url}
+            self.assertEqual(client.get('/ebay/callback?code=fixture&state=wrong', **args).status_code, 400)
+            provider.assert_not_called()
+            provider.return_value.status_code = 200
+            provider.return_value.json.return_value = {'refresh_token': 'fixture-private-token'}
+            callback = f'/ebay/callback?code=fixture&state={state}'
+            connected = client.get(callback, **args)
+            self.assertEqual(connected.status_code, 200)
+            self.assertTrue(connected.cache_control.no_store)
+            self.assertIn('fixture-private-token', connected.get_data(as_text=True))
+            self.assertFalse(provider.call_args.kwargs['allow_redirects'])
+            self.assertEqual(client.get(callback, **args).status_code, 400)
+            provider.assert_called_once()
+
     def test_private_mode_protects_lot_and_hold(self):
         from base64 import b64encode
 

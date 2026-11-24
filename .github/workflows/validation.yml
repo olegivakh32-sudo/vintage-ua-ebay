@@ -18,6 +18,7 @@ jobs:
       ALLOW_PAID_AI: '0'
       ENABLE_LIVE_PUBLISH: '0'
       VINTAGE_RUN_PREVIEW_HTTP_TESTS: '1'
+      VINTAGE_RUN_LOAD_TESTS: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

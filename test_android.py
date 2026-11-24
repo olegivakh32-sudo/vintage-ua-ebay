@@ -109,6 +109,14 @@ class AndroidTests(unittest.TestCase):
         self.assertFalse(valid)
         self.assertIn('військові відзнаки', explanation)
 
+    def test_overlapping_decorative_shapes_do_not_form_a_digit_row(self):
+        decorated = Image.new('L', (160, 90), 'white')
+        draw = ImageDraw.Draw(decorated)
+        for area in ((16, 20, 32, 45), (53, 20, 57, 45), (53, 20, 69, 23),
+                     (75, 20, 79, 45), (63, 42, 79, 45)):
+            draw.rectangle(area, fill=0)
+        self.assertIsNone(measurement_hint(decorated, 'IMG_004.jpg'))
+
     def test_stage_a_keeps_visible_marking_separate_from_brand(self):
         facts = m._auto_facts_from_analysis('AUTO_FACTS_JSON: {"object_type":"Pocket Watch", "markings":'
                                             '[{"photo":11,"literal":"СД[?]"}, {"photo":-1,"literal":"fake"}]}')
@@ -138,6 +146,23 @@ class AndroidTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'ліміт витрат'):
             capped.bound(text)
         self.assertEqual(capped.attempts, 1)
+
+    def test_pilot_saves_reservation_before_returning_network_payload(self):
+        import json
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from ai_pilot import write_report
+
+        with TemporaryDirectory() as tmp:
+            report = Path(tmp) / 'private.json'
+            limits = PilotLimits(Decimal('0.25'))
+            limits.on_reserve = lambda: write_report(report, {'reserved': str(limits.reserved_total)})
+            limits.bound({'input': 'text', 'max_output_tokens': 100})
+            self.assertEqual(Decimal(json.loads(report.read_text())['reserved']), Decimal('0.01926'))
+            self.assertEqual(report.stat().st_mode & 0o777, 0o600)
+            with patch.object(limits, 'on_reserve', side_effect=OSError('storage unavailable')):
+                with self.assertRaisesRegex(OSError, 'storage unavailable'):
+                    limits.bound({'input': 'more text', 'max_output_tokens': 100})
 
     def test_isolated_pilot_runs_recognition_through_draft_and_recorded_taxonomy(self):
         import tempfile

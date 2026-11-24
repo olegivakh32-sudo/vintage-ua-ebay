@@ -102,7 +102,10 @@ def _has_digit_cluster(image):
                     and abs(glyph[2] - first[2]) <= max(2, math.ceil(first[4] / 8))
                     and abs(glyph[3] - first[3]) <= max(2, math.ceil(first[4] / 8))]
         if len(same_row) >= 2:
-            return True
+            earliest_right_edge = min(glyph[1] for glyph in same_row)
+            latest_left_edge = max(glyph[0] for glyph in same_row)
+            if earliest_right_edge < latest_left_edge:
+                return True
     return False
 
 

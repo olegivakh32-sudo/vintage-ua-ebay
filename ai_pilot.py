@@ -2,6 +2,7 @@
 
 import argparse
 from base64 import b64decode
+from collections.abc import Callable
 from copy import deepcopy
 from datetime import date, datetime, timezone
 from io import BytesIO
@@ -36,6 +37,7 @@ class PilotLimits:
     budget_usd: Decimal
     reservations: list = field(default_factory=list)
     sent_research: bool = False
+    on_reserve: Callable[[], None] | None = None
 
     @property
     def attempts(self):
@@ -83,6 +85,8 @@ class PilotLimits:
             )
         self.reservations.append({'model': model, 'reserved_usd': reservation})
         self.sent_research |= research
+        if self.on_reserve:
+            self.on_reserve()
         return request
 
 
@@ -126,9 +130,6 @@ def inputs(filename):
         raise ValueError('Кожне фото має бути локальним файлом до 10 МБ.')
     if not isinstance(data['lot'], str) or not data['lot'].strip():
         raise ValueError('Потрібен ідентифікатор лота.')
-    taxonomy = data['taxonomy']
-    if not taxonomy['tree_id'] or not taxonomy['suggestions'] or not isinstance(taxonomy['aspects_by_category'], dict):
-        raise ValueError('Потрібен збережений знімок таксономії eBay.')
     return data, photos
 
 
@@ -364,6 +365,18 @@ def compare_reference(reference, report):
             'seo_and_factual_claims': 'REQUIRES_HUMAN_REVIEW'}
 
 
+def write_report(path, data):
+    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent, delete=False) as target:
+        temporary = Path(target.name)
+        try:
+            json.dump(data, target, ensure_ascii=False, indent=2)
+            target.flush()
+            os.fsync(target.fileno())
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('manifest', type=Path)
@@ -389,14 +402,28 @@ def main():
             raise ValueError('Моделі пілота потребують повторної перевірки тарифів і доступності.')
         if not data.get('reference') or not data.get('seller_measurements'):
             raise ValueError('Для реального пілота потрібні незалежні еталони та підтверджені виміри.')
+        taxonomy = data.get('taxonomy') or {}
+        if (not isinstance(taxonomy, dict) or not taxonomy.get('tree_id') or not taxonomy.get('suggestions')
+                or not isinstance(taxonomy.get('aspects_by_category'), dict)):
+            raise ValueError('Для реального пілота потрібен збережений знімок таксономії eBay.')
         inspect_photos(photos)
-        with args.report.open('x', encoding='utf-8') as report:
-            json.dump({'lot': data['lot'], 'status': 'started'}, report, ensure_ascii=False)
-            report.flush()
+        os.close(os.open(args.report, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+
+        def reserve_report(status='running'):
+            write_report(args.report, {
+                'lot': data['lot'], 'status': status, 'attempts': limits.attempts,
+                'budget_usd': str(limits.budget_usd), 'reserved_usd': str(limits.reserved_total),
+                'reservations': [dict(row, reserved_usd=str(row['reserved_usd'])) for row in limits.reservations],
+            })
+
+        limits.on_reserve = reserve_report
+        reserve_report()
+        try:
             result = run(data, photos, limits)
-            report.seek(0)
-            json.dump(result, report, ensure_ascii=False, indent=2)
-            report.truncate()
+        except Exception:
+            reserve_report('interrupted')
+            raise
+        write_report(args.report, result)
         print(f'Звіт: {args.report}. Спроб API: {limits.attempts}.')
         return 0
     except (OSError, ValueError, KeyError, TypeError) as exc:

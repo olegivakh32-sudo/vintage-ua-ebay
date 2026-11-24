@@ -171,6 +171,7 @@ RESEARCH_SPEC_CACHE = {}
 PHOTO_ROLE_CACHE = {}
 EBAY_PHOTO_ROLES = frozenset({'EBAY_PRODUCT', 'EBAY_EVIDENCE'})
 PHOTO_REVIEW_VERSION = '2'
+PHOTO_HINT_VERSION = '3'
 
 # P026: per-LOT OpenAI usage/cost guard. Values are best-effort estimates from
 # Responses API usage fields; web-search calls are counted separately.
@@ -943,12 +944,13 @@ EBAY_SCOPES = [
     "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
     "https://api.ebay.com/oauth/api_scope/sell.finances",
 ]
-def build_ebay_auth_url():
+def build_ebay_auth_url(state):
     params = {
         "client_id": EBAY_CLIENT_ID,
         "response_type": "code",
         "redirect_uri": EBAY_RUNAME,
         "scope": " ".join(EBAY_SCOPES),
+        "state": state,
     }
 
     return requests.Request(
@@ -956,57 +958,76 @@ def build_ebay_auth_url():
         EBAY_AUTH_URL,
         params=params,
     ).prepare().url
+def _ebay_setup_error():
+    if not request.is_secure or not os.environ.get('VINTAGE_OPERATOR_PASSWORD'):
+        return page('Підключення eBay', '<h2>Налаштування eBay доступне власнику через HTTPS</h2>'), 403
+    if not all((EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, EBAY_RUNAME)):
+        return page('Підключення eBay', '<h2>Потрібні облікові дані застосунку eBay</h2>'), 503
+    return None
+
+
 @app.route("/ebay/connect")
 def ebay_connect():
-    return redirect(build_ebay_auth_url())
+    error = _ebay_setup_error()
+    if error:
+        return error
+    state = secrets.token_urlsafe(32)
+    session['ebay_oauth_state'] = {'token': state, 'expires': time.time() + 600}
+    return redirect(build_ebay_auth_url(state))
+
+
 @app.route("/ebay/callback")
 def ebay_callback():
-    code = request.args.get("code")
+    error = _ebay_setup_error()
+    if error:
+        return error
+    state = session.get('ebay_oauth_state') or {}
+    received = request.args.get('state', '')
+    if not state or state['expires'] < time.time() or not secrets.compare_digest(state['token'].encode(), received.encode()):
+        return page('Підключення eBay', '<h2>Почніть підключення eBay знову</h2>'
+                    '<a href="/ebay/connect">Підключення eBay</a>'), 400
+    session.pop('ebay_oauth_state', None)
 
+    code = request.args.get("code")
     if not code:
-        return "eBay authorization code not received", 400
+        return page('Підключення eBay', '<h2>eBay не повернув код підключення</h2>'), 400
 
     credentials = f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}"
     basic_auth = base64.b64encode(credentials.encode()).decode()
 
-    response = requests.post(
-        EBAY_TOKEN_URL,
-        headers={
-            "Authorization": f"Basic {basic_auth}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": EBAY_RUNAME,
-        },
-        timeout=30,
-    )
+    try:
+        response = requests.post(
+            EBAY_TOKEN_URL,
+            headers={
+                "Authorization": f"Basic {basic_auth}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": EBAY_RUNAME,
+            },
+            timeout=30,
+            allow_redirects=False,
+        )
+        token_data = response.json() if response.status_code == 200 else {}
+    except (requests.RequestException, ValueError):
+        token_data = {}
 
-    if not response.ok:
-        return f"eBay token error: {html.escape(response.text)}", 400
-
-    token_data = response.json()
-    refresh_token = token_data.get("refresh_token")
-
-    if not refresh_token:
+    refresh_token = token_data.get("refresh_token") if isinstance(token_data, dict) else None
+    if not isinstance(refresh_token, str) or not refresh_token:
         return page(
-            "eBay connected",
-            """
-            <h2>eBay connected successfully!</h2>
-            <p>No refresh token was returned by eBay.</p>
-            <p>Reconnect eBay and make sure the consent flow completes fully.</p>
-            """,
-        ), 400
+            'Підключення eBay', '<h2>Не вдалося завершити підключення eBay</h2>'
+            '<a href="/ebay/connect">Почати підключення знову</a>',
+        ), 502
 
     safe_refresh_token = html.escape(refresh_token, quote=True)
 
     return page(
-        "eBay connected",
+        "Підключення eBay",
         f"""
-        <h2>eBay connected successfully!</h2>
-        <p>Copy the new refresh token and save it in Render as
-        <b>EBAY_REFRESH_TOKEN</b>.</p>
+        <h2>eBay підтвердив підключення</h2>
+        <p>Збережіть токен поновлення в менеджері секретів цього середовища як <b>EBAY_REFRESH_TOKEN</b>.</p>
 
         <input
             id="ebay-refresh-token"
@@ -1023,17 +1044,16 @@ def ebay_callback():
                     document.getElementById('ebay-refresh-token').value
                 ).then(() => {{
                     document.getElementById('copy-status').textContent =
-                        'Copied ✓';
+                        'Скопійовано ✓';
                 }})"
                 style="font-size:18px;padding:10px 16px;"
             >
-                Copy refresh token
+                Скопіювати токен поновлення
             </button>
             <span id="copy-status" style="margin-left:10px;"></span>
         </p>
 
-        <p><b>Important:</b> after saving it in Render, redeploy the service,
-        then open <code>/ebay/test-token</code>.</p>
+        <p>Після оновлення процесу перевірка підключення доступна на <code>/ebay/test-token</code>.</p>
         """,
     )
 
@@ -13405,7 +13425,7 @@ def _mobile_original_bytes(item):
     return None
 
 def _mobile_evidence_hint(item):
-    if item.get('measurement_hint_version') == PHOTO_REVIEW_VERSION and item.get('photo_fingerprint'):
+    if item.get('measurement_hint_version') == PHOTO_HINT_VERSION and item.get('photo_fingerprint'):
         return item.get('measurement_hint')
     try:
         raw = _mobile_local_bytes(item)
@@ -13415,7 +13435,7 @@ def _mobile_evidence_hint(item):
         item['photo_fingerprint'] = hashlib.sha256(raw).hexdigest()
     except (OSError, ValueError, TypeError):
         hint = None
-    item.update(measurement_hint=hint, measurement_hint_version=PHOTO_REVIEW_VERSION)
+    item.update(measurement_hint=hint, measurement_hint_version=PHOTO_HINT_VERSION)
     return hint
 
 
@@ -13529,7 +13549,7 @@ def _mobile_save_batch(pid, items, converted, batch_id, digest):
             _mobile_write(path, raw)
             photo = {'id': filename, 'mobile_file': os.path.basename(root) + '/' + filename,
                      'mediaFile': {'filename': name, 'mimeType': 'image/jpeg'},
-                     'measurement_hint': hint, 'measurement_hint_version': PHOTO_REVIEW_VERSION,
+                     'measurement_hint': hint, 'measurement_hint_version': PHOTO_HINT_VERSION,
                      'mobile_original_sha256': source_digest,
                      'photo_fingerprint': hashlib.sha256(raw).hexdigest(), 'photo_sharpness': sharpness}
             if batch_id:
