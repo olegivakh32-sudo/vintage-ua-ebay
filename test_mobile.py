@@ -117,7 +117,10 @@ class OperatorAccessTests(unittest.TestCase):
                     self.assertEqual(response.status_code, 401)
                     self.assertEqual(response.headers['Cache-Control'], 'no-store')
             self.assertEqual(client.get('/health').status_code, 200)
-            self.assertEqual(client.get('/mobile', headers=headers).status_code, 200)
+            authorized = client.get('/mobile', headers=headers)
+            self.assertEqual(authorized.status_code, 200)
+            self.assertTrue(authorized.cache_control.no_store)
+            self.assertEqual(authorized.headers['Referrer-Policy'], 'same-origin')
             self.assertEqual(client.get('/hold/state', headers=headers).status_code, 200)
             cross_site = {**headers, 'Sec-Fetch-Site': 'cross-site'}
             self.assertEqual(client.post('/mobile/upload', headers=cross_site).status_code, 403)

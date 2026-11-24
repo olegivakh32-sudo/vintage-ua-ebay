@@ -1,32 +1,12 @@
 (() => {
     const form = document.querySelector('#mobile-upload');
-    if (!form || !window.createImageBitmap || !window.FormData || !window.XMLHttpRequest) return;
+    if (!form || !window.FormData || !window.XMLHttpRequest) return;
     const button = form.querySelector('button[type="submit"]');
     const status = document.querySelector('#upload-status');
     const progress = document.querySelector('#upload-progress');
     const reload = document.querySelector('#upload-reload');
     const inputs = [form.elements.photos, form.elements.camera_photo];
     let prepared;
-
-    async function prepare(file) {
-        if (file.type !== 'image/jpeg' || file.size < 1024 * 1024) return file;
-        let bitmap;
-        try {
-            bitmap = await createImageBitmap(file, {imageOrientation: 'from-image'});
-            const ratio = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
-            if (ratio === 1) return file;
-            const canvas = document.createElement('canvas');
-            canvas.width = Math.round(bitmap.width * ratio);
-            canvas.height = Math.round(bitmap.height * ratio);
-            canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-            const jpeg = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-            return jpeg && jpeg.size < file.size ? new File([jpeg], file.name, {type: 'image/jpeg'}) : file;
-        } catch {
-            return file;
-        } finally {
-            if (bitmap) bitmap.close();
-        }
-    }
 
     function offerRetry(message) {
         status.textContent = message;
@@ -36,7 +16,7 @@
         button.disabled = false;
     }
 
-    form.addEventListener('submit', async event => {
+    form.addEventListener('submit', event => {
         event.preventDefault();
         if (button.disabled) return;
         const files = inputs.flatMap(input => [...input.files]);
@@ -48,6 +28,10 @@
             status.textContent = 'У лоті може бути щонайбільше 24 фото.';
             return;
         }
+        if (!prepared && files.some(file => file.size > 10 * 1024 * 1024)) {
+            status.textContent = 'Розмір одного фото має бути до 10 МБ.';
+            return;
+        }
         button.disabled = true;
         inputs.forEach(input => { input.disabled = true; });
         progress.hidden = false;
@@ -57,9 +41,8 @@
             prepared = new FormData();
             prepared.append('hold_csrf', form.elements.hold_csrf.value);
             prepared.append('upload_batch', form.elements.upload_batch.value);
-            for (const [index, file] of files.entries()) {
-                status.textContent = `Підготовка фото ${index + 1} з ${files.length}…`;
-                prepared.append('photos', await prepare(file));
+            for (const file of files) {
+                prepared.append('photos', file);
             }
         }
         const upload = new XMLHttpRequest();

@@ -9,6 +9,19 @@ from mobile_preview import preview_runtime
 
 
 class PreviewStorageTests(unittest.TestCase):
+    def test_https_proxy_mode_enables_secure_session_for_private_persistent_preview(self):
+        with tempfile.TemporaryDirectory() as container, patch.dict(os.environ, {'VINTAGE_OPERATOR_PASSWORD': ''}):
+            root = Path(container) / 'preview'
+            with self.assertRaisesRegex(ValueError, 'VINTAGE_OPERATOR_PASSWORD'), preview_runtime(root, https_proxy=True):
+                self.fail('Public preview requires operator access')
+            with patch.dict(os.environ, {'VINTAGE_OPERATOR_PASSWORD': 'fixture-only'}):
+                with self.assertRaisesRegex(ValueError, '--data-dir'), preview_runtime(None, https_proxy=True):
+                    self.fail('Public preview requires persistent data')
+                with preview_runtime(root, https_proxy=True) as (env, _):
+                    self.assertEqual(env['VINTAGE_SECURE_COOKIES'], '1')
+                    self.assertEqual(env['ALLOW_PAID_AI'], '0')
+                    self.assertEqual(env['ENABLE_LIVE_PUBLISH'], '0')
+
     def test_persistent_runtime_retains_session_key_and_keeps_integrations_disabled(self):
         with tempfile.TemporaryDirectory() as container, patch.dict('os.environ', {
             'OPENAI_API_KEY': 'fixture', 'EBAY_REFRESH_TOKEN': 'fixture',

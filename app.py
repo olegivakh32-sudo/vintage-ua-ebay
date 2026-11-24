@@ -59,9 +59,11 @@ from flask import (
     url_for,
 )
 
-APP_RELEASE = "P094 · Android 3"
+APP_RELEASE = "P094 · Android 4"
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 250 * 1024 * 1024
+if os.environ.get('VINTAGE_SECURE_COOKIES') == '1':
+    app.config.update(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_SAMESITE='Lax')
 
 @app.before_request
 def require_operator_access():
@@ -78,6 +80,15 @@ def require_operator_access():
     if request.method in {'POST', 'PUT', 'PATCH', 'DELETE'} and request.headers.get('Sec-Fetch-Site') == 'cross-site':
         return Response('Відкрийте дію безпосередньо в застосунку.', status=403)
     return None
+
+
+@app.after_request
+def prevent_private_page_caching(response):
+    if os.environ.get('VINTAGE_OPERATOR_PASSWORD') and request.endpoint != 'health':
+        if not response.cache_control.no_store:
+            response.headers['Cache-Control'] = 'private, no-store'
+        response.headers['Referrer-Policy'] = 'same-origin'
+    return response
 
 
 # P045: a fixed fallback secret is unsafe on a public deployment.
@@ -2174,7 +2185,9 @@ def _p074_localize_one(pid, items):
 
 def google_photo_to_data_url(item, size=1024, token=None):
     if item.get('mobile_file'):
-        return 'data:image/jpeg;base64,'+base64.b64encode(_mobile_resized(_mobile_local_bytes(item),size)).decode()
+        original = _mobile_original_bytes(item) if size > 2400 else None
+        raw = original if original is not None else _mobile_local_bytes(item)
+        return 'data:image/jpeg;base64,' + base64.b64encode(_mobile_resized(raw, size)).decode()
     # Thread-safe: callers running outside Flask request context must pass token explicitly.
     if token is None:
         token = session.get("google_access_token")
@@ -4148,12 +4161,13 @@ def picker_items():
         return page("Storage error", "<h2>Не вдалося зберегти лот. AI не запущено.</h2><p><a href='/picker/items'>Повторити</a></p>"), 503
     count = len(items)
 
-    # P026.1 HOTFIX: this control belongs to the photo-summary page, where
-    # `count` is defined. Keeping it in picker_start caused HTTP 500
-    # (NameError: count is not defined) before Google Photos could open.
+    mobile = str(picker_id).startswith('mobile-')
+    maximum = 24 if mobile else 32
+    add_more_path = '/mobile' if mobile else '/picker/start?new=1&append=1'
     add_more_html = (
-        f'<p style="margin-top:18px;"><a href="/picker/start?new=1&append=1" style="display:inline-block;padding:11px 15px;border:1px solid #777;border-radius:7px;text-decoration:none">Add more photos — keep these {count}</a></p>'
-        if count < 32 else ""
+        f'<p class="mobile-actions"><a href="{add_more_path}">Додати фото до лота</a></p>'
+        if count < maximum and (not mobile or not ANALYSIS_CACHE.get(picker_id) and not LOT002_DRAFT_CACHE.get(picker_id))
+        else ""
     )
 
     cards = ""
@@ -4259,10 +4273,10 @@ def picker_items():
         button = ""
 
     body = f"""
-    <h2>LOT 002</h2>
+    <h2>{_current_lot_label()}</h2>
 
     <h3>
-        Photos: {count}/32 total
+        Фото лота ({count} з {maximum})
     </h3>
 
     {status}
@@ -4291,7 +4305,7 @@ def picker_items():
     """
 
     return page(
-        "LOT 002 — фото",
+        _current_lot_label() + " — фото",
         body
     )
 
@@ -13363,11 +13377,32 @@ def _mobile_restore_approved_photos(pid):
         if restored:APPROVED_PHOTO_CACHE[pid]=restored
     except (OSError,ValueError,KeyError,TypeError):return
 
+def _mobile_photo_path(item):
+    key = item.get('mobile_file')
+    if not re.fullmatch(r'[a-f0-9]{64}/[a-f0-9]{32}\.jpg', str(key)):
+        raise ValueError('Invalid local photo')
+    return os.path.join(ACTIVE_LOT_CHECKPOINT_DIR, 'mobile_photos', key)
+
+
 def _mobile_local_bytes(item):
-    key=item.get('mobile_file')
-    if not key:return None
-    if not re.fullmatch(r'[a-f0-9]{64}/[a-f0-9]{32}\.jpg',str(key)):raise ValueError('Invalid local photo')
-    with open(os.path.join(ACTIVE_LOT_CHECKPOINT_DIR,'mobile_photos',key),'rb') as f:return f.read()
+    if not item.get('mobile_file'):
+        return None
+    with open(_mobile_photo_path(item), 'rb') as photo:
+        return photo.read()
+
+
+def _mobile_original_bytes(item):
+    digest = item.get('mobile_original_sha256')
+    if digest:
+        try:
+            path = os.path.splitext(_mobile_photo_path(item))[0] + '.source'
+            with open(path, 'rb') as photo:
+                raw = photo.read(10 * 1024 * 1024 + 1)
+            if hashlib.sha256(raw).hexdigest() == digest:
+                return raw
+        except (OSError, ValueError):
+            pass
+    return None
 
 def _mobile_evidence_hint(item):
     if item.get('measurement_hint_version') == PHOTO_REVIEW_VERSION and item.get('photo_fingerprint'):
@@ -13484,14 +13519,18 @@ def _mobile_save_batch(pid, items, converted, batch_id, digest):
             session['picker_session_id'] = pid
         root = _mobile_photo_root(pid)
         updated = list(items)
-        for name, raw, hint, sharpness in converted:
+        for source, source_digest, (name, raw, hint, sharpness) in converted:
             filename = secrets.token_hex(16) + '.jpg'
             path = os.path.join(root, filename)
-            paths.append(path)
+            original_path = os.path.splitext(path)[0] + '.source'
+            paths.extend((path, original_path))
+            source.stream.seek(0)
+            _mobile_write(original_path, source.read())
             _mobile_write(path, raw)
             photo = {'id': filename, 'mobile_file': os.path.basename(root) + '/' + filename,
                      'mediaFile': {'filename': name, 'mimeType': 'image/jpeg'},
                      'measurement_hint': hint, 'measurement_hint_version': PHOTO_REVIEW_VERSION,
+                     'mobile_original_sha256': source_digest,
                      'photo_fingerprint': hashlib.sha256(raw).hexdigest(), 'photo_sharpness': sharpness}
             if batch_id:
                 photo.update(upload_batch=batch_id, upload_digest=digest)
@@ -13503,7 +13542,8 @@ def _mobile_save_batch(pid, items, converted, batch_id, digest):
         removed = [(cache, cache.pop(pid)) for cache in invalidated if pid in cache]
         PHOTO_CACHE[pid] = updated
         session['photo_editor_approved'] = False
-        for key in ('photo_role_review', 'photo_order', 'main_photo_index', 'main_photo_mode'):
+        for key in ('photo_role_review', 'photo_order', 'main_photo_index', 'main_photo_mode',
+                    'photo_selection_signature'):
             session.pop(key, None)
         if not _save_active_lot_checkpoint():
             raise OSError('Checkpoint write failed')
@@ -13581,12 +13621,13 @@ def _mobile_receive_batch(batch):
         raw = file.read(10 * 1024 * 1024 + 1)
         if len(raw) > 10 * 1024 * 1024:
             return _mobile_upload_error('Фото перевищує 10 МБ.', 413)
+        source_digest = hashlib.sha256(raw).hexdigest()
         if batch_id:
-            fingerprint.append((file.filename, hashlib.sha256(raw).hexdigest()))
+            fingerprint.append((file.filename, source_digest))
         if previous is not None:
             continue
         try:
-            converted.append(_mobile_prepare_photo(raw, file.filename))
+            converted.append((file, source_digest, _mobile_prepare_photo(raw, file.filename)))
         except ValueError as exc:
             return _mobile_upload_error(str(exc), 400)
         except OverflowError as exc:

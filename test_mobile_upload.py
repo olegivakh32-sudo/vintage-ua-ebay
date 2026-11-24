@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import base64
 from io import BytesIO
 from pathlib import Path
 import re
@@ -45,6 +46,20 @@ class MobileUploadRecoveryTests(unittest.TestCase):
         roots = self.storage / 'checkpoints' / 'mobile_photos'
         return {path.relative_to(roots) for path in roots.glob('*/*.jpg')}
 
+    def test_original_remains_exact_after_restart_and_used_for_measurement_detail(self):
+        source = BytesIO()
+        Image.new('RGB', (3600, 1000), 'navy').save(source, 'PNG')
+        original = source.getvalue()
+        self.assertEqual(self.send(self.client, self.form(self.client), [('scale.png', original)]).status_code, 201)
+        with self.client.session_transaction() as data:
+            picker = data['picker_session_id']
+        m.PHOTO_CACHE.pop(picker)
+        self.assertEqual(self.client.get('/picker/thumb/1').status_code, 200)
+        item = m.PHOTO_CACHE[picker][0]
+        self.assertEqual(m._mobile_original_bytes(item), original)
+        detail = m.google_photo_to_data_url(item, size=3200)
+        self.assertEqual(Image.open(BytesIO(base64.b64decode(detail.split(',')[1]))).width, 3200)
+
     def test_retry_of_first_upload_recovers_without_updated_cookie_or_cache(self):
         form = self.form(self.client)
         old_cookie = self.client.get_cookie('session').value
@@ -87,6 +102,22 @@ class MobileUploadRecoveryTests(unittest.TestCase):
             self.assertEqual(sorted(pool.map(upload, (first, second))), [201, 409])
         self.assertEqual(len(self.paths()), 1)
 
+    def test_mobile_summary_appends_locally_and_keeps_new_approval(self):
+        self.assertEqual(self.send(self.client, self.form(self.client), [('one.jpg', self.photo())]).status_code, 201)
+        first = self.client.get('/picker/items').get_data(as_text=True)
+        self.assertIn('<a href="/mobile">Додати фото до лота', first)
+        self.assertIn('Фото лота (1 з 24)', first)
+        form = self.form(self.client)
+        self.assertEqual(self.send(self.client, form, [('two.jpg', self.photo('red'))]).status_code, 201)
+        editor = self.client.get('/picker/editor').get_data(as_text=True)
+        self.assertEqual(self.client.post('/picker/editor', data={
+            'hold_csrf': form['hold_csrf'], 'selection': self.field(editor, 'selection'),
+            'product_photo': ['1', '2'],
+        }).status_code, 303)
+        self.assertEqual(self.client.post('/picker/editor/approve', data={'main_photo': 2}).status_code, 302)
+        self.assertIn('Фото затверджено.', self.client.get('/picker/items').get_data(as_text=True))
+        self.assertEqual(self.client.get('/picker/approved/2').status_code, 200)
+
     def test_file_or_checkpoint_error_preserves_approved_photos_and_allows_retry(self):
         self.assertEqual(self.send(self.client, self.form(self.client), [('one.jpg', self.photo())]).status_code, 201)
         form = self.form(self.client)
@@ -97,6 +128,7 @@ class MobileUploadRecoveryTests(unittest.TestCase):
         self.assertEqual(self.client.post('/picker/editor/approve', data={'main_photo': '1'}).status_code, 302)
         before = self.client.get('/picker/approved/1').data
         paths_before = self.paths()
+        originals_before = set(self.storage.rglob('*.source'))
         payload = [('two.jpg', self.photo('red')), ('three.jpg', self.photo('green'))]
 
         original_write = m._mobile_write
@@ -112,6 +144,7 @@ class MobileUploadRecoveryTests(unittest.TestCase):
             with failing:
                 self.assertEqual(self.send(self.client, form, payload).status_code, 503)
             self.assertEqual(self.paths(), paths_before)
+            self.assertEqual(set(self.storage.rglob('*.source')), originals_before)
             approval = self.client.get('/picker/approved/1')
             self.assertEqual(approval.status_code, 200)
             self.assertEqual(approval.data, before)

@@ -3,6 +3,7 @@
 import argparse
 from contextlib import contextmanager
 import fcntl
+import ipaddress
 import os
 from pathlib import Path
 import secrets
@@ -33,8 +34,11 @@ def preview_secret(root):
 
 
 @contextmanager
-def preview_runtime(path):
+def preview_runtime(path, *, https_proxy=False):
     """Keep the session key, HOLD and checkpoint media together on one local disk."""
+    password = os.environ.get('VINTAGE_OPERATOR_PASSWORD')
+    if https_proxy and (path is None or not password):
+        raise ValueError('Для тесту через HTTPS задайте --data-dir і VINTAGE_OPERATOR_PASSWORD.')
     if path is None:
         with tempfile.TemporaryDirectory(prefix='vintage-mobile-') as temporary:
             with preview_runtime(Path(temporary)) as runtime:
@@ -56,8 +60,10 @@ def preview_runtime(path):
             'ACTIVE_LOT_CHECKPOINT_DIR': str(root / 'checkpoints'),
             'HOLD_QUEUE_DIR': str(root / 'hold'),
         }
-        if os.environ.get('VINTAGE_OPERATOR_PASSWORD'):
-            env['VINTAGE_OPERATOR_PASSWORD'] = os.environ['VINTAGE_OPERATOR_PASSWORD']
+        if password:
+            env['VINTAGE_OPERATOR_PASSWORD'] = password
+        if https_proxy:
+            env['VINTAGE_SECURE_COOKIES'] = '1'
         if 'PYTHONPATH' in os.environ:
             env['PYTHONPATH'] = os.environ['PYTHONPATH']
         yield env, lock.fileno()
@@ -88,9 +94,13 @@ def main():
     parser.add_argument('--port', default=5000, type=int)
     parser.add_argument('--data-dir', type=Path, default=os.environ.get('VINTAGE_PREVIEW_DATA_DIR') or None,
                         help='Тривале локальне сховище для тестових фото, сесій і HOLD.')
+    parser.add_argument('--https-proxy', action='store_true',
+                        help='Позначити сесію як HTTPS за локальним зворотним проксі.')
     args = parser.parse_args()
     try:
-        with preview_runtime(args.data_dir) as (env, lock_fd):
+        if args.https_proxy and not ipaddress.ip_address(args.host).is_loopback:
+            raise ValueError('Для локального HTTPS-проксі використайте loopback, наприклад 127.0.0.1.')
+        with preview_runtime(args.data_dir, https_proxy=args.https_proxy) as (env, lock_fd):
             return run_preview(args.host, args.port, env, lock_fd)
     except (OSError, ValueError) as exc:
         parser.exit(2, f'{exc}\n')
