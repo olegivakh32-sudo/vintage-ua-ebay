@@ -43,6 +43,8 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from io import BytesIO
 from PIL import Image, ImageEnhance, ImageOps, ImageStat, ImageFilter
 
+from mobile_photos import measurement_hint
+
 from flask import (
     Flask,
     g,
@@ -53,6 +55,7 @@ from flask import (
     url_for,
 )
 
+APP_RELEASE = "P094 · Android 2"
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 250 * 1024 * 1024
 
@@ -170,10 +173,10 @@ def _usage_summary_html(picker_id=None):
     u = AI_USAGE_CACHE.get(picker_id) or {}
     return (
         "<p style='padding:8px 10px;background:#eef7ff;border-left:4px solid #2b6cb0'>"
-        f"<b>AI usage this LOT:</b> {int(u.get('calls') or 0)} call(s); "
-        f"request attempts: {int(u.get('attempts') or u.get('calls') or 0)}; cached reuses: {int(u.get('cache_hits') or 0)}; "
-        f"estimated API cost <b>${float(u.get('estimated_cost_usd') or 0):.4f}</b>. "
-        "<small>Estimate uses token usage + detected web-search calls; actual billing may vary.</small></p>"
+        f"<b>ШІ для цього лота</b> {int(u.get('calls') or 0)} запитів, "
+        f"спроб: {int(u.get('attempts') or u.get('calls') or 0)}; повторів із кешу: {int(u.get('cache_hits') or 0)}; "
+        f"оцінка витрат <b>${float(u.get('estimated_cost_usd') or 0):.4f}</b>. "
+        "<small>Фактичні витрати можуть відрізнятися від оцінки.</small></p>"
     )
 
 # =========================================================
@@ -474,7 +477,7 @@ def picker_editor():
     picker_id = session.get("picker_session_id")
     items = PHOTO_CACHE.get(picker_id, [])
     if not (1 <= len(items) <= 32):
-        return page("Photo editor", "<h2>Select from 1 to 32 total photos first.</h2><p><a href='/picker/start'>Select photos</a></p>"), 400
+        return page("Редактор фото", "<h2>Виберіть від 1 до 32 фото</h2><p><a href='/mobile'>До фото з телефона</a></p>"), 400
     if request.method == "POST":
         if not _p058_csrf_valid():
             return 'Оновіть форму вибору фото', 403
@@ -494,20 +497,27 @@ def picker_editor():
             return 'Не вдалося зберегти вибір фото.', 503
         return redirect('/picker/editor', code=303)
     if not PHOTO_ROLE_CACHE.get(picker_id) and all(item.get('mobile_file') for item in items):
-        options = ''.join(
-            f'<label style="display:inline-block;margin:6px"><input type="checkbox" name="product_photo" '
-            f'value="{i}" checked> Фото {i}<br><img src="/picker/thumb/{i}" width="96" alt=""></label>'
-            for i in range(1, len(items) + 1)
-        )
+        options = []
+        hints = {'ruler': 'можлива лінійка', 'scale': 'можливі ваги'}
+        for i, item in enumerate(items, 1):
+            hint = hints.get(item.get('measurement_hint'))
+            checked = '' if hint else ' checked'
+            options.append(
+                f'<label><input type="checkbox" name="product_photo" value="{i}"{checked}> Фото {i}'
+                f'<img src="/picker/thumb/{i}?size=200" loading="lazy" decoding="async" alt="">'
+                + (f'<small>{hint}</small>' if hint else '') + '</label>'
+            )
         return page('Вибір фото товару', '<h2>Фото для оголошення</h2>'
-                    '<p>Зніміть позначку з кадрів, які потрібні лише для вимірів або як довідка.</p>'
+                    '<p>Можливі кадри з вимірами вже знято з вибору. Перевірте список. '
+                    'Кадри без позначки залишаться в лоті для вимірювання.</p>'
                     '<form method="post"><input type="hidden" name="hold_csrf" value="' + _p058_csrf()
-                    + '">' + options + '<p><button>Відкрити редактор</button></p></form>')
+                    + '"><div class="photo-grid">' + ''.join(options)
+                    + '</div><p><button>Відкрити редактор</button></p></form>')
     if not PHOTO_ROLE_CACHE.get(picker_id):
-        return page("Photo editor", "<h2>Automatic photo split is required first.</h2><p><a href='/picker/items'>Analyze + split photos</a></p>"), 409
+        return page("Редактор фото", "<h2>Спочатку визначте, які фото підходять для оголошення.</h2><p><a href='/picker/items'>Аналіз і розподіл фото</a></p>"), 409
     eligible = _ebay_photo_indices(items, picker_id)
     if not eligible:
-        return page("Photo editor", "<h2>No eBay-eligible product photo was found.</h2><p>Review the selected photos; evidence-only photos cannot be published.</p><p><a href='/picker/items'>Back</a></p>"), 409
+        return page("Редактор фото", "<h2>У лоті немає фото для оголошення.</h2><p>Перевірте вибір. Кадри з вимірами не публікуються.</p><p><a href='/picker/items'>Назад</a></p>"), 409
 
     _mobile_restore_approved_photos(picker_id)
     missing = [i for i in eligible if not _p085_local_available(items[i-1])]
@@ -517,37 +527,36 @@ def picker_editor():
     for i in eligible:
         cards.append(f"""
         <div style='border:1px solid #ddd;border-radius:10px;padding:8px;margin-bottom:14px'>
-          <h3 style='margin:4px 0 8px'>Photo {i}</h3>
-          <label style='display:block;margin:6px 0 10px;font-size:17px;font-weight:bold'><input type='radio' name='main_photo' value='{i}' form='photo-approval-form' {'checked' if session.get('main_photo_index') == i else ''}> MAIN PHOTO override — leave blank for automatic choice</label>
+          <h3 style='margin:4px 0 8px'>Фото {i}</h3>
+          <label style='display:block;margin:6px 0 10px;font-size:17px;font-weight:bold'><input type='radio' name='main_photo' value='{i}' form='photo-approval-form' {'checked' if session.get('main_photo_index') == i else ''}> Головне фото</label>
           <div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>
-            <div><b>Original</b><br><img src='/picker/thumb/{i}' style='width:100%;max-height:280px;object-fit:contain;background:#f4f4f4'></div>
-            <div><b>Edited — exact eBay preview</b><br><img class='edited-preview' data-i='{i}' src='/picker/edited/{i}?b=1&c=1&s=1&h=1' loading='eager' style='width:100%;max-height:280px;object-fit:contain;background:#f4f4f4'></div>
+            <div><b>Оригінал</b><br><img src='/picker/thumb/{i}' loading='lazy' decoding='async' style='width:100%;max-height:280px;object-fit:contain;background:#f4f4f4'></div>
+            <div><b>Після редагування</b><br><img class='edited-preview' data-i='{i}' src='/picker/edited/{i}?b=1&c=1&s=1&h=1' loading='lazy' decoding='async' style='width:100%;max-height:280px;object-fit:contain;background:#f4f4f4'></div>
           </div>
           <div class='edit-controls' data-i='{i}' style='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:9px'>
-            <label>Brightness <input class='ctl' data-k='b' type='range' min='0.75' max='1.30' step='0.05' value='1'><input type='hidden' name='b_{i}' value='1' form='photo-approval-form'></label>
-            <label>Contrast <input class='ctl' data-k='c' type='range' min='0.75' max='1.30' step='0.05' value='1'><input type='hidden' name='c_{i}' value='1' form='photo-approval-form'></label>
-            <label>Color <input class='ctl' data-k='s' type='range' min='0.70' max='1.35' step='0.05' value='1'><input type='hidden' name='s_{i}' value='1' form='photo-approval-form'></label>
-            <label>Sharpness <input class='ctl' data-k='h' type='range' min='0.70' max='1.50' step='0.05' value='1'><input type='hidden' name='h_{i}' value='1' form='photo-approval-form'></label>
+            <label>Яскравість <input class='ctl' data-k='b' type='range' min='0.75' max='1.30' step='0.05' value='1'><input type='hidden' name='b_{i}' value='1' form='photo-approval-form'></label>
+            <label>Контраст <input class='ctl' data-k='c' type='range' min='0.75' max='1.30' step='0.05' value='1'><input type='hidden' name='c_{i}' value='1' form='photo-approval-form'></label>
+            <label>Насиченість <input class='ctl' data-k='s' type='range' min='0.70' max='1.35' step='0.05' value='1'><input type='hidden' name='s_{i}' value='1' form='photo-approval-form'></label>
+            <label>Різкість <input class='ctl' data-k='h' type='range' min='0.70' max='1.50' step='0.05' value='1'><input type='hidden' name='h_{i}' value='1' form='photo-approval-form'></label>
           </div>
-          <button type='button' class='reset-edit' data-i='{i}' style='margin-top:8px'>Reset photo</button>
+          <button type='button' class='reset-edit' data-i='{i}' style='margin-top:8px'>Скинути правки</button>
         </div>""")
 
     approved = bool(session.get("photo_editor_approved"))
-    status = "<p style='color:green'><b>✓ Edited photos are approved for eBay upload.</b></p>" if approved else "<p><b>Preview before approval.</b> After approval, these edited photos will be used for the eBay upload; the original Google Photos remain unchanged.</p>"
-    return page("Current Lot Photo Editor", f"""
-      <h2>Current Lot — Photo Editor</h2>
-      <p>GOLD MASTER EDITOR: only eBay-eligible product photos are edited here. Evidence-only ruler/scale/workflow photos remain untouched for Measurement/Research and are blocked from eBay. No background cutting and no generative alteration. The right preview is the exact JPEG that will be frozen after approval and uploaded to eBay.</p>
+    status = "<p style='color:green'><b>✓ Відредаговані фото затверджено.</b></p>" if approved else "<p>Перегляньте й затвердьте фото для оголошення.</p>"
+    return page("Редактор фото поточного лота", f"""
+      <h2>Редактор фото</h2>
+      <p>Виберіть головне фото та відкоригуйте зображення за потреби. Кадри для вимірювання залишаться в лоті.</p>
       {status}
-      <div style='position:sticky;bottom:8px;z-index:20;background:#fff;border:1px solid #ddd;border-radius:10px;padding:10px;margin:10px 0;box-shadow:0 2px 12px rgba(0,0,0,.10)'>
-        <b>Quick editor:</b>
-        <button type='button' id='preset-natural'>Natural +</button>
-        <button type='button' id='preset-bright'>Bright product</button>
-        <button type='button' id='reset-all'>Reset all</button>
-        <small style='display:block;margin-top:5px'>Presets only move the same four safe sliders. You can still correct any photo individually.</small>
+      <div class="editor-tools">
+        <b>Налаштування для всіх фото</b>
+        <button type='button' id='preset-natural'>Природні кольори</button>
+        <button type='button' id='preset-bright'>Світліше</button>
+        <button type='button' id='reset-all'>Скинути все</button>
       </div>
       {''.join(cards)}
       <form id='photo-approval-form' method='post' action='/picker/editor/approve'>
-        <button id='approve-photos-btn' type='submit' disabled style='font-size:18px;padding:14px 18px'>Preparing edited photos…</button>
+        <button id='approve-photos-btn' type='submit' style='font-size:18px;padding:14px 18px'>Затвердити фото</button>
         <span id='edited-ready-status' style='margin-left:10px'></span><button type='button' id='retry-edited' hidden>Повторити лише незавантажені фото</button>
       </form>
       <script>
@@ -565,9 +574,12 @@ def picker_editor():
           const i=card.dataset.i; const vals={{b:1,c:1,s:1,h:1}};
           card.querySelectorAll('.ctl').forEach(x=>{{ vals[x.dataset.k]=x.value; document.querySelector(`input[name="${{x.dataset.k}}_${{i}}"]`).value=x.value; }});
           const img=document.querySelector(`img.edited-preview[data-i="${{i}}"]`);
-          attempts.set(img,0); img.src=`/picker/edited/${{i}}?b=${{vals.b}}&c=${{vals.c}}&s=${{vals.s}}&h=${{vals.h}}&t=${{Date.now()}}`; btn.disabled=true; btn.textContent='Preparing edited photos…';
+          attempts.set(img,0); img.src=`/picker/edited/${{i}}?b=${{vals.b}}&c=${{vals.c}}&s=${{vals.s}}&h=${{vals.h}}`;
         }}
-        document.querySelectorAll('.edit-controls').forEach(card=>{{ let timer; card.querySelectorAll('.ctl').forEach(x=>x.addEventListener('input',()=>{{clearTimeout(timer);timer=setTimeout(()=>refresh(card),180)}})); }});
+        document.querySelectorAll('.edit-controls').forEach(card=>{{ let timer; card.querySelectorAll('.ctl').forEach(x=>x.addEventListener('input',()=>{{
+          document.querySelector(`input[name="${{x.dataset.k}}_${{card.dataset.i}}"]`).value=x.value;
+          clearTimeout(timer);timer=setTimeout(()=>refresh(card),180);
+        }})); }});
         document.querySelectorAll('.reset-edit').forEach(b=>b.addEventListener('click',()=>{{ const card=document.querySelector(`.edit-controls[data-i="${{b.dataset.i}}"]`); card.querySelectorAll('.ctl').forEach(x=>x.value=1); refresh(card); }}));
         function applyAll(vals){{
           document.querySelectorAll('.edit-controls').forEach(card=>{{ card.querySelectorAll('.ctl').forEach(x=>{{x.value=vals[x.dataset.k] ?? 1}}); refresh(card); }});
@@ -577,21 +589,16 @@ def picker_editor():
         document.getElementById('reset-all').addEventListener('click',()=>applyAll({{b:1,c:1,s:1,h:1}}));
         function update(){{
           const ok=imgs.filter(x => x.complete && x.naturalWidth>0).length;
-          st.textContent=ok+' / '+imgs.length+' ready';
-          btn.disabled=ok!==imgs.length;
-          retry.hidden=ok===imgs.length;
-          if(btn.disabled) btn.textContent='Preparing edited photos…';
-          if(ok===imgs.length){{
-            btn.disabled=false;
-            btn.textContent='Approve photos — MAIN PHOTO auto if not selected';
-          }}
+          st.textContent='Перегляди: '+ok+' / '+imgs.length;
+          retry.hidden=!imgs.some(x=>x.complete && !x.naturalWidth);
+
         }}
         imgs.forEach(x => {{ x.addEventListener('load',update); x.addEventListener('error',()=>{{update();const n=attempts.get(x)||0;if(n<2){{attempts.set(x,n+1);const failed=x.src;setTimeout(()=>{{if(x.src===failed && !x.naturalWidth)reload(x)}},1000*(n+1));}}}}); }});
         update();
-        setInterval(update,1500);
+        btn.form.addEventListener('submit',()=>{{btn.disabled=true;btn.textContent='Збереження фото…';}});
       }})();
       </script>
-      <p><a href='/picker/items'>Back to photos</a></p>
+      <p><a href='/picker/items'>До фото лота</a></p>
     """)
 
 
@@ -602,7 +609,7 @@ def picker_edited(index):
         data = _download_picker_photo(index, edited=True, max_side=1600, edit_settings=settings)
         return Response(data, content_type="image/jpeg", headers={"Cache-Control": "no-store"})
     except Exception as exc:
-        return f"Edited photo unavailable: {html.escape(str(exc))}", 404
+        return f"Відредаговане фото недоступне: {html.escape(str(exc))}", 404
 
 
 def _auto_main_score(jpeg_bytes):
@@ -754,12 +761,31 @@ def page(title, body):
       th {{ background:#f0f3f8; text-align:left; }}
       pre {{ white-space:pre-wrap; overflow-wrap:anywhere; background:#f8fafc; border:1px solid var(--line); border-radius:10px; padding:12px; }}
       img {{ max-width:100%; }}
-      @media (max-width:620px) {{ .content {{ padding:14px; border-radius:12px; }} .brand {{ font-size:18px; }} }}
+      nav {{ display:flex; flex-wrap:wrap; gap:4px 14px; margin-bottom:12px; }}
+      nav a {{ display:inline-flex; align-items:center; min-height:44px; }}
+      button:disabled {{ opacity:.6; cursor:wait; }}
+      .mobile-actions {{ display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }}
+      .mobile-actions a {{ padding:10px 0; }}
+      .photo-grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:10px; }}
+      .photo-grid img {{ width:100%; aspect-ratio:1; object-fit:contain; background:#f4f4f4; }}
+      .editor-tools {{ position:sticky; top:0; z-index:20; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; margin:10px 0; }}
+      .edit-controls label {{ min-width:0; }}
+      .edit-controls input[type=range] {{ display:block; width:100%; height:42px; margin:0; padding:0; }}
+      progress {{ width:100%; }}
+      @media (max-width:620px) {{
+        .shell {{ padding:12px 8px max(32px,env(safe-area-inset-bottom)); }}
+        .content {{ padding:12px; border-radius:12px; overflow-wrap:anywhere; }}
+        .brand {{ font-size:18px; }}
+        button {{ min-height:44px; white-space:normal; }}
+        input[type=file] {{ width:100%; }}
+        table {{ display:block; overflow-x:auto; }}
+        .editor-tools button {{ font-size:14px; padding:8px; }}
+      }}
     </style>
 </head>
 <body>
   <div class="shell">
-    <div class="topbar"><div><div class="brand">Vintage UA eBay Machine — MASTER 2026-10-17 — P093 EPS RECOVERY & DATA PROTECTION</div><div class="subtitle">Fast listing workflow • sales-optimized • safety checked before publish</div></div></div>
+    <div class="topbar"><div><div class="brand">Vintage UA eBay Machine <span class="subtitle">{APP_RELEASE}</span></div><div class="subtitle">Підготовка товарів до продажу на eBay</div></div></div>
     <nav><a href="/mobile">Мобільний застосунок</a> · <a href="/">Головна</a> · <a href="/markets/compare">США / Україна — прибуток</a> · <a href="/picker/resume-measurements">Виміри без API</a> · <a href="/ebay/hold-queue">HOLD ({_p058_count()})</a></nav>
     <main class="content">{body}</main>
     <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/mobile-sw.js').catch(function(){{}});</script>
@@ -1787,7 +1813,7 @@ def call_openai(payload, timeout=180, usage_picker_id=None, final_draft_slot=Fal
             usage['cache_hits']=int(usage.get('cache_hits') or 0)+1
             _p054_checkpoint_if_context()
             return previous['text']
-        if os.environ.get('ALLOW_PAID_AI', '0') != '1':
+        if os.environ.get('ALLOW_PAID_AI', '0') != '1' or not OPENAI_API_KEY:
             raise RuntimeError('Тестовий режим: платний AI вимкнений. Доступні збережені відповіді AI.')
         if previous.get('status') in {'UNCERTAIN','IN_FLIGHT'}:
             raise RuntimeError('HOLD — AI RESPONSE UNCERTAIN: the previous identical request may have been processed. Automatic rebilling is blocked; completed LOT stages remain saved.')
@@ -2346,6 +2372,14 @@ def _auto_facts_from_analysis(analysis):
                         break
     if not isinstance(obj, dict):
         return {"materials": [], "materials_confidence": 0, "material_evidence": "", "material_source": "UNKNOWN", "tested_status": "Untested", "completeness": "Unknown", "brand": "", "origin": "", "marking_present": False, "brand_evidence": "", "confidence": 0}
+    object_type = str(obj.get('object_type') or '').strip()
+    markings = obj.get('markings')
+    markings = [
+        {'photo': mark['photo'], 'literal': mark['literal'].strip()[:200]}
+        for mark in markings[:12]
+        if isinstance(mark, dict) and type(mark.get('photo')) is int and 1 <= mark['photo'] <= 32
+        and isinstance(mark.get('literal'), str) and mark['literal'].strip()
+    ] if isinstance(markings, list) else []
     mats = obj.get("materials") or []
     if isinstance(mats, str):
         mats = [x.strip() for x in re.split(r"[,;/]", mats) if x.strip()]
@@ -2379,6 +2413,8 @@ def _auto_facts_from_analysis(analysis):
     if mats and materials_conf < 70:
         mats = []
     return {
+        "object_type": object_type[:120],
+        "markings": markings,
         "materials": list(dict.fromkeys(mats)),
         "materials_confidence": materials_conf if mats else 0,
         "material_evidence": material_evidence if mats else "",
@@ -3492,6 +3528,7 @@ def home():
 def health():
     return {
         "status": "ok",
+        "release": APP_RELEASE,
         "google_configured": bool(
             GOOGLE_CLIENT_ID
             and GOOGLE_CLIENT_SECRET
@@ -3977,7 +4014,7 @@ def picker_items():
         status = f"""
         <p style="color:green;">
             <b>
-                ✓ Correct — {count} total photo(s) selected (eBay will receive at most 24 product photos)
+                Вибрано {count} фото. До eBay можна додати щонайбільше 24 фото товару.
             </b>
         </p>
         """
@@ -3990,18 +4027,18 @@ def picker_items():
             saved_analysis = ANALYSIS_CACHE.get(picker_id, "")
             if saved_analysis:
                 button = f"""
-                <p style="color:green"><b>✓ Photo split complete: {ebay_n} eBay photo(s), {evidence_n} evidence-only. eBay photos approved.</b></p>
-                <p><a href="/picker/editor" style="display:inline-block;padding:12px 16px;border:1px solid #777;border-radius:7px;text-decoration:none">Review eBay photos again</a></p>
+                <p style="color:green"><b>Розподіл завершено. {ebay_n} фото для eBay, {evidence_n} кадрів для вимірювання. Фото затверджено.</b></p>
+                <p><a href="/picker/editor" style="display:inline-block;padding:12px 16px;border:1px solid #777;border-radius:7px;text-decoration:none">Переглянути фото для eBay</a></p>
                 <form action="/picker/fast-research" method="post">
                     {hidden_field('analysis', saved_analysis)}
-                    <button type="submit" style="font-size:20px;padding:14px 20px;margin-top:20px">Continue → Run Modular Engines</button>
+                    <button type="submit" style="font-size:20px;padding:14px 20px;margin-top:20px">Розпізнати предмет, оцінити ціну та виміри</button>
                 </form>
                 """
             else:
                 button = f"""
-                <p style="color:green"><b>✓ Photo split complete: {ebay_n} eBay photo(s), {evidence_n} evidence-only. eBay photos approved.</b></p>
+                <p style="color:green"><b>Розподіл завершено. {ebay_n} фото для eBay, {evidence_n} кадрів для вимірювання. Фото затверджено.</b></p>
                 <form action="/picker/analyze" method="post">
-                    <button type="submit" style="font-size:20px;padding:14px 20px;margin-top:20px">Continue — analyze photos</button>
+                    <button type="submit" style="font-size:20px;padding:14px 20px;margin-top:20px">Проаналізувати фото</button>
                 </form>
                 """
         elif roles_ready:
@@ -4009,22 +4046,24 @@ def picker_items():
             ebay_n = len(_ebay_photo_indices(items, picker_id))
             evidence_n = sum(1 for i in range(1, count+1) if roles.get(i) == "EVIDENCE_ONLY")
             button = f"""
-            <p><b>Automatic split complete:</b> {ebay_n} eBay candidate photo(s), {evidence_n} evidence-only. Evidence-only photos remain available to Research/Measurement and will not be edited or sent to eBay.</p>
-            <p><a href="/picker/editor" style="display:inline-block;padding:12px 16px;border:1px solid #777;border-radius:7px;text-decoration:none">Prepare eBay photos — Natural / Preview</a></p>
+            <p><b>Розподіл фото завершено.</b> {ebay_n} кандидатів для eBay, {evidence_n} кадрів для вимірювання. Ці кадри залишаться в лоті.</p>
+            <p><a href="/picker/editor" style="display:inline-block;padding:12px 16px;border:1px solid #777;border-radius:7px;text-decoration:none">Відкрити редактор фото</a></p>
             """
         else:
             button = """
-            <p><b>Step 1:</b> analyze all selected photos once. The same AI call classifies PRODUCT vs EVIDENCE; no separate paid sorting call is added.</p>
+            <p>ШІ може визначити предмет і відокремити кадри для вимірювання.</p>
             <form action="/picker/analyze" method="post">
-                <button type="submit" style="font-size:20px;padding:14px 20px;margin-top:20px">Analyze + split photos automatically</button>
+                <button type="submit" style="font-size:20px;padding:14px 20px;margin-top:20px">Проаналізувати й розподілити фото</button>
             </form>
             """
+            if all(item.get('mobile_file') for item in items):
+                button += '<p><a href="/picker/editor">Відкрити редактор без ШІ</a></p>'
     else:
         status = f"""
         <p style="color:red;">
             <b>
-                Select from 1 to 32 total photos.
-                Selected: {count}
+                Виберіть від 1 до 32 фото.
+                Вибрано: {count}
             </b>
         </p>
         """
@@ -4058,13 +4097,13 @@ def picker_items():
 
     <p style="margin-top:25px;">
         <a href="/">
-            Return home
+            На головну
         </a>
     </p>
     """
 
     return page(
-        "LOT 002 Photos",
+        "LOT 002 — фото",
         body
     )
 
@@ -4078,9 +4117,9 @@ def picker_items():
 )
 def picker_thumb(index):
     try:
-        return Response(_download_picker_photo(index,max_side=600),content_type='image/jpeg',headers={'Cache-Control':'no-store'})
+        return Response(_download_picker_photo(index,max_side=200 if request.args.get('size') == '200' else 600),content_type='image/jpeg',headers={'Cache-Control':'no-store'})
     except Exception:
-        return 'Photo unavailable; reopen photo editor to recover without AI',404
+        return 'Фото недоступне. Відкрийте редактор для відновлення без ШІ.',404
 
 
 # =========================================================
@@ -4178,13 +4217,15 @@ def picker_analyze():
     picker_id = session.get("picker_session_id")
     items = PHOTO_CACHE.get(picker_id, [])
     if not (1 <= len(items) <= 32):
-        return page("Photos expired", "<h2>Photos expired</h2><p>Select from 1 to 32 total photos again.</p><a href='/picker/start'>Start again</a>"), 400
-    if not OPENAI_API_KEY:
-        return "OPENAI_API_KEY missing", 500
-
+        return page("Фото недоступні", "<h2>Фото недоступні</h2><p>Відкрийте поточний лот і перевірте вибір фото.</p><a href='/mobile'>До фото з телефона</a>"), 400
     label = _current_lot_label()
     count = len(items)
     analysis = ANALYSIS_CACHE.get(picker_id)
+    if not analysis and (not OPENAI_API_KEY or os.environ.get('ALLOW_PAID_AI', '0') != '1'):
+        return page('Аналіз ШІ недоступний', '<h2>Аналіз ШІ зараз недоступний</h2>'
+                    '<p>Фото та лот збережені. Ви можете продовжити редагування або відкласти лот.</p>'
+                    '<div class="mobile-actions"><a href="/picker/editor">Редактор фото</a>'
+                    '<a href="/ebay/hold-queue">Відкладені лоти</a><a href="/mobile">До фото з телефона</a></div>'), 503
     used_indices = _representative_photo_indices(items, max_count=6)
     if not analysis:
         prompt = f"""MASTER AI OPERATING SPEC — STAGE A: SELLER-PHOTO EVIDENCE EXTRACTION
@@ -4213,7 +4254,7 @@ MANDATORY EVIDENCE PROCEDURE:
 
 OUTPUT ORDER IS CRITICAL. Before any prose, output EXACTLY these THREE machine-readable lines, with one role for EVERY source photo number:
 PHOTO_ROLES_JSON: {{"roles":{{"1":"EBAY_PRODUCT","2":"EVIDENCE_ONLY"}}}}
-AUTO_FACTS_JSON: {{"materials":[],"materials_confidence":0,"material_evidence":"","tested_status":"Untested","completeness":"Unknown","brand":"","origin":"","marking_present":false,"brand_evidence":"","confidence":0}}
+AUTO_FACTS_JSON: {{"materials":[],"materials_confidence":0,"material_evidence":"","tested_status":"Untested","completeness":"Unknown","brand":"","origin":"","marking_present":false,"brand_evidence":"","confidence":0,"object_type":"UNKNOWN","markings":[{{"photo":1,"literal":""}}]}}
 SCOPE_JSON: {{"scope":"ONE_PHYSICAL_ITEM","physical_item_count":1,"confidence":0,"note":""}}
 For SCOPE_JSON, front/back/detail/scale views of one object are ONE_PHYSICAL_ITEM. Count separate cards, stickers, inserts and other loose pieces in the clearest complete overview, not across repeated photos. A collection sold as one lot is still MULTIPLE_PHYSICAL_ITEMS. If exact count is unclear use UNCERTAIN, never report one physical item merely because it is one sale lot. Use MULTIPLE_PHYSICAL_ITEMS only for truly separate physical objects.
 A ruler/tape/caliper/scale/packing-only photo MUST be EVIDENCE_ONLY. Do not omit any source photo number.
@@ -4231,7 +4272,7 @@ Then return IN UKRAINIAN using EXACTLY these sections:
 10. ПОШУКОВІ КЛЮЧІ ДЛЯ RESEARCH
 11. ВПЕВНЕНІСТЬ
 
-Use only tested_status: Untested, Tested working, Tested not working, Not applicable. Use only completeness: Unknown, Complete, Incomplete. Fill brand only when a maker/brand name is CLEARLY legible on the physical item. origin must be blank unless directly supported by a visible origin mark. confidence 0-100. Do not repeat the machine-readable lines at the end. Do not research market prices in this stage."""
+Use only tested_status: Untested, Tested working, Tested not working, Not applicable. Use only completeness: Unknown, Complete, Incomplete. Give object_type as a short English phrase describing visible object function; use UNKNOWN when ambiguous. Add up to six literal markings with source photo numbers; preserve uncertain characters as [?] and put alternatives in prose only. Fill brand only when a maker/brand name is CLEARLY legible on the physical item. origin must be blank unless directly supported by a visible origin mark. confidence 0-100. Do not repeat the machine-readable lines at the end. Do not research market prices in this stage."""
         content=[{"type":"input_text","text":prompt}]
         try:
             for i in range(1, len(items)+1):
@@ -4247,18 +4288,28 @@ Use only tested_status: Untested, Tested working, Tested not working, Not applic
             if parsed_roles is None:
                 analysis=call_openai({"model":"gpt-5.6-sol","input":[{"role":"user","content":content}],"reasoning":{"effort":"low"},"max_output_tokens":1500,"store":False},timeout=150)
                 parsed_roles=_photo_roles_from_analysis(analysis,len(items))
-            ANALYSIS_CACHE[picker_id]=analysis
-            _save_active_lot_checkpoint()
-            AUTO_FACT_CACHE[picker_id]=_auto_facts_from_analysis(analysis)
             if parsed_roles is None:
-                return page("Photo Split Review", "<h2>Photo role classification incomplete</h2><p>Both visual passes failed the structured PRODUCT/EVIDENCE contract. No photo has been approved for eBay and no further paid stage will run.</p><p><a href='/picker/items'>Return to photos</a></p>"), 422
-            PHOTO_ROLE_CACHE[picker_id]=parsed_roles
+                return page("Перевірка фото", "<h2>ШІ повернув неповний розподіл фото</h2>"
+                            "<p>Лот і фото збережено.</p><a href='/picker/editor'>Відкрити редактор</a>"), 422
+            previous = PHOTO_ROLE_CACHE.get(picker_id) or {}
+            for i, role in parsed_roles.items():
+                if previous.get(i) == 'EVIDENCE_ONLY' or (not previous and items[i-1].get('measurement_hint')):
+                    parsed_roles[i] = 'EVIDENCE_ONLY'
+            PHOTO_ROLE_CACHE[picker_id] = parsed_roles
+            if session.get('photo_editor_approved') and any(
+                parsed_roles[i] == 'EVIDENCE_ONLY' for i in APPROVED_PHOTO_CACHE.get(picker_id, {}) if i in parsed_roles
+            ):
+                session['photo_editor_approved'] = False
+            ANALYSIS_CACHE[picker_id] = analysis
+            AUTO_FACT_CACHE[picker_id] = _auto_facts_from_analysis(analysis)
             _scope_stage_a=_scope_from_analysis(analysis)
             if _scope_stage_a:
                 ITEM_STRUCTURE_CACHE[picker_id]=_scope_stage_a
             _refresh_ebay_photo_order(items,picker_id)
+            _save_active_lot_checkpoint()
         except Exception as exc:
-            return page("AI Error",f"<h2>AI analysis error</h2><pre style='white-space:pre-wrap'>{html.escape(str(exc))}</pre><a href='/picker/items'>Back</a>"),500
+            app.logger.warning("Visual analysis stopped (%s)", type(exc).__name__)
+            return page("Помилка аналізу", "<h2>Не вдалося завершити аналіз ШІ</h2><p>Фото збережено.</p><a href='/mobile'>До фото з телефона</a>"), 502
 
     if picker_id not in PHOTO_ROLE_CACHE:
         parsed_roles=_photo_roles_from_analysis(analysis,len(items))
@@ -4272,28 +4323,28 @@ Use only tested_status: Untested, Tested working, Tested not working, Not applic
     facts=AUTO_FACT_CACHE.get(picker_id) or _auto_facts_from_analysis(analysis)
     # P034 quality-first: focused brand re-scan is enabled by default when visible marking exists.
     # Seller confirmation remains authoritative.
-    if os.environ.get("ENABLE_BRAND_RESCAN","1") == "1" and facts.get('marking_present') and not str(facts.get('brand') or '').strip():
+    if OPENAI_API_KEY and os.environ.get("ALLOW_PAID_AI") == "1" and os.environ.get("ENABLE_BRAND_RESCAN","1") == "1" and facts.get('marking_present') and not str(facts.get('brand') or '').strip():
         resolved=_resolve_visible_brand_from_photos(items, used_indices)
         if resolved.get('brand'):
             facts=dict(facts)
             facts['brand']=resolved['brand']
             facts['brand_evidence']=resolved.get('brand_evidence') or facts.get('brand_evidence','')
             AUTO_FACT_CACHE[picker_id]=facts
-    mats=', '.join(facts.get('materials') or []) or 'not confidently determined'
+    mats=', '.join(facts.get('materials') or []) or 'потребує підтвердження'
     roles=PHOTO_ROLE_CACHE.get(picker_id) or {}
     ebay_n=sum(1 for i in range(1,count+1) if roles.get(i,'EBAY_PRODUCT')!='EVIDENCE_ONLY')
     evidence_n=sum(1 for i in range(1,count+1) if roles.get(i)=='EVIDENCE_ONLY')
-    compact=f"<p><b>Photos:</b> {count} total; {min(24,ebay_n)} eBay candidate(s); {evidence_n} evidence-only. All photos were available to the same visual-analysis call; {len(used_indices)} received high-detail analysis.<br><b>Auto material:</b> {html.escape(mats)}<br><b>Auto facts confidence:</b> {facts.get('confidence',0)}%</p>"
+    compact=f"<p><b>Фото</b> {count} у лоті, {min(24,ebay_n)} для eBay, {evidence_n} для вимірювання. {len(used_indices)} фото проаналізовано з підвищеною деталізацією.<br><b>Матеріал за фото</b> {html.escape(mats)}<br><b>Впевненість ШІ</b> {facts.get('confidence',0)}%</p>"
     if not session.get('photo_editor_approved'):
-        next_step = "<p style='margin-top:25px'><a href='/picker/editor' style='display:inline-block;padding:14px 20px;border-radius:7px;background:#1466d8;color:white;text-decoration:none;font-weight:bold'>Prepare eBay photos only — evidence photos stay untouched</a></p>"
+        next_step = "<p style='margin-top:25px'><a href='/picker/editor' style='display:inline-block;padding:14px 20px;border-radius:7px;background:#1466d8;color:white;text-decoration:none;font-weight:bold'>Відкрити редактор фото для eBay</a></p>"
     else:
-        next_step = f"<form action='/picker/fast-research' method='post' style='margin-top:25px'>{hidden_field('analysis',analysis)}<button type='submit' style='font-size:20px;padding:14px 20px'>Run Modular Engines — Identification + Market + Measurement</button></form>"
+        next_step = f"<form action='/picker/fast-research' method='post' style='margin-top:25px'>{hidden_field('analysis',analysis)}<button type='submit' style='font-size:20px;padding:14px 20px'>Продовжити до розпізнавання, ціни й вимірів</button></form>"
     # P024.7: machine-readable control lines are internal protocol, not seller-facing report text.
     display_analysis=re.sub(r'(?m)^\s*(?:PHOTO_ROLES_JSON|AUTO_FACTS_JSON|SCOPE_JSON):.*(?:\n|$)', '', str(analysis or '')).strip()
-    body=f"""<h2>{label} — AI analysis</h2><p style='color:green'><b>✓ Fast visual analysis completed</b></p>{compact}{_usage_summary_html(picker_id)}
-    <details><summary><b>Show full AI report</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:10px'>{text_to_html(display_analysis)}</div></details>
+    body=f"""<h2>{label} — Аналіз ШІ</h2><p style='color:green'><b>✓ Візуальний аналіз завершено</b></p>{compact}{_usage_summary_html(picker_id)}
+    <details><summary><b>Переглянути звіт ШІ</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:10px'>{text_to_html(display_analysis)}</div></details>
     {next_step}"""
-    return page(label+" AI Analysis",body)
+    return page(label+" Аналіз ШІ",body)
 
 
 @app.route("/picker/confirm-item-scope", methods=["POST"])
@@ -10060,6 +10111,10 @@ def _current_draft():
         changed=_p062_refresh_saved_draft(draft,SELLER_MEASUREMENT_CACHE.get(picker_id) or MEASUREMENT_CACHE.get(picker_id)) or changed
         changed=_p067_condition_note_in_body(draft) or changed
         identity=_research_machine_json(IDENTIFICATION_CACHE.get(picker_id) or '', 'IDENTITY_JSON')
+        visual = (AUTO_FACT_CACHE.get(picker_id) or {}).get('object_type')
+        if visual and draft.get('visual_object_type') != visual:
+            draft['visual_object_type'] = visual
+            changed = True
         changed=_p088_handoff(draft,identity,AUTO_FACT_CACHE.get(picker_id) or {}) or changed
         specs=RESEARCH_SPEC_CACHE.get(picker_id) or _consensus_specs_from_research(IDENTIFICATION_CACHE.get(picker_id), MARKET_CACHE.get(picker_id))
         changed=_p089_research_handoff(draft,specs,AUTO_FACT_CACHE.get(picker_id) or {}) or changed
@@ -10458,6 +10513,20 @@ def _category_period_check(draft, path):
     return True, 'Category does not make an unverified period claim'
 
 
+def _visual_category_conflict(draft, path):
+    visual = str((draft or {}).get('visual_object_type') or '')
+    segments = [name.strip().casefold() for name in path.split(' > ')]
+    pet = re.search(r'\b(?:dog|cat|pet) collars?\b', visual, re.I)
+    if _p081_family(visual) == 'insignia' and (
+        any('pet supplies' in name or 'dog supplies' in name for name in segments)
+        or re.search(r'\b(?:dog|cat|pet) collars?\b', segments[-1])
+    ):
+        return 'Фото вказують на військові відзнаки, а категорія призначена для товарів для тварин.'
+    if pet and 'militaria' in segments[:-1]:
+        return 'Фото вказують на нашийник для тварини, а категорія належить до Militaria.'
+    return ''
+
+
 def _p057_category_snapshot_check(draft):
     draft=draft or {}
     path=str(draft.get('category_path') or '')
@@ -10467,6 +10536,9 @@ def _p057_category_snapshot_check(draft):
     # Recheck stored P057 snapshots too: an older PASS may be a modifier-only match.
     primary=_draft_primary_type(draft,str(draft.get('title') or ''))
     leaf=path.rsplit(' > ',1)[-1].strip()
+    conflict = _visual_category_conflict(draft, path)
+    if conflict:
+        return False, conflict
     semantic_ok,note=_category_semantic_match(primary,leaf,path)
     if not semantic_ok:return False,note+'; run Preflight again'
     scope_ok,scope_note=_p077_category_scope(draft,leaf)
@@ -10602,6 +10674,10 @@ def _current_category(token,title,draft=None):
         material_ok,material_note=_p057_category_material_check(draft,path)
         if not material_ok:
             rejected.append(f'{cid} — {path} ({material_note})')
+            continue
+        conflict = _visual_category_conflict(draft, path)
+        if conflict:
+            rejected.append(f'{cid} — {path} ({conflict})')
             continue
         period_ok, period_note = _category_period_check(draft or {'title': title}, path)
         if not period_ok:
@@ -12919,7 +12995,7 @@ _P054_BROWSER_BACKUP_SCRIPT = r"""
 """
 
 
-# MOBILE TEST 0.1 — additive adapter around the existing P069 Flask pipeline.
+# Mobile photo capture and local recovery.
 def _p085_local_available(item):
     try:
         raw=_mobile_local_bytes(item)
@@ -13025,49 +13101,86 @@ def _mobile_test_guards():
 def mobile_home():
     pid=session.get('picker_session_id');photos=PHOTO_CACHE.get(pid) or []
     csrf=_p058_csrf();live=os.environ.get('ENABLE_LIVE_PUBLISH','0')=='1';paid=os.environ.get('ALLOW_PAID_AI','0')=='1'
-    images=''.join('<img style="width:95px;height:95px;object-fit:contain;margin:4px" src="/picker/thumb/'+str(i)+'">' for i in range(1,len(photos)+1))
-    controls=('''<p><a href="/picker/items">Продовжити поточний лот</a> · <a href="/picker/editor">Редактор фото</a></p><form method="post" action="/picker/analyze"><button>Визначити предмет — AI</button></form>''' if photos else '')
-    return page('Vintage UA — мобільний тест',f'''<h1>Vintage UA</h1><p>Мобільна тестова версія на основі вашої програми P069.</p>
-    <p><b>Публікація: {'УВІМКНЕНА' if live else 'ВИМКНЕНА'}</b><br>Платні AI-виклики: {'УВІМКНЕНІ' if paid else 'ВИМКНЕНІ'}</p>
-    <p>Фото, Hold і перевірка інтерфейсу доступні без нового платного AI. Автоматичний аналіз використовує OpenAI API з оригінальної програми.</p>
-    <button id="install-mobile" type="button" onclick="installVintage()">Встановити на телефон</button><p id="install-help"></p>
-    <h2>Фото з телефона ({len(photos)} / 24)</h2>{images}
-    <form action="/mobile/upload" method="post" enctype="multipart/form-data"><input type="hidden" name="hold_csrf" value="{csrf}"><label>Вибрати фото або зробити знімок<input type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" required></label><p><button>Додати до лота</button></p></form>
-    {controls}<p><a href="/ebay/hold-queue">Відкрити Hold</a> · <a href="/">Повна програма</a></p>
-    <script>let deferredInstall;window.addEventListener('beforeinstallprompt',e=>{{e.preventDefault();deferredInstall=e;}});async function installVintage(){{if(deferredInstall){{await deferredInstall.prompt();deferredInstall=null;}}else{{document.getElementById('install-help').textContent='У Chrome: меню ⋮ → Додати на головний екран → Встановити. Потрібне HTTPS-підключення.';}}}}</script>''')
+    images = ''.join(
+        f'<img src="/picker/thumb/{i}?size=200" loading="lazy" decoding="async" alt="Фото {i}">'
+        for i in range(1, len(photos) + 1)
+    )
+    controls = ('<div class="mobile-actions"><a href="/picker/editor">Редактор фото</a>'
+                '<a href="/picker/items">Поточний лот</a></div>'
+                '<form method="post" action="/picker/analyze"><button>Визначити предмет за допомогою ШІ</button></form>'
+                if photos else '')
+    ai_label = 'доступний' if paid and OPENAI_API_KEY else 'недоступний у цьому середовищі'
+    return page('Vintage UA — фото з телефона', f'''<h1>Фото з телефона</h1>
+    <p>Публікація на eBay: {'увімкнена' if live else 'вимкнена'} · Аналіз ШІ: {ai_label}</p>
+    <form id="mobile-upload" action="/mobile/upload" method="post" enctype="multipart/form-data" data-remaining="{24-len(photos)}">
+        <input type="hidden" name="hold_csrf" value="{csrf}">
+        <label for="mobile-photos">Додати фото ({len(photos)} з 24)</label>
+        <input id="mobile-photos" type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" required>
+        <p><button type="submit">Завантажити фото</button></p>
+        <progress id="upload-progress" max="100" aria-label="Перебіг завантаження" hidden></progress>
+        <p id="upload-status" role="status"></p>
+    </form>
+    <div class="photo-grid">{images}</div>
+    {controls}
+    <div class="mobile-actions"><a href="/ebay/hold-queue">Відкладені лоти</a>
+    <button id="install-mobile" type="button" onclick="installVintage()">Встановити на телефон</button></div>
+    <p id="install-help" role="status"></p>
+    <script src="/static/mobile-upload.js" defer></script>
+    <script>let deferredInstall;window.addEventListener('beforeinstallprompt',e=>{{e.preventDefault();deferredInstall=e;}});async function installVintage(){{if(deferredInstall){{await deferredInstall.prompt();deferredInstall=null;}}else{{document.getElementById('install-help').textContent='У Chrome відкрийте меню ⋮ і виберіть «Додати на головний екран». Потрібне підключення HTTPS.';}}}}</script>''')
+
+
+def _mobile_upload_error(message, status):
+    if request.accept_mimetypes.best == 'application/json':
+        return {'error': message}, status
+    return page('Завантаження фото', '<h2>Завантаження фото зупинено</h2>'
+                '<p>' + html.escape(message) + '</p><a href="/mobile">До фото з телефона</a>'), status
+
 
 @app.route('/mobile/upload',methods=['POST'])
 def mobile_upload():
-    if not _p058_csrf_valid():return 'Оновіть форму завантаження',403
-    if session.get('last_published_sku'):return 'Почніть новий лот перед додаванням фото.',409
+    if not _p058_csrf_valid():return _mobile_upload_error('Оновіть форму завантаження.', 403)
+    if session.get('last_published_sku'):return _mobile_upload_error('Почніть новий лот перед додаванням фото.', 409)
     files=request.files.getlist('photos')
     pid=session.get('picker_session_id');items=PHOTO_CACHE.get(pid) or []
     if items and not str(pid).startswith('mobile-'):
-        return page('Активний лот','<h2>Спочатку завершіть або збережіть поточний Google Photos лот у Hold.</h2>'),409
-    if LOT002_DRAFT_CACHE.get(pid) or ANALYSIS_CACHE.get(pid):return 'Поточний лот уже проаналізовано. Збережіть його в Hold і почніть новий, щоб не втратити дані.',409
-    if not files or len(files)+len(items)>24:return 'Дозволено від 1 до 24 фото на лот',400
+        return _mobile_upload_error('Завершіть або відкладіть поточний лот із Google Фото.', 409)
+    if LOT002_DRAFT_CACHE.get(pid) or ANALYSIS_CACHE.get(pid):return _mobile_upload_error('Поточний лот уже проаналізовано. Відкладіть його перед створенням нового.', 409)
+    if not files or len(files)+len(items)>24:return _mobile_upload_error('Дозволено від 1 до 24 фото на лот.', 400)
     converted=[]
     for f in files:
         raw=f.read(10*1024*1024+1)
-        if len(raw)>10*1024*1024:return 'Фото перевищує 10 МБ',413
+        if len(raw)>10*1024*1024:return _mobile_upload_error('Фото перевищує 10 МБ.', 413)
         try:
-            im=Image.open(BytesIO(raw))
-            if im.format not in ('JPEG','PNG','WEBP'):return 'Підтримуються JPEG, PNG, WebP',400
-            im.verify();raw=_mobile_resized(raw,2400)
-        except Exception:return 'Не вдалося прочитати зображення',400
-        converted.append((f.filename,raw))
+            with Image.open(BytesIO(raw)) as im:
+                if im.format not in ('JPEG', 'PNG', 'WEBP'):
+                    return _mobile_upload_error('Підтримуються формати JPEG, PNG і WEBP.', 400)
+                if im.width * im.height > 64_000_000:
+                    return _mobile_upload_error('Роздільність фото перевищує 64 мегапікселі.', 413)
+                if im.format == 'JPEG':
+                    im.draft('RGB', (2400, 2400))
+                im.thumbnail((2400, 2400))
+                oriented = ImageOps.exif_transpose(im).convert('RGB')
+                hint = measurement_hint(oriented, f.filename)
+                encoded = BytesIO()
+                oriented.save(encoded, 'JPEG', quality=92)
+        except (OSError, ValueError, Image.DecompressionBombError):
+            return _mobile_upload_error('Не вдалося прочитати зображення.', 400)
+        converted.append((f.filename, encoded.getvalue(), hint))
     if not pid:
         _sync_current_lot_once();pid='mobile-'+secrets.token_hex(16);session['picker_session_id']=pid
     root=_mobile_photo_root(pid);folder=os.path.basename(root)
-    for name,raw in converted:
+    items = list(items)
+    for name,raw,hint in converted:
         filename=secrets.token_hex(16)+'.jpg';_mobile_write(os.path.join(root,filename),raw)
-        items.append({'id':filename,'mobile_file':folder+'/'+filename,'mediaFile':{'filename':name,'mimeType':'image/jpeg'}})
+        items.append({'id':filename,'mobile_file':folder+'/'+filename,'mediaFile':{'filename':name,'mimeType':'image/jpeg'},'measurement_hint':hint})
     PHOTO_CACHE[pid]=items;session['photo_editor_approved']=False;APPROVED_PHOTO_CACHE.pop(pid,None)
     # Adding images invalidates stale approval, photo roles and all derived facts.
     try:os.remove(os.path.join(root,'approved.json'))
     except FileNotFoundError:pass
     for cache in (PHOTO_ROLE_CACHE,ANALYSIS_CACHE,IDENTIFICATION_CACHE,MARKET_CACHE,AUTO_FACT_CACHE,ITEM_STRUCTURE_CACHE,MEASUREMENT_CACHE,RESEARCH_SPEC_CACHE,LOT002_DRAFT_CACHE):cache.pop(pid,None)
-    if not _save_active_lot_checkpoint():return 'Не вдалося зберегти лот. Перевірте диск сервера.',503
+    if not _save_active_lot_checkpoint():return _mobile_upload_error('Не вдалося зберегти лот. Перевірте його перед повтором.', 503)
+    if request.accept_mimetypes.best == 'application/json':
+        return {'photos': len(items)}, 201
     return redirect('/mobile',code=303)
 
 @app.route('/mobile/manifest.webmanifest')
