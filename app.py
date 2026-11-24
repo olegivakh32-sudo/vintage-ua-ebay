@@ -39,7 +39,8 @@ import math
 import tempfile
 import statistics
 import threading
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from datetime import date
+from decimal import Decimal, DecimalException, InvalidOperation, ROUND_CEILING, ROUND_HALF_UP
 from io import BytesIO
 from itsdangerous import BadSignature, URLSafeSerializer
 from PIL import Image, ImageEnhance, ImageOps, ImageStat, ImageFilter
@@ -2787,18 +2788,42 @@ def _market_price_quality(market_text):
     if len(positives) >= 2 and max(positives) / max(min(positives), 0.01) > 8:
         reasons.append("Price tiers contain an extreme spread/outlier")
     source_urls = _reported_web_source_urls(market_text)
+    comparables = None
     if source_urls is not None:
+        comparables = {"ACTIVE": 0, "SOLD": 0}
         comps = _research_machine_json(market_text, 'MARKET_COMPS_JSON').get('comparables')
-        if not isinstance(comps, list) or not any(
-            isinstance(comp, dict) and isinstance(comp.get('url'), str)
-            and comp['url'] in source_urls and comp.get('status') in ('ACTIVE', 'SOLD')
-            and _p054_positive(comp.get('price_usd'), hard_max + 0.01)
-            and str(comp.get('match_evidence') or '').strip()
-            and (comp['status'] == 'ACTIVE' or str(comp.get('sale_evidence') or '').strip())
-            for comp in comps
-        ):
+        accepted = {}
+        conflicting = set()
+        for comp in comps if isinstance(comps, list) else ():
+            if not isinstance(comp, dict):
+                continue
+            url, status = comp.get('url'), comp.get('status')
+            if (not isinstance(url, str) or url not in source_urls or status not in ('ACTIVE', 'SOLD')
+                    or comp.get('currency', 'USD') != 'USD' or not isinstance(comp.get('match_evidence'), str)
+                    or not comp['match_evidence'].strip()):
+                continue
+            price = _p054_positive(comp.get('price_usd'), hard_max + 0.01)
+            if not price:
+                continue
+            if status == 'SOLD':
+                evidence = comp.get('sale_evidence')
+                if not isinstance(evidence, str) or not evidence.strip():
+                    continue
+                try:
+                    sold_date = date.fromisoformat(comp.get('sold_date') or '')
+                except (TypeError, ValueError):
+                    continue
+                if sold_date > date.today():
+                    continue
+            if url in accepted and accepted[url] != (status, price):
+                conflicting.add(url)
+            accepted[url] = (status, price)
+        for url, (status, _) in accepted.items():
+            if url not in conflicting:
+                comparables[status] += 1
+        if not any(comparables.values()):
             reasons.append('No usable price comparable linked to web search evidence')
-    return {"ok": not reasons, "reasons": reasons, "tiers": tiers}
+    return {"ok": not reasons, "reasons": reasons, "tiers": tiers, "comparables": comparables}
 
 
 def _reference_specs_from_research(identification, market):
@@ -4632,7 +4657,8 @@ PRICE_JSON {{"quick":null,"normal":null,"patient":null,"minimum":null}}
 SECOND LINE exactly:
 AUTO_SPECS_JSON {{"match_count":0,"confidence":0,"evidence_strength":0,"identity_status":"UNKNOWN","exact_model_confirmed":false,"weight_kg":null,"length_cm":null,"width_cm":null,"height_cm":null,"type":"UNKNOWN","material":"UNKNOWN","brand":"UNKNOWN","model":"UNKNOWN","country":"UNKNOWN","period":"UNKNOWN","sources_summary":""}}
 Populate these only from the verified identification and defensible market evidence.
-MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"match_evidence":"","sale_evidence":""}}]}}
+For SOLD, provide the explicit sale evidence and the observed sold date as YYYY-MM-DD. If either is missing, exclude the record. Use only USD prices.
+MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"currency":"USD","match_evidence":"","sale_evidence":"","sold_date":""}}]}}
 Use the exact page URL from web search. For SOLD, record the visible sale evidence, omitting unverified sales.
 
 Then return IN UKRAINIAN:
@@ -4692,7 +4718,8 @@ Then concise Ukrainian sections: status, what it is, markings/OCR, distinctive f
 === MARKET ===
 PRICE_JSON {{"quick":null,"normal":null,"patient":null,"minimum":null}}
 AUTO_SPECS_JSON {{"match_count":0,"confidence":0,"evidence_strength":0,"identity_status":"UNKNOWN","exact_model_confirmed":false,"weight_kg":null,"length_cm":null,"width_cm":null,"height_cm":null,"type":"UNKNOWN","material":"UNKNOWN","brand":"UNKNOWN","model":"UNKNOWN","country":"UNKNOWN","period":"UNKNOWN","sources_summary":""}}
-MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"match_evidence":"","sale_evidence":""}}]}}
+For SOLD, provide the explicit sale evidence and the observed sold date as YYYY-MM-DD. If either is missing, exclude the record. Use only USD prices.
+MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"currency":"USD","match_evidence":"","sale_evidence":"","sold_date":""}}]}}
 Use the exact page URL from web search. For SOLD, record the visible sale evidence, omitting unverified sales.
 Then concise Ukrainian sections: confirmed sold comps, active comps, closest comparable + differences, price logic, recommended prices, evidence-safe eBay title, category/type suggestion, safe item specifics, market confidence, sources.
 SPECS_EVIDENCE_JSON {{"sources":[{{"url":"","title":"","same_variant":false,"confidence":0,"matched_features":[],"contradictions":[],"weight_basis":"NET|GROSS|UNKNOWN","weight_kg":null,"length_cm":null,"width_cm":null,"height_cm":null}}]}}
@@ -5008,6 +5035,10 @@ def fast_research():
     tier_line = " | ".join([f"Quick: ${html.escape(tiers.get('quick') or '—')}", f"Normal: ${html.escape(tiers.get('normal') or '—')}", f"Patient: ${html.escape(tiers.get('patient') or '—')}"])
     price_quality = _market_price_quality(market)
     price_warning = "" if price_quality.get("ok") else "<p style='background:#fff3cd;padding:10px;border-radius:8px'><b>⚠ PRICE REVIEW:</b> " + html.escape("; ".join(price_quality.get("reasons") or [])) + ". No market price will be auto-accepted until corrected.</p>"
+    comps = price_quality['comparables']
+    if comps is not None:
+        price_warning += (f"<p>Ціни пропозицій у джерелах — {comps['ACTIVE']}. "
+                          f"Позначені джерелом продажі з датою — {comps['SOLD']}.</p>")
     missing_measurements = [name for name,val in (("weight",est_weight),("length",est_l),("width",est_w),("height",est_h)) if val in (None, "", 0, 0.0)]
     measurement_warning = "" if not missing_measurements else "<p style='background:#fff3cd;padding:10px;border-radius:8px'><b>⚠ SOME VALUES STILL UNKNOWN:</b> " + html.escape(", ".join(missing_measurements)) + ". Збережені покази підставляються автоматично; відсутні покази не вигадуються.</p>"
     if visual_estimate.get('p079_shipping_estimate'):
@@ -6349,7 +6380,8 @@ Minimum acceptable offer: $...
 9. BUYER SEARCH PHRASES (8-15 truthful phrases, strongest first)
 10. CONFIDENCE
 11. SOURCES
-MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"match_evidence":"","sale_evidence":""}}]}}
+For SOLD, provide the explicit sale evidence and the observed sold date as YYYY-MM-DD. If either is missing, exclude the record. Use only USD prices.
+MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"currency":"USD","match_evidence":"","sale_evidence":"","sold_date":""}}]}}
 Include exact web search URLs and visible evidence for SOLD.
 The four recommended prices must be numeric USD values whenever there is enough market evidence to list the item; if evidence is weak, choose conservative values and state low confidence rather than omitting the price."""
         try:
@@ -13107,7 +13139,8 @@ def compare_ua_us_net_profit(data):
     us_net = (us_gross - us_fees) * n['fx_uah_per_usd'] - us_cost
     ua_gross = n['ua_price_uah'] + n['ua_buyer_shipping_uah']
     ua_fees = ua_gross * n['ua_fee_pct'] / 100 + n['ua_fixed_fee_uah']
-    ua_net = ua_gross - ua_fees - n['ua_postage_uah'] - n['ua_packing_uah'] - n['ua_other_uah'] - n['cost_uah']
+    ua_cost = n['ua_postage_uah'] + n['ua_packing_uah'] + n['ua_other_uah'] + n['cost_uah']
+    ua_net = ua_gross - ua_fees - ua_cost
     delta = us_net - ua_net
     # Only externally verified records could justify a factual market recommendation.
     # This UI accepts seller-entered evidence; always label its result as a scenario.
@@ -13115,6 +13148,14 @@ def compare_ua_us_net_profit(data):
     for key, value in {'us_net_uah':us_net,'ua_net_uah':ua_net,'difference_uah':delta,
                        'us_fees_usd':us_fees,'ua_fees_uah':ua_fees}.items():
         result[key] = format(value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP), 'f')
+    for market, currency, cost in (('us', 'usd', us_cost / n['fx_uah_per_usd']), ('ua', 'uah', ua_cost)):
+        retained = 1 - n[f'{market}_fee_pct'] / 100
+        fixed_cost = cost + n[f'{market}_fixed_fee_{currency}']
+        threshold = max(Decimal(0), fixed_cost / retained - n[f'{market}_buyer_shipping_{currency}']) if retained else None
+        result[f'{market}_break_even_{currency}'] = (
+            format(threshold.quantize(Decimal('0.01'), rounding=ROUND_CEILING), 'f')
+            if threshold is not None else ('0.00' if not fixed_cost else None)
+        )
     return result
 
 
@@ -13145,6 +13186,9 @@ def market_compare():
             if picker_id:
                 MARKET_COMPARISON_CACHE[picker_id] = {'inputs':values,'result':result}
                 _save_active_lot_checkpoint()
+        except DecimalException:
+            error = 'Значення виходять за обчислюваний діапазон. Перевірте курс і комісії.'
+            result, status = None, 400
         except ValueError as exc:
             error = str(exc)
             status = 400
@@ -13158,11 +13202,18 @@ def market_compare():
     inputs += ''.join(f'<p><label>{esc(label)}<br><input name="{key}" value="{esc(values.get(key,""))}" maxlength="1500"></label></p>' for key,label in evidence)
     table = ''
     if result:
+        us_floor = result.get('us_break_even_usd')
+        ua_floor = result.get('ua_break_even_uah')
+        floors = ''
+        if 'us_break_even_usd' in result:
+            us_floor = f'${us_floor}' if us_floor is not None else 'недосяжна'
+            ua_floor = f'{ua_floor} грн' if ua_floor is not None else 'недосяжна'
+            floors = f'<p>Беззбиткова ціна товару. США — {us_floor}. Україна — {ua_floor}.</p>'
         winner = {'US':'США','UA':'Україна','EQUAL':'Однаково'}[result['better_market']]
         table = (f'<h3>За введеними даними вигідніше: {winner}</h3><table><tr><th>Ринок</th><th>Прибуток, грн</th></tr>'
                  f'<tr><td>США</td><td>{result["us_net_uah"]}</td></tr><tr><td>Україна</td><td>{result["ua_net_uah"]}</td></tr></table>'
                  f'<p>Різниця США − Україна: {result["difference_uah"]} грн.</p>'
-                 '<p>Сценарний розрахунок. Джерела та статус продажу автоматично не перевірялися. Від’ємне значення означає збиток.</p>')
+                 + floors + '<p>Сценарний розрахунок. Джерела та статус продажу автоматично не перевірялися. Від’ємне значення означає збиток.</p>')
     body = ('<h2>США / Україна — порівняння прибутку</h2>'
             '<p>Рахуйте одну одиницю продажу: один предмет або весь лот. Дані з готової чернетки підставляються без нового аналізу.</p>'
             '<p>Вкажіть усі витрати, включно з податками, рекламою, конвертацією та резервом повернень у полі «інші». Якщо витрат немає, введіть 0. Комісія рахується з ціни товару та доставки покупця.</p>'

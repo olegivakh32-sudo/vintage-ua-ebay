@@ -230,6 +230,32 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(estimate(dict(comp, price_usd=-1)), "")
             self.assertEqual(m._market_bin_price(price), "25")
 
+    def test_sold_comparables_require_a_date_and_conflicts_do_not_count(self):
+        url = 'https://market.example/item/1'
+        comp = {'url': url, 'status': 'SOLD', 'price_usd': 23, 'currency': 'USD',
+                'match_evidence': 'Same stamped model number', 'sale_evidence': 'Completed sale'}
+        def comparables(*rows):
+            report = ('PRICE_JSON {"normal":25}\nMARKET_COMPS_JSON ' + json.dumps({'comparables': rows})
+                      + '\nWEB_TOOL_SOURCES_JSON ' + json.dumps({'urls': [url]}))
+            return m._market_price_quality(report)['comparables']
+
+        dated = dict(comp, sold_date='2025-05-01')
+        self.assertEqual(comparables(dated, dated), {'ACTIVE': 0, 'SOLD': 1})
+        for unusable in (comp, dict(dated, sold_date='9999-01-01'), dict(dated, currency='PLN')):
+            self.assertEqual(comparables(unusable), {'ACTIVE': 0, 'SOLD': 0})
+        self.assertEqual(comparables(dated, dict(dated, status='ACTIVE')), {'ACTIVE': 0, 'SOLD': 0})
+
+    def test_market_break_even_accounts_for_shipping_fees_and_currency(self):
+        values = {'fx_uah_per_usd': 40, 'cost_uah': 125, 'us_price_usd': 25,
+                  'us_buyer_shipping_usd': 5, 'us_fee_pct': 10, 'us_fixed_fee_usd': 0.3,
+                  'us_postage_uah': 140, 'us_packing_uah': 20, 'us_other_uah': 15,
+                  'ua_price_uah': 450, 'ua_buyer_shipping_uah': 40, 'ua_fee_pct': 5,
+                  'ua_fixed_fee_uah': 5, 'ua_postage_uah': 60, 'ua_packing_uah': 20, 'ua_other_uah': 10}
+        report = m.compare_ua_us_net_profit(values)
+        self.assertEqual(report['us_break_even_usd'], '3.67')
+        self.assertEqual(report['ua_break_even_uah'], '191.58')
+        self.assertIsNone(m.compare_ua_us_net_profit(dict(values, us_fee_pct=100))['us_break_even_usd'])
+
     def test_hold_restores_draft_and_photo_without_ai(self):
         picker = "hold-test"
         draft = {"title": "Pocket watch with inspected exterior", "price": "25"}
