@@ -59,6 +59,23 @@ APP_RELEASE = "P094 · Android 3"
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 250 * 1024 * 1024
 
+@app.before_request
+def require_operator_access():
+    password = os.environ.get('VINTAGE_OPERATOR_PASSWORD')
+    if not password or request.endpoint == 'health':
+        return None
+    auth = request.authorization
+    if (auth is None or auth.type != 'basic' or auth.username != 'vintage'
+            or not secrets.compare_digest((auth.password or '').encode(), password.encode())):
+        return Response('Потрібен доступ власника.', status=401, headers={
+            'WWW-Authenticate': 'Basic realm="Vintage UA", charset="UTF-8"',
+            'Cache-Control': 'no-store',
+        })
+    if request.method in {'POST', 'PUT', 'PATCH', 'DELETE'} and request.headers.get('Sec-Fetch-Site') == 'cross-site':
+        return Response('Відкрийте дію безпосередньо в застосунку.', status=403)
+    return None
+
+
 # P045: a fixed fallback secret is unsafe on a public deployment.
 # Keep legacy local startup compatible, but refuse requests without a real secret
 # when running on Render. Set APP_SECRET in Render environment settings.
@@ -12241,6 +12258,9 @@ def _p058_refresh_registered_hold(snapshot):
         for row in rows:
             old=json.loads(row['data'])
             if int(old.get('lot_number') or 0)!=int(snapshot.get('current_lot_number') or 0):continue
+            stored_snapshot = old.get('snapshot') or {}
+            if float(stored_snapshot.get('saved_at') or 0) > float(snapshot.get('saved_at') or 0):
+                continue
             data=_p058_record(snapshot,old)
             db.execute('UPDATE hold_lots SET data=?,updated=? WHERE id=?',(json.dumps(_p054_json_safe(data),ensure_ascii=False,allow_nan=False),time.time(),row['id']))
             _p058_bump(db)

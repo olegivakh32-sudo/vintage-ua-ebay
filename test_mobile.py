@@ -58,4 +58,27 @@ class MobileTests(unittest.TestCase):
   with m.app.test_request_context('/'):
    with self.assertRaisesRegex(RuntimeError,'AI'):m.call_openai({'input':'test'})
  def test_existing_photo_order(self):self.assertEqual(m._build_logical_photo_order([{}, {}, {}],2),[2,1,3])
+
+
+class OperatorAccessTests(unittest.TestCase):
+    def test_private_mode_protects_lot_and_hold(self):
+        from base64 import b64encode
+
+        client = m.app.test_client()
+        headers = {'Authorization': 'Basic ' + b64encode(b'vintage:fixture-password').decode()}
+        private_paths = ('/mobile', '/picker/thumb/1', '/lot/state', '/hold/state',
+                         '/hold/export', '/ebay/hold-queue')
+        with patch.dict(os.environ, {'VINTAGE_OPERATOR_PASSWORD': 'fixture-password'}):
+            for path in private_paths:
+                with self.subTest(path=path):
+                    response = client.get(path)
+                    self.assertEqual(response.status_code, 401)
+                    self.assertEqual(response.headers['Cache-Control'], 'no-store')
+            self.assertEqual(client.get('/health').status_code, 200)
+            self.assertEqual(client.get('/mobile', headers=headers).status_code, 200)
+            self.assertEqual(client.get('/hold/state', headers=headers).status_code, 200)
+            cross_site = {**headers, 'Sec-Fetch-Site': 'cross-site'}
+            self.assertEqual(client.post('/mobile/upload', headers=cross_site).status_code, 403)
+
+
 if __name__=='__main__':unittest.main(verbosity=2)

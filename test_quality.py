@@ -247,8 +247,10 @@ class WorkflowTests(unittest.TestCase):
                                  main_photo_index=1, photo_order=[1], photo_editor_approved=True)
                 rid = m._p058_capture_current()
                 self.assertEqual(m._p058_capture_current(), rid)
+                earlier = json.loads(m._p058_row(rid)["data"])["snapshot"]
                 draft["price"] = "29"
                 self.assertTrue(m._save_active_lot_checkpoint())
+                m._p058_refresh_registered_hold(earlier)
             for cache in (m.PHOTO_CACHE, m.LOT002_DRAFT_CACHE, m.APPROVED_PHOTO_CACHE):
                 cache.pop(picker)
             with m.app.test_request_context():
