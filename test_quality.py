@@ -316,3 +316,34 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(client.post("/ebay/current-publish", data=form).status_code, 502)
             publish.assert_called_once()
             self.assertTrue(publish.call_args.args[0].endswith("/mock-offer/publish"))
+
+    def test_mobile_24_photos_can_be_edited_without_ai(self):
+        from io import BytesIO
+        from PIL import Image
+
+        photo = BytesIO()
+        Image.new("RGB", (80, 60), "red").save(photo, "JPEG")
+        client = m.app.test_client()
+        with patch.object(m, "_sync_current_lot_once", return_value=503):
+            client.get("/mobile")
+            with client.session_transaction() as active:
+                csrf = active["hold_csrf"]
+                active["current_lot_number"] = 503
+            uploaded = client.post("/mobile/upload", data={
+                "hold_csrf": csrf,
+                "photos": [(BytesIO(photo.getvalue()), f"{i}.jpg") for i in range(1, 25)],
+            })
+            self.assertEqual(uploaded.status_code, 303)
+            self.assertIn(b'name="product_photo"', client.get("/picker/editor").data)
+            self.assertEqual(client.post("/picker/editor", data={"product_photo": "1"}).status_code, 403)
+            selected = client.post("/picker/editor", data={
+                "hold_csrf": csrf, "product_photo": [str(i) for i in range(1, 25)],
+            })
+            self.assertEqual(selected.status_code, 303)
+            self.assertEqual(client.get("/picker/editor").status_code, 200)
+            approved = client.post("/picker/editor/approve", data={"main_photo": 24, "b_24": 1.1})
+            self.assertEqual(approved.status_code, 302)
+            with client.session_transaction() as active:
+                self.assertEqual(active["photo_order"], [24, *range(1, 24)])
+                self.assertTrue(active["photo_editor_approved"])
+            self.assertEqual(client.get("/picker/approved/24").status_code, 200)

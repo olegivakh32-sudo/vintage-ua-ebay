@@ -469,12 +469,40 @@ def _download_picker_photo(index, edited=False, max_side=2400, edit_settings=Non
     return data
 
 
-@app.route("/picker/editor")
+@app.route("/picker/editor", methods=["GET", "POST"])
 def picker_editor():
     picker_id = session.get("picker_session_id")
     items = PHOTO_CACHE.get(picker_id, [])
     if not (1 <= len(items) <= 32):
         return page("Photo editor", "<h2>Select from 1 to 32 total photos first.</h2><p><a href='/picker/start'>Select photos</a></p>"), 400
+    if request.method == "POST":
+        if not _p058_csrf_valid():
+            return 'Оновіть форму вибору фото', 403
+        if PHOTO_ROLE_CACHE.get(picker_id) or not all(item.get('mobile_file') for item in items):
+            return 'Вибір ролей уже збережено або цей лот створено через Google Photos.', 409
+        raw = request.form.getlist('product_photo')
+        valid = {str(i) for i in range(1, len(items) + 1)}
+        if not raw or not set(raw) <= valid or len(set(raw)) > 24:
+            return 'Виберіть від 1 до 24 фото товару.', 400
+        products = set(raw)
+        PHOTO_ROLE_CACHE[picker_id] = {
+            i: 'EBAY_PRODUCT' if str(i) in products else 'EVIDENCE_ONLY'
+            for i in range(1, len(items) + 1)
+        }
+        if not _save_active_lot_checkpoint():
+            PHOTO_ROLE_CACHE.pop(picker_id, None)
+            return 'Не вдалося зберегти вибір фото.', 503
+        return redirect('/picker/editor', code=303)
+    if not PHOTO_ROLE_CACHE.get(picker_id) and all(item.get('mobile_file') for item in items):
+        options = ''.join(
+            f'<label style="display:inline-block;margin:6px"><input type="checkbox" name="product_photo" '
+            f'value="{i}" checked> Фото {i}<br><img src="/picker/thumb/{i}" width="96" alt=""></label>'
+            for i in range(1, len(items) + 1)
+        )
+        return page('Вибір фото товару', '<h2>Фото для оголошення</h2>'
+                    '<p>Зніміть позначку з кадрів, які потрібні лише для вимірів або як довідка.</p>'
+                    '<form method="post"><input type="hidden" name="hold_csrf" value="' + _p058_csrf()
+                    + '">' + options + '<p><button>Відкрити редактор</button></p></form>')
     if not PHOTO_ROLE_CACHE.get(picker_id):
         return page("Photo editor", "<h2>Automatic photo split is required first.</h2><p><a href='/picker/items'>Analyze + split photos</a></p>"), 409
     eligible = _ebay_photo_indices(items, picker_id)
