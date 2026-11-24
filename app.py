@@ -6926,25 +6926,64 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
     return redirect('/picker/review-final-draft', code=303)
 
 
+def _draft_confirmation_digest(draft, sku):
+    reviewed = {key: value for key, value in draft.items() if key != 'seller_confirmation_receipt'}
+    return _final_publish_digest(reviewed, 'draft-review:' + sku)
+
+
 @app.route("/picker/confirm-final-draft", methods=["POST"])
 def confirm_final_draft():
-    draft=_current_draft(); label=_current_lot_label()
-    if not draft: return page("Draft missing","<h2>Draft is missing. Nothing was sent to eBay.</h2>"),400
-    raw=request.form.get("confirmed_price","").strip().replace(",",".")
+    review_link = '<p><a href="/picker/review-final-draft">Відкрити актуальну чернетку</a></p>'
+    if not _p058_csrf_valid():
+        return page('Підтвердження чернетки', '<h2>Оновіть форму підтвердження</h2>' + review_link), 403
+    picker_id = session.get('picker_session_id')
+    if not LOT002_DRAFT_CACHE.get(picker_id):
+        return page('Чернетка недоступна', '<h2>Чернетку лота не знайдено</h2>'), 400
+    raw = request.form.get('confirmed_price', '').strip().replace(',', '.')
     try:
-        val=float(raw)
-        if not math.isfinite(val) or val<=0 or val>999999: raise ValueError
-    except ValueError: return page("Invalid price","<h2>Enter a valid positive USD price.</h2><p>Nothing was sent to eBay.</p>"),400
-    draft["price"]=f"{val:.2f}"
-    draft["price_confirmed"]=True
-    if not draft.get("price_research_ok"):
-        draft["price_source"]="SELLER_MANUAL"
-    draft["confirmed_material"]=request.form.get("confirmed_material","").strip()
-    draft["material_confirmed"]=True
-    draft["seller_reviewed"]=True
-    LOT002_DRAFT_CACHE[session.get("picker_session_id")]=draft
-    _save_active_lot_checkpoint()
-    return redirect("/ebay/current-preflight")
+        value = Decimal(raw)
+        if not value.is_finite() or not 0 < value <= 999999:
+            raise InvalidOperation
+        price = format(value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP), 'f')
+        if price == '0.00':
+            raise InvalidOperation
+    except InvalidOperation:
+        return page('Некоректна ціна', '<h2>Введіть ціну від $0,01 до $999 999</h2>' + review_link), 400
+
+    submitted = request.form.get('draft_digest', '')
+    material = request.form.get('confirmed_material', '').strip()
+    sku = _current_lot_sku()
+    with _p054_lot_lock('ebay-write:' + sku):
+        draft = _current_draft()
+        current = _draft_confirmation_digest(draft, sku)
+        if not draft or not secrets.compare_digest(submitted.encode(), current.encode()):
+            receipt = draft.get('seller_confirmation_receipt') or {}
+            if submitted and receipt == {
+                'input_digest': submitted, 'result_digest': current, 'price': price, 'material': material,
+            }:
+                return redirect('/ebay/current-preflight', code=303)
+            return page('Чернетка змінилася', '<h2>Цю форму відкрито для попередньої версії лота</h2>'
+                        '<p>Перевірте чинну ціну та матеріали перед повторним підтвердженням.</p>' + review_link), 409
+
+        updated = dict(draft, price=price, price_confirmed=True, confirmed_material=material,
+                       material_confirmed=True, seller_reviewed=True)
+        if not draft.get('price_research_ok'):
+            updated['price_source'] = 'SELLER_MANUAL'
+        if draft.get('listing_text'):
+            updated['listing_text'] = re.sub(
+                r'(?m)(^2 PRICE USD\n)[^\n]*', lambda match: match[1] + '$' + price,
+                str(draft['listing_text']), count=1,
+            )
+        updated['seller_confirmation_receipt'] = {
+            'input_digest': submitted, 'result_digest': _draft_confirmation_digest(updated, sku),
+            'price': price, 'material': material,
+        }
+        LOT002_DRAFT_CACHE[picker_id] = updated
+        if not _save_active_lot_checkpoint():
+            LOT002_DRAFT_CACHE[picker_id] = draft
+            return page('Не вдалося зберегти чернетку',
+                        '<h2>Попередню версію чернетки збережено</h2>' + review_link), 503
+    return redirect('/ebay/current-preflight', code=303)
 
 
 @app.route("/picker/review-final-draft")
@@ -6956,7 +6995,8 @@ def review_final_draft():
     listing_text=str(draft.get('listing_text') or '')
     price=str(draft.get('price') or '')
     material=str(draft.get('confirmed_material') or '')
-    return page(label+" Final eBay Listing",f"""<h2>{label} — Final eBay Listing Draft</h2><p style='color:#176b2c'><b>Draft ready — saved result, no repeated AI request.</b></p><p><b>Seller-verified visible marking:</b> {html.escape(str(draft.get('seller_verified_marking') or 'none'))}</p><p><b>Draft evidence readiness:</b> {html.escape(str(draft.get('listing_readiness') or 'not scored'))}% — category/condition/photo checks are performed in Preflight.</p>{_usage_summary_html(session.get('picker_session_id'))}<pre style='white-space:pre-wrap'>{html.escape(listing_text)}</pre><hr><form action='/picker/confirm-final-draft' method='post'><p><label><b>Final Buy It Now price, USD:</b><br><input name='confirmed_price' type='number' min='0.01' step='0.01' value='{html.escape(price,quote=True)}' required style='font-size:20px;padding:10px;width:180px'></label></p><p><label><b>Material(s), editable override:</b><br><input name='confirmed_material' value='{html.escape(material,quote=True)}' placeholder='leave blank if unknown' style='font-size:18px;padding:10px;width:min(520px,90%)'></label></p><button type='submit' style='font-size:18px;padding:14px 18px;font-weight:bold'>Continue → eBay Preflight</button></form>""")
+    digest = _draft_confirmation_digest(draft, _current_lot_sku())
+    return page(label+" Final eBay Listing",f"""<h2>{label} — Final eBay Listing Draft</h2><p style='color:#176b2c'><b>Draft ready — saved result, no repeated AI request.</b></p><p><b>Seller-verified visible marking:</b> {html.escape(str(draft.get('seller_verified_marking') or 'none'))}</p><p><b>Draft evidence readiness:</b> {html.escape(str(draft.get('listing_readiness') or 'not scored'))}% — category/condition/photo checks are performed in Preflight.</p>{_usage_summary_html(session.get('picker_session_id'))}<pre style='white-space:pre-wrap'>{html.escape(listing_text)}</pre><hr><form action='/picker/confirm-final-draft' method='post'><input type="hidden" name="hold_csrf" value="{_p058_csrf()}"><input type="hidden" name="draft_digest" value="{digest}"><p><label><b>Final Buy It Now price, USD:</b><br><input name='confirmed_price' type='number' min='0.01' step='0.01' value='{html.escape(price,quote=True)}' required style='font-size:20px;padding:10px;width:180px'></label></p><p><label><b>Material(s), editable override:</b><br><input name='confirmed_material' value='{html.escape(material,quote=True)}' placeholder='leave blank if unknown' style='font-size:18px;padding:10px;width:min(520px,90%)'></label></p><button type='submit' style='font-size:18px;padding:14px 18px;font-weight:bold'>Continue → eBay Preflight</button></form>""")
 
 # =========================================================
 # EBAY MEDIA API — SAFE ONE-PHOTO TEST FOR LOT 001
