@@ -47,13 +47,55 @@ class MobileTests(unittest.TestCase):
    self.assertTrue(m._save_active_lot_checkpoint());m.APPROVED_PHOTO_CACHE.pop(pid);m.LOT002_DRAFT_CACHE.pop(pid);m.PHOTO_CACHE.pop(pid)
    self.assertTrue(m._restore_active_lot_checkpoint());self.assertEqual(m.APPROVED_PHOTO_CACHE[pid][1]['bytes'],raw);self.assertTrue(m.session['photo_editor_approved']);self.assertEqual(m.LOT002_DRAFT_CACHE[pid]['title'],'Saved lot')
  def test_publish_disabled_all_entrypoints(self):
-  for path in ['/ebay/current-publish-auto','/ebay/current-publish','/ebay/hold-queue/publish']:
+  for path in ['/ebay/current-publish-auto','/ebay/current-publish','/ebay/hold-queue/publish',
+               '/ebay/publish-lot001','/ebay/republish-lot001','/ebay/publish-lot002']:
    self.assertEqual(self.client.post(path).status_code,409)
  def test_final_publish_rejects_csrf(self):
   with patch.dict(os.environ,{'ENABLE_LIVE_PUBLISH':'1'}):self.assertEqual(self.client.post('/ebay/current-publish').status_code,403)
  def test_final_publish_rejects_unreviewed(self):
   token=self.csrf()
   with patch.dict(os.environ,{'ENABLE_LIVE_PUBLISH':'1'}):self.assertEqual(self.client.post('/ebay/current-publish',data={'hold_csrf':token}).status_code,409)
+ def test_hold_preparation_requires_separate_confirmation(self):
+  csrf = self.csrf()
+  draft = {'seller_reviewed': True, 'price_confirmed': True, 'title': 'Film camera', 'shipping_usd': '10.99'}
+  with (
+      patch.dict(os.environ, {'ENABLE_LIVE_PUBLISH': '1'}),
+      patch.object(m, '_p058_row', return_value={'sku': 'LOT-046', 'status': 'active'}),
+      patch.object(m, '_p058_open_record'),
+      patch.object(m, '_current_lot_sku', return_value='LOT-046'),
+      patch.object(m, '_current_draft', return_value=draft),
+      patch.object(m, 'get_ebay_access_token', return_value='stub') as token,
+      patch.object(m, '_current_get_offers', return_value=[{}]),
+      patch.object(m, '_p057_category_snapshot_check', return_value=(True, '')),
+      patch.object(m, '_p087_quality_block', return_value=''),
+      patch.object(m, '_p088_sales_block', return_value=''),
+      patch.object(m, '_p063_plan', return_value={}),
+      patch.object(m, '_p065_apply_sync') as sync,
+      patch.object(m, '_save_active_lot_checkpoint', return_value=True),
+  ):
+   response = self.client.post('/ebay/hold-queue/publish', data={'hold_csrf': csrf, 'record_id': 'fixture'})
+   self.assertEqual(response.status_code, 303)
+   self.assertEqual(response.location, '/ebay/current-publish')
+   sync.assert_called_once()
+   token.reset_mock()
+   direct = self.client.post(response.location, data={'hold_csrf': csrf, 'review_digest': 'previous-draft'})
+   self.assertEqual(direct.status_code, 409)
+   self.assertIn('Підтвердження застаріло', direct.get_data(as_text=True))
+   token.assert_not_called()
+
+ def test_legacy_publisher_with_live_enabled_cannot_write(self):
+  csrf = self.csrf()
+  with patch.dict(os.environ, {'ENABLE_LIVE_PUBLISH': '1'}):
+   for path, sku in [('/ebay/publish-lot001', 'LOT-001'), ('/ebay/republish-lot001', 'LOT-001'),
+                     ('/ebay/publish-lot002', 'LOT-002')]:
+    with self.subTest(path=path), patch.object(m, '_current_lot_sku', return_value=sku):
+     self.assertEqual(self.client.post(path).status_code, 403)
+     with self.client.session_transaction() as state:
+      state['picker_session_id'] = 'legacy-fixture'
+     response = self.client.post(path, data={'hold_csrf': csrf})
+     self.assertEqual(response.status_code, 303)
+     self.assertEqual(response.location, '/ebay/current-publish')
+
  def test_paid_ai_disabled(self):
   with m.app.test_request_context('/'):
    with self.assertRaisesRegex(RuntimeError,'AI'):m.call_openai({'input':'test'})

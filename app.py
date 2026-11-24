@@ -9157,13 +9157,23 @@ def ebay_lot001_publish_readiness():
 
 
 # =========================================================
-# LOT 001 — FINAL SAFE PUBLISH
-# GET = authoritative confirmation only.
-# POST = re-checks all critical fields, then calls publishOffer once.
+# LOT 001 — historical read-only verification.
 # =========================================================
+
+def _legacy_publish_confirmation(sku):
+    if not _p058_csrf_valid():
+        return page('Форма публікації', '<h2>Відкрийте актуальну чернетку лота</h2>'
+                    '<a href="/ebay/hold-queue">Перейти до HOLD</a>'), 403
+    if session.get('picker_session_id') and _current_lot_sku() == sku:
+        return redirect('/ebay/current-publish', code=303)
+    return page('Форма публікації', '<h2>Відкрийте цей лот у HOLD</h2>'
+                '<a href="/ebay/hold-queue">Відкрити HOLD</a>'), 409
+
 
 @app.route('/ebay/publish-lot001', methods=['GET','POST'])
 def ebay_publish_lot001():
+    if request.method == 'POST':
+        return _legacy_publish_confirmation('LOT-001')
     try:
         access_token = get_ebay_access_token()
         headers = {
@@ -9247,97 +9257,16 @@ def ebay_publish_lot001():
               <p><b>publishOffer was NOT called.</b></p>
             """),409
 
-        if request.method=='GET':
-            return page('LOT 001 — final publish confirmation',f"""
-              <h2>LOT 001 — FINAL PUBLISH CONFIRMATION</h2>
-              <p><b>All authoritative safety checks passed.</b></p>
-              <table border="1" cellpadding="5" cellspacing="0">
-                <tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}
-              </table>
-              <h3>This next button WILL publish the listing live on eBay.com.</h3>
-              <p>Offer ID: {offer_id} &nbsp; | &nbsp; SKU: {sku}</p>
-              <p>Price: $49.99 USD &nbsp; | &nbsp; Quantity: 1 &nbsp; | &nbsp; Shipping policy: $49.99 to USA</p>
-              <form method="post">
-                <button type="submit" style="padding:14px 20px;font-size:17px;font-weight:bold;">
-                  PUBLISH LOT-001 LIVE ON EBAY
-                </button>
-              </form>
-            """)
-
-        # POST: immediately re-read everything so a stale confirmation page cannot publish changed data.
-        orr2,irr2,crr2=get_authoritative()
-        if orr2.status_code!=200 or irr2.status_code!=200 or crr2.status_code!=200:
-            return page('LOT 001 publish safety stop',"""
-              <h2>Final re-check failed.</h2>
-              <p><b>publishOffer was NOT called.</b></p>
-            """),502
-
-        o2=orr2.json(); i2=irr2.json()
-        p2=i2.get('product') or {}
-        a2=p2.get('aspects') or {}
-        lp2=o2.get('listingPolicies') or {}
-        pr2=((o2.get('pricingSummary') or {}).get('price') or {})
-        c2=False
-        for pol in (crr2.json().get('itemConditionPolicies') or []):
-            if str(pol.get('categoryId') or '')==category_id:
-                c2=any(str(x.get('conditionId') or '')=='7000' for x in (pol.get('itemConditions') or []))
-
-        final_ok=(
-          o2.get('status')=='UNPUBLISHED' and o2.get('sku')==sku
-          and o2.get('marketplaceId')==marketplace
-          and str(o2.get('categoryId') or '')==category_id
-          and o2.get('format')=='FIXED_PRICE'
-          and o2.get('listingDuration')=='GTC'
-          and o2.get('availableQuantity')==1
-          and str(pr2.get('value')) in ('49.99','49.990','49.9900')
-          and pr2.get('currency')=='USD'
-          and o2.get('merchantLocationKey')=='vintage-ua-warehouse-1'
-          and lp2.get('paymentPolicyId')=='275629409012'
-          and lp2.get('returnPolicyId')=='275629453012'
-          and lp2.get('fulfillmentPolicyId')=='275629516012'
-          and i2.get('condition')=='FOR_PARTS_OR_NOT_WORKING'
-          and len(p2.get('imageUrls') or [])==24
-          and bool(a2.get('Brand'))
-          and 'Country of Origin' not in a2
-          and 'Time Period Manufactured' not in a2
-          and c2
-        )
-        if not final_ok:
-            return page('LOT 001 publish safety stop',"""
-              <h2>Data changed between confirmation and publish.</h2>
-              <p><b>Safety stop. publishOffer was NOT called.</b></p>
-            """),409
-
-        publish_url=f'https://api.ebay.com/sell/inventory/v1/offer/{offer_id}/publish'
-        pub=requests.post(publish_url,headers={**headers,'Content-Type':'application/json'},timeout=45)
-
-        if pub.status_code not in (200,201):
-            return page('LOT 001 publish failed',f"""
-              <h2>eBay did not publish LOT-001</h2>
-              <p><b>publishOffer HTTP {pub.status_code}</b></p>
-              <pre style="white-space:pre-wrap;word-break:break-word;">{html.escape(pub.text[:10000])}</pre>
-              <p>Do not press Publish again until this response is reviewed.</p>
-            """),502
-
-        try:
-            pdata=pub.json()
-        except Exception:
-            pdata={}
-
-        listing_id=pdata.get('listingId') or ''
-        verify=requests.get(offer_url,headers=headers,timeout=30)
-        verified_status=''
-        if verify.status_code==200:
-            verified_status=str((verify.json() or {}).get('status') or '')
-
-        return page('LOT 001 — PUBLISHED',f"""
-          <h2>LOT 001 — eBay publish request succeeded</h2>
-          <p><b>publishOffer HTTP:</b> {pub.status_code}</p>
-          <p><b>Listing ID:</b> {html.escape(str(listing_id))}</p>
-          <p><b>Offer verification GET:</b> HTTP {verify.status_code}</p>
-          <p><b>Offer status after publish:</b> {html.escape(verified_status)}</p>
-          <p><b>Do not press Publish again.</b></p>
+        return page('LOT 001 — final publish confirmation',f"""
+          <h2>LOT 001 — FINAL PUBLISH CONFIRMATION</h2>
+          <p><b>All authoritative safety checks passed.</b></p>
+          <table border="1" cellpadding="5" cellspacing="0">
+            <tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}
+          </table>
+          <p>Offer ID: {offer_id} &nbsp; | &nbsp; SKU: {sku}</p>
+          <p><a href="/ebay/hold-queue">Відкрити лот у HOLD для фінальної перевірки</a></p>
         """)
+
 
     except Exception as exc:
         return page('LOT 001 publish error',f"""
@@ -9715,6 +9644,8 @@ def ebay_lot001_final_recheck():
 
 @app.route('/ebay/republish-lot001', methods=['GET','POST'])
 def ebay_republish_lot001():
+    if request.method == 'POST':
+        return _legacy_publish_confirmation('LOT-001')
     try:
         token=get_ebay_access_token()
         h={'Authorization':f'Bearer {token}','Accept':'application/json'}
@@ -9760,28 +9691,10 @@ def ebay_republish_lot001():
         ok=all(x[1] for x in snap['checks'])
         rows=''.join('<tr><td>%s</td><td><b>%s</b></td><td>%s</td></tr>'%(html.escape(str(n)),'PASS' if v else 'FAIL',html.escape(str(a))) for n,v,a in snap['checks'])
         main=html.escape(snap['imgs'][0]) if snap['imgs'] else ''
-        if request.method=='GET':
-            button='<form method="post"><button style="padding:16px;font-size:18px" %s>REPUBLISH LOT-001 LIVE ON EBAY</button></form>'%('' if ok else 'disabled')
-            body='<h2>LOT 001 — FINAL REPUBLISH CONFIRMATION</h2><p><b>%s</b></p><table border="1" cellpadding="5" cellspacing="0"><tr><th>Check</th><th>Result</th><th>Actual</th></tr>%s</table><h3>Main Photo</h3><img src="%s" style="max-width:300px;max-height:300px"><p><b>GET changed nothing. Nothing is live from this page yet.</b></p>%s'%(('ALL CHECKS PASS' if ok else 'SAFETY STOP'),rows,main,button)
-            return page('LOT001 republish',body)
-        if not ok:
-            return page('LOT001 republish','<h2>SAFETY STOP</h2><p>A required check failed. publishOffer was NOT called.</p>'),409
+        link = '<p><a href="/ebay/hold-queue">Відкрити лот у HOLD для фінальної перевірки</a></p>'
+        body='<h2>LOT 001 — перевірка Offer</h2><p><b>%s</b></p><table border="1" cellpadding="5" cellspacing="0"><tr><th>Check</th><th>Result</th><th>Actual</th></tr>%s</table><h3>Main Photo</h3><img src="%s" style="max-width:300px;max-height:300px">'%(('ALL CHECKS PASS' if ok else 'SAFETY STOP'),rows,main)
+        return page('LOT001 republish',body+link)
 
-        # Re-read immediately before the one consequential call.
-        snap2,err2=snapshot()
-        if err2 or not all(x[1] for x in snap2['checks']):
-            return page('LOT001 republish','<h2>SAFETY STOP</h2><p>Authoritative data changed before publish. publishOffer was NOT called.</p>'),409
-
-        ph=dict(h); ph['Content-Type']='application/json'
-        pr=requests.post(f'https://api.ebay.com/sell/inventory/v1/offer/{offer_id}/publish',headers=ph,timeout=45)
-        if pr.status_code not in (200,201):
-            return page('LOT001 republish','<h2>eBay publish failed</h2><p>HTTP: <b>%s</b></p><pre>%s</pre><p><b>Do not press Publish again.</b></p>'%(pr.status_code,html.escape(pr.text))),502
-        try: pdata=pr.json() or {}
-        except Exception: pdata={}
-        listing_id=pdata.get('listingId')
-        vr=requests.get(f'https://api.ebay.com/sell/inventory/v1/offer/{offer_id}',headers=h,timeout=30)
-        vo=vr.json() if vr.status_code==200 else {}
-        return page('LOT001 republish','<h2>LOT 001 — eBay republish request succeeded</h2><p>publishOffer HTTP: <b>%s</b></p><p>Listing ID: <b>%s</b></p><p>Offer verification GET: HTTP <b>%s</b></p><p>Offer status after publish: <b>%s</b></p><p><b>Do not press Publish again.</b></p>'%(pr.status_code,html.escape(str(listing_id)),vr.status_code,html.escape(str(vo.get('status')))))
     except Exception as exc:
         return page('LOT001 republish error','<h2>Error</h2><pre>%s</pre><p>Do not retry until this result is reviewed.</p>'%html.escape(str(exc))),500
 
@@ -10226,6 +10139,8 @@ def ebay_lot002_fix_price():
 
 @app.route('/ebay/publish-lot002',methods=['GET','POST'])
 def ebay_publish_lot002():
+    if request.method == 'POST':
+        return _legacy_publish_confirmation('LOT-002')
     draft=_lot002_current_draft()
     try:
         token=get_ebay_access_token(); offers=_lot002_get_offers(token)
@@ -10269,37 +10184,10 @@ def ebay_publish_lot002():
         ]
         all_ok=all(x[3] for x in checks)
         rows=''.join('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>'%(('PASS' if ok else 'FAIL'),html.escape(str(n)),html.escape(str(a)),html.escape(str(e))) for n,a,e,ok in checks)
-        if not all_ok:
-            # One-flow repair: if the ONLY mismatch is the Inventory Item title,
-            # repair that title in-place and immediately run this authoritative
-            # verification again. This never publishes and never touches LOT-001.
-            failed=[x for x in checks if not x[3]]
-            if request.method=='GET' and len(failed)==1 and failed[0][0]=='Title':
-                expected_title=str(draft.get('title') or LOT002_TITLE)
-                inv_payload={}
-                for key in ('availability','condition','conditionDescription','packageWeightAndSize','product'):
-                    if key in inv and inv.get(key) is not None:
-                        inv_payload[key]=inv.get(key)
-                inv_payload['product']=dict(inv_payload.get('product') or {})
-                inv_payload['product']['title']=expected_title
-                fix=requests.put(
-                    f'https://api.ebay.com/sell/inventory/v1/inventory_item/{LOT002_SKU}',
-                    headers=_lot002_headers(token,True),json=inv_payload,timeout=60)
-                if fix.status_code not in (200,204):
-                    return page('LOT 002 title repair failed',f'<h2>LOT 002 — TITLE UPDATE FAILED</h2><p>HTTP {fix.status_code}</p><pre style="white-space:pre-wrap">{html.escape(fix.text[:10000])}</pre><p><b>Nothing was published.</b></p>'),502
-                return redirect('/ebay/publish-lot002')
-            return page('LOT 002 not ready',f'<h2>LOT 002 — NOT READY TO PUBLISH</h2><table border="1" cellpadding="5"><tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}</table><p><b>publishOffer was not called.</b></p>'),409
-        if request.method=='GET':
-            return page('LOT 002 final confirmation',f'''<h2>LOT 002 — FINAL PUBLISH CONFIRMATION</h2><p><b>All authoritative eBay checks passed.</b></p><table border="1" cellpadding="5"><tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}</table><h3>The next button WILL publish LOT 002 live on eBay.com.</h3><form method="post"><button type="submit" style="font-size:18px;padding:14px 18px;font-weight:bold">PUBLISH LOT-002 LIVE ON EBAY</button></form>''')
-        # Re-read offer immediately before the consequential call.
-        fresh=requests.get(f'https://api.ebay.com/sell/inventory/v1/offer/{offer_id}',headers=_lot002_headers(token),timeout=30)
-        if fresh.status_code!=200 or (fresh.json() or {}).get('status')!='UNPUBLISHED' or (fresh.json() or {}).get('sku')!=LOT002_SKU:
-            return page('LOT 002 publish stop','<h2>Final re-check failed. publishOffer was not called.</h2>'),409
-        pub=requests.post(f'https://api.ebay.com/sell/inventory/v1/offer/{offer_id}/publish',headers=_lot002_headers(token,True),timeout=45)
-        if pub.status_code not in (200,201):
-            return page('LOT 002 publish failed',f'<h2>eBay did not publish LOT 002</h2><p>HTTP {pub.status_code}</p><pre style="white-space:pre-wrap">{html.escape(pub.text[:10000])}</pre>'),502
-        pd=pub.json() if pub.text.strip() else {}; listing_id=str(pd.get('listingId') or '')
-        return page('LOT 002 PUBLISHED',f'''<h2>LOT 002 — PUBLISHED ON EBAY</h2><p>Listing ID: <b>{html.escape(listing_id)}</b><br>Offer ID: <b>{html.escape(offer_id)}</b><br>SKU: <b>{LOT002_SKU}</b></p><p><b>Do not press Publish again.</b></p>''')
+        summary = 'Перевірки пройшли' if all_ok else 'Потрібне уточнення'
+        return page('LOT 002 — перевірка Offer', f'<h2>LOT 002 — {summary}</h2><table><tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}</table>'
+                    '<p><a href="/ebay/hold-queue">Відкрити лот у HOLD і синхронізувати чернетку</a></p>'), (200 if all_ok else 409)
+
     except Exception as exc:
         return page('LOT 002 publish error',f'<h2>LOT 002 publish error</h2><pre style="white-space:pre-wrap">{html.escape(str(exc))}</pre><p>Do not retry until reviewed.</p>'),500
 
@@ -12260,7 +12148,7 @@ def ebay_current_compliance():
 
 
 def _p068_publish_button():
-    """Direct one-click action for the current reviewed lot, bound to that lot."""
+    """Prepare the current reviewed lot for explicit final confirmation."""
     pid=str(session.get('picker_session_id') or '')
     if not pid or session.get('last_published_sku'):return ''
     draft=LOT002_DRAFT_CACHE.get(pid) or {}
@@ -12268,10 +12156,10 @@ def _p068_publish_button():
     if not session.get('photo_editor_approved') or not _p056_approved_photo_snapshot_ok(pid,session.get('photo_order') or []):return ''
     if _p083_compliance(draft)['status'] != 'CLEAR':return '<p><a href="/ebay/current-compliance"><b>Переглянути статус Compliance</b></a></p>'
     esc=lambda value:html.escape(str(value),quote=True)
-    return f'''<form action="/ebay/current-publish-auto" method="post" style="margin:16px 0" onsubmit="this.querySelector(&quot;button&quot;).disabled=true;this.querySelector(&quot;button&quot;).textContent=&quot;Перевіряю, оновлюю та публікую…&quot;">
+    return f'''<form action="/ebay/current-publish-auto" method="post" style="margin:16px 0" onsubmit="this.querySelector(&quot;button&quot;).disabled=true;this.querySelector(&quot;button&quot;).textContent=&quot;Готую до фінального підтвердження…&quot;">
 <input type="hidden" name="hold_csrf" value="{_p058_csrf()}"><input type="hidden" name="expected_sku" value="{esc(_current_lot_sku())}"><input type="hidden" name="expected_picker" value="{esc(pid)}">
-<button type="submit" style="font-size:18px;padding:14px 18px;font-weight:bold">Виставити на eBay — автоматично</button>
-<p><small>Одне натискання: перевірка, оновлення даних і публікація за погодженою ціною та доставкою. Без повторного AI.</small></p></form>'''
+<button type="submit" style="font-size:18px;padding:14px 18px;font-weight:bold">Підготувати оголошення на eBay</button>
+<p><small>Підготовка й оновлення даних за погодженими ціною та доставкою. Публікація потребує окремого підтвердження.</small></p></form>'''
 
 
 @app.route('/ebay/current-publish-auto',methods=['POST'])
@@ -12609,7 +12497,7 @@ def hold_prepare_publish():
 
 @app.route('/ebay/hold-queue/publish',methods=['POST'])
 def hold_publish_automatic(record_id=None):
-    """One explicit seller action: restore, synchronize, verify, publish."""
+    """Restore and synchronize the offer before explicit final confirmation."""
     if not _p058_csrf_valid():return 'Invalid HOLD form',403
     rid=str(record_id or request.form.get('record_id') or '')
     progress={'writes_started':False};stage='відновлення лота';target_sku=''
@@ -12660,15 +12548,12 @@ def hold_publish_automatic(record_id=None):
             plan=_p063_plan(token,_current_draft(),sku)
             _p065_apply_sync(token,sku,plan,progress)
             _save_active_lot_checkpoint()
-            stage='фінальна перевірка та публікація'
-            # Same POST request; the existing publisher repeats every live check.
-            # Its normal GET confirmation is intentionally skipped by this explicit action.
-            return ebay_current_publish()
+            return redirect('/ebay/current-publish', code=303)
     except Exception as exc:
         note=('Частина оновлень могла зберегтися; повторне натискання перечитає стан eBay.'
               if progress['writes_started'] else 'Автоматичний процес зупинено.')
-        retry=('''<form action="/ebay/hold-queue/publish" method="post"><input type="hidden" name="hold_csrf" value="'''+_p058_csrf()+'''"><input type="hidden" name="record_id" value="'''+html.escape(rid,quote=True)+'''"><button>Повторити перевірку та виставити — без AI</button></form>''' if target_sku else '')
-        return page('Automatic publish stopped','<h2>Не вдалося завершити публікацію '+html.escape(target_sku)+'</h2><p>Етап: '+html.escape(stage)+'</p><p>'+html.escape(str(exc))+'</p><p>'+note+'</p><p>Повторний AI не запускався.</p>'+retry+'<p><a href="/ebay/hold-queue">Повернутися до HOLD</a> · <a href="/picker/review-final-draft">Відкрити збережений лот</a></p>'),409
+        retry=('''<form action="/ebay/hold-queue/publish" method="post"><input type="hidden" name="hold_csrf" value="'''+_p058_csrf()+'''"><input type="hidden" name="record_id" value="'''+html.escape(rid,quote=True)+'''"><button>Повторити підготовку без ШІ</button></form>''' if target_sku else '')
+        return page('Automatic publish stopped','<h2>Не вдалося підготувати оголошення '+html.escape(target_sku)+'</h2><p>Етап: '+html.escape(stage)+'</p><p>'+html.escape(str(exc))+'</p><p>'+note+'</p><p>Повторний AI не запускався.</p>'+retry+'<p><a href="/ebay/hold-queue">Повернутися до HOLD</a> · <a href="/picker/review-final-draft">Відкрити збережений лот</a></p>'),409
 
 
 @app.route('/ebay/hold-queue/archive',methods=['POST'])
@@ -12831,7 +12716,7 @@ def ebay_hold_queue():
             elif archive:
                 actions=f'<form action="/ebay/hold-queue/archive" method="post">{hidden}<input type="hidden" name="restore" value="yes"><button>Повернути в HOLD</button></form>'
             else:
-                actions=f'<form action="/ebay/hold-queue/publish" method="post" onsubmit="this.querySelector(&quot;button&quot;).disabled=true;this.querySelector(&quot;button&quot;).textContent=&quot;Перевіряю, оновлюю та публікую…&quot;;this.setAttribute(&quot;aria-busy&quot;,&quot;true&quot;)">{hidden}<button>Виставити на eBay — автоматично</button></form><form action="/ebay/hold-queue/open" method="post">{hidden}<button>Відкрити / продовжити без нового AI</button></form><form action="/ebay/hold-queue/archive" method="post">{hidden}<button style="background:#667085">Прибрати в архів</button></form>'
+                actions=f'<form action="/ebay/hold-queue/publish" method="post" onsubmit="this.querySelector(&quot;button&quot;).disabled=true;this.querySelector(&quot;button&quot;).textContent=&quot;Готую до фінального підтвердження…&quot;;this.setAttribute(&quot;aria-busy&quot;,&quot;true&quot;)">{hidden}<button>Підготувати оголошення на eBay</button></form><form action="/ebay/hold-queue/open" method="post">{hidden}<button>Відкрити / продовжити без нового AI</button></form><form action="/ebay/hold-queue/archive" method="post">{hidden}<button style="background:#667085">Прибрати в архів</button></form>'
             price=('$'+str(data.get('price'))) if data.get('price') else 'Ціну ще не визначено'
             reason=reason_names.get(data.get('reason'),data.get('reason') or 'HOLD')
             when=time.strftime('%d.%m.%Y %H:%M UTC',time.gmtime(float(row['updated'])))
@@ -12846,7 +12731,7 @@ def ebay_hold_queue():
         body=f'''<h2>HOLD — {'архів' if archive else 'відкладені лоти'}</h2>
 <p><a href="/ebay/hold-queue">Активний HOLD</a> · <a href="/ebay/hold-queue?archive=1">Архів / опубліковані</a></p>
 <p><b>Записів: {total}.</b> Назва, фото й підготовлені дані зберігаються разом. Відкриття черги не запускає AI та не шукає всі товари на eBay.</p>
-<p>«Виставити на eBay — автоматично» перевірить лот, оновить застарілі дані та одразу опублікує його. Натискання означає згоду на публікацію за збереженою ціною й доставкою. Якщо є проблема — процес зупиниться з поясненням. Повторний AI не запускається.</p>
+<p>«Підготувати оголошення на eBay» перевірить лот, оновить застарілі дані та одразу опублікує його. Натискання означає згоду на публікацію за збереженою ціною й доставкою. Якщо є проблема — процес зупиниться з поясненням. Повторний AI не запускається.</p>
 <div style="display:flex;gap:8px;flex-wrap:wrap">{add}{clear}</div>{_p059_hold_next_button()}
 {''.join(cards) if cards else '<p>Черга порожня. Додавайте сюди нові лоти кнопкою HOLD або після створення неопублікованої пропозиції.</p>'}{pager}
 <hr><p><a href="/hold/export">Завантажити резервну копію HOLD</a></p>
@@ -12943,7 +12828,7 @@ def ebay_current_publish():
         return page('Потрібне підтвердження','<h2>Спочатку підтвердіть чернетку та ціну.</h2>'),409
     if request.method == 'POST' and os.environ.get('ENABLE_LIVE_PUBLISH','0') != '1':
         return page('Тестовий режим','<h2>Реальна публікація вимкнена.</h2><p>Лот збережено. Для тесту публікації власник сервера має встановити ENABLE_LIVE_PUBLISH=1.</p>'),409
-    if request.method == 'POST' and request.endpoint == 'ebay_current_publish':
+    if request.method == 'POST':
         expected = _final_publish_digest(draft, sku)
         if not secrets.compare_digest(request.form.get('review_digest', '').encode(), expected.encode()):
             return page('Підтвердження застаріло', '<h2>Повторно відкрийте фінальну перевірку лота.</h2>'), 409
@@ -13012,7 +12897,14 @@ def ebay_current_publish():
         if not all(x[3] for x in checks):
             return page(label+' not ready',f'<h2>{label} — NOT READY TO PUBLISH</h2><table border="1" cellpadding="5"><tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}</table><p>publishOffer was not called.</p>{_publish_recovery_buttons(label)}'),409
         if request.method=='GET':
-            return page(label+' final confirmation',f'<h2>{label} — FINAL PUBLISH CONFIRMATION</h2><p><b>Technical checks passed, including MAIN PHOTO and photo order. Condition enum USED_EXCELLENT (3000) may represent generic Used under the category policy; it is not an independent condition appraisal. Customs/export/carrier compliance is not independently verified.</b></p><table border="1" cellpadding="5"><tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}</table><form method="post"><input type="hidden" name="hold_csrf" value="{_p058_csrf()}"><input type="hidden" name="review_digest" value="{_final_publish_digest(draft, sku)}"><button type="submit" style="font-size:18px;padding:14px 18px;font-weight:bold">PUBLISH {label} LIVE ON EBAY</button></form>{_p059_hold_next_button()}')
+            confirmation = (
+                f'<form method="post"><input type="hidden" name="hold_csrf" value="{_p058_csrf()}">'
+                f'<input type="hidden" name="review_digest" value="{_final_publish_digest(draft, sku)}">'
+                f'<button type="submit">Опублікувати {label} на eBay</button></form>'
+                if os.environ.get('ENABLE_LIVE_PUBLISH') == '1'
+                else '<p>Реальна публікація вимкнена.</p>'
+            )
+            return page(label+' final confirmation',f'<h2>{label} — FINAL PUBLISH CONFIRMATION</h2><p><b>Technical checks passed, including MAIN PHOTO and photo order. Condition enum USED_EXCELLENT (3000) may represent generic Used under the category policy; it is not an independent condition appraisal. Customs/export/carrier compliance is not independently verified.</b></p><table border="1" cellpadding="5"><tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}</table>{confirmation}{_p059_hold_next_button()}')
         fresh=_lot002_request('GET',f'https://api.ebay.com/sell/inventory/v1/offer/{oid}',headers=_current_headers(token),timeout=30)
         latest = fresh.json() if fresh.status_code == 200 else {}
         if not isinstance(latest, dict) or any(
