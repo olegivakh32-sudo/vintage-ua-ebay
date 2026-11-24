@@ -44,6 +44,7 @@ from io import BytesIO
 from itsdangerous import BadSignature, URLSafeSerializer
 from PIL import Image, ImageEnhance, ImageOps, ImageStat, ImageFilter
 
+from identity_evidence import corroborated_value, identity_claims
 from mobile_photos import duplicate_photo_indices, image_sharpness, measurement_hint
 
 from flask import (
@@ -2478,7 +2479,9 @@ def _auto_facts_from_analysis(analysis):
     object_type = str(obj.get('object_type') or '').strip()
     markings = obj.get('markings')
     markings = [
-        {'photo': mark['photo'], 'literal': mark['literal'].strip()[:200]}
+        {'photo': mark['photo'], 'literal': mark['literal'].strip()[:200],
+         **{field: mark[field].strip()[:40] for field in ('language', 'kind')
+            if isinstance(mark.get(field), str) and mark[field].strip()}}
         for mark in markings[:12]
         if isinstance(mark, dict) and type(mark.get('photo')) is int and 1 <= mark['photo'] <= 32
         and isinstance(mark.get('literal'), str) and mark['literal'].strip()
@@ -2493,7 +2496,7 @@ def _auto_facts_from_analysis(analysis):
     mats = obj.get("materials") or []
     if isinstance(mats, str):
         mats = [x.strip() for x in re.split(r"[,;/]", mats) if x.strip()]
-    mats = [str(x).strip() for x in mats if str(x).strip()]
+    mats = [x.strip()[:120] for x in mats[:12] if isinstance(x, str) and x.strip()] if isinstance(mats, list) else []
     status = str(obj.get("tested_status") or "Untested").strip()
     if status not in ("Untested", "Tested working", "Tested not working", "Not applicable"):
         status = "Untested"
@@ -2522,6 +2525,10 @@ def _auto_facts_from_analysis(analysis):
     # overall visual confidence remains the conservative fallback.
     if mats and materials_conf < 70:
         mats = []
+    brand = str(obj.get('brand') or '').strip()
+    if any(record.get('kind', '').upper() == 'QUALITY_MARK' and record['literal'].casefold() == brand.casefold()
+           for record in markings):
+        brand = ''
     return {
         "object_type": object_type[:120],
         "markings": markings,
@@ -2532,7 +2539,7 @@ def _auto_facts_from_analysis(analysis):
         "material_source": "SELLER_PHOTO" if mats else "UNKNOWN",
         "tested_status": status,
         "completeness": comp,
-        "brand": str(obj.get("brand") or "").strip(),
+        "brand": brand,
         "origin": str(obj.get("origin") or "").strip(),
         "marking_present": bool(obj.get("marking_present", False)),
         "brand_evidence": str(obj.get("brand_evidence") or "").strip(),
@@ -2831,7 +2838,25 @@ def _genericize_unconfirmed_type(value):
     core=(parts[0] if parts else text).strip(" -,:;/")
     return core[:140]
 
-def _consensus_specs_from_research(identification, market):
+def _identity_claims_html(claims):
+    if not claims:
+        return ''
+    states = {'CORROBORATED_REFERENCE': 'Джерела узгоджуються',
+              'CONTESTED': 'Суперечність', 'HYPOTHESIS': 'Припущення'}
+    names = {'brand': 'Виробник', 'model': 'Модель', 'country': 'Країна', 'period': 'Період',
+             'type': 'Тип', 'material': 'Матеріал'}
+    rows = []
+    for claim in claims:
+        label = f"{names[claim['field']]} · {claim['value']} · {states[claim['status']]}"
+        photos = ', '.join(map(str, claim['photos'])) or '—'
+        sources = ' '.join(f'<a href="{html.escape(source["url"], quote=True)}">Джерело {i}</a>'
+                           for i, source in enumerate(claim['references'], 1))
+        details = ' '.join(html.escape(note) for note in claim['contradictions'])
+        rows.append(f'<li>{html.escape(label)}. Фото {photos}. {sources} {details}</li>')
+    return '<details><summary>Докази ідентифікації</summary><ul>' + ''.join(rows) + '</ul></details>'
+
+
+def _consensus_specs_from_research(identification, market, photo_count=0):
     """P023: parse structured multi-source Auto Specs from the existing research response.
 
     This parser never upgrades a web analogue to physical evidence.  It only
@@ -2843,6 +2868,9 @@ def _consensus_specs_from_research(identification, market):
     if not data or not isinstance(data, dict):
         return {}
     out = {"raw": data, "source": "REFERENCE_ANALOG_CONSENSUS"}
+    claim_data = _research_machine_json(text, 'IDENTITY_CLAIMS_JSON')
+    known_urls = set(_reported_web_source_urls(identification) or []) | set(_reported_web_source_urls(market) or [])
+    out['identity_claims'] = identity_claims(claim_data.get('claims'), known_urls, photo_count, _p054_source_host)
     try:
         out["match_count"] = max(0, int(data.get("match_count") or 0))
     except Exception:
@@ -3467,6 +3495,11 @@ def _p089_research_handoff(draft, specs, facts):
         v=str(specs.get(key) or '').strip()
         return v if re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9 .#&()/-]{0,59}',v) and not re.search(r'(?i)unknown|uncertain|possibly|likely|unverified|not confirmed',v) else ''
     model,brand,period=map(clean,('model','brand','period'))
+    claims = specs.get('identity_claims') or []
+    if not model or not corroborated_value(claims, 'model', model):
+        return False
+    brand = brand if brand and corroborated_value(claims, 'brand', brand) else ''
+    period = period if period and corroborated_value(claims, 'period', period) else ''
     marking=str(draft.get('seller_verified_marking') or facts.get('brand') or '').strip()
     # Require an independent visible anchor; a seller correction overrides OCR.
     if not marking or not model or not re.search(r'(?i)(?<!\w)'+re.escape(marking)+r'(?!\w)',model): return False
@@ -4373,7 +4406,7 @@ MANDATORY EVIDENCE PROCEDURE:
 
 OUTPUT ORDER IS CRITICAL. Before any prose, output EXACTLY these THREE machine-readable lines, with one role for EVERY source photo number:
 PHOTO_ROLES_JSON: {{"roles":{{"1":"EBAY_PRODUCT","2":"EVIDENCE_ONLY"}}}}
-AUTO_FACTS_JSON: {{"materials":[],"materials_confidence":0,"material_evidence":"","tested_status":"Untested","completeness":"Unknown","brand":"","origin":"","marking_present":false,"brand_evidence":"","confidence":0,"object_type":"UNKNOWN","markings":[{{"photo":1,"literal":""}}],"symbols":[{{"photo":1,"description":""}}]}}
+AUTO_FACTS_JSON: {{"materials":[],"materials_confidence":0,"material_evidence":"","tested_status":"Untested","completeness":"Unknown","brand":"","origin":"","marking_present":false,"brand_evidence":"","confidence":0,"object_type":"UNKNOWN","markings":[{{"photo":1,"literal":"","language":"","kind":"MAKER|MODEL_NUMBER|SERIAL|QUALITY_MARK|INSCRIPTION|UNKNOWN"}}],"symbols":[{{"photo":1,"description":""}}]}}
 SCOPE_JSON: {{"scope":"ONE_PHYSICAL_ITEM","physical_item_count":1,"confidence":0,"note":""}}
 For SCOPE_JSON, front/back/detail/scale views of one object are ONE_PHYSICAL_ITEM. Count separate cards, stickers, inserts and other loose pieces in the clearest complete overview, not across repeated photos. A collection sold as one lot is still MULTIPLE_PHYSICAL_ITEMS. If exact count is unclear use UNCERTAIN, never report one physical item merely because it is one sale lot. Use MULTIPLE_PHYSICAL_ITEMS only for truly separate physical objects.
 A ruler/tape/caliper/scale/packing-only photo MUST be EVIDENCE_ONLY. Do not omit any source photo number.
@@ -4651,6 +4684,8 @@ Return exactly these two blocks:
 
 === IDENTIFICATION ===
 IDENTITY_JSON {{"identity_status":"UNKNOWN","exact_model_confirmed":false,"confidence":0,"evidence_strength":0,"type":"UNKNOWN","brand":"UNKNOWN","model":"UNKNOWN","country":"UNKNOWN","period":"UNKNOWN","material":"UNKNOWN","match_count":0,"sources_summary":""}}
+IDENTITY_CLAIMS_JSON {{"claims":[{{"field":"model","value":"","photos":[1],"contradictions":[],"sources":[{{"url":"","kind":"CATALOG|MANUAL|MUSEUM|ARCHIVE|OTHER","document_id":"","match":"EXACT|ANALOG","excerpt":""}}]}}]}}
+State each proposed model, brand, country, period, type and material as a separate claim. Cite the numbers of seller photos and exact URLs from the web search results. For each source capture the short exact excerpt and an identifier for the underlying record or published work, shared by mirrors. Describe discrepancies or independent competing values. Return an empty claims list when none is supportable.
 Then concise Ukrainian sections: status, what it is, markings/OCR, distinctive features, checked candidates/mismatches, confirmed facts, unresolved facts, sources.
 
 === MARKET ===
@@ -4959,7 +4994,7 @@ def fast_research():
             ), 409
         return page("Fast Research Error", f"<h2>Research error</h2><pre style='white-space:pre-wrap'>{html.escape(msg)}</pre>{_usage_summary_html(picker_id)}<p><a href='/picker/items'>Return to photos</a></p>"), 500
 
-    consensus_specs=_consensus_specs_from_research(identification,market)
+    consensus_specs=_consensus_specs_from_research(identification, market, len(items))
     RESEARCH_SPEC_CACHE[picker_id]=consensus_specs
     with _p054_lot_lock('measurements:' + str(picker_id)):
         locked = SELLER_MEASUREMENT_CACHE.get(picker_id)
@@ -5031,11 +5066,14 @@ def fast_research():
             f"<p>Close matches: <b>{int(consensus_specs.get('match_count') or 0)}</b> · confidence: <b>{int(consensus_specs.get('confidence') or 0)}%</b> · exact model: <b>{'YES' if consensus_specs.get('exact_model_confirmed') else 'NO'}</b>.</p>"
             + ("<p style='background:#fff3cd;padding:10px;border-radius:8px'><b>ANALOG HYPOTHESES — RESEARCH ONLY.</b> Corroborated analog estimates may fill shipping fields; they do not establish item identity or verified measurements. Material auto-fill comes only from seller-photo evidence; research may only corroborate it.</p>" if not consensus_specs.get('exact_model_confirmed') else "<p><small>Exact-model reference may prefill specs; physical seller evidence still wins.</small></p>")
             + ("<table><tr><th>Parameter</th><th>Consensus</th></tr>"+"".join(rows)+"</table>" if rows else "<p>No safe consensus parameters extracted.</p>") + "</details>")
+    claims = consensus_specs.get('identity_claims') or []
+    claims_html = _identity_claims_html(claims)
     _measurement_status = _p055_measurement_status(visual_estimate, missing_measurements)
     body=f"""<h2>{label} — Fast Research Complete</h2><p style='color:green'><b>✓ Identification Engine + Market Engine completed; {_measurement_status}</b></p>{_usage_summary_html(picker_id)}
     <p><b>Selected listing price ({html.escape(price_label)}):</b> {('$'+html.escape(price)) if price else 'REVIEW REQUIRED — no price auto-accepted'}<br><small>{tier_line}</small></p>{price_warning}{working_material_html}{auto_specs_html}<p><b>Physical-item check:</b> {html.escape(scope)} ({scope_conf}%) — {html.escape(str(structure.get('source') or 'AI'))}</p>
     <details><summary><b>Show identification</b></summary><div style='border:1px solid #ddd;padding:12px;border-radius:8px;margin-top:8px'>{text_to_html(identification)}</div></details>
     <details><summary><b>Show market research</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:8px'>{text_to_html(market)}</div></details>
+    {claims_html}
     <hr><h3>Weight & Shipping</h3>{measurement_warning}{measurement_suggestion}{_p054_evidence_html(visual_estimate)}<p>Measurement pass attempted to check selected photos. Weight source: <b>{html.escape(str(visual_estimate.get('weight_source') or 'UNKNOWN'))}</b>. Dimensions source: <b>{html.escape(str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}</b>. Confidence: <b>{est_conf}%</b>.</p><p><b>Scale transcription (may include existing packaging; see source above):</b> {html.escape(str(visual_estimate.get('mass_digits_text') or '—'))} {html.escape(str(visual_estimate.get('mass_unit_text') or ''))}</p><p><small>Measurement diagnostics: {html.escape(str(visual_estimate.get('measurement_note') or '—'))}</small></p><p><b>Rule:</b> P038 keeps literal scale/ruler evidence first and uses transactional retries: <b>NO SUCCESS = NO OVERWRITE</b>. Explicit ruler start/end arithmetic and face-axis summaries override inconsistent structured half-dimensions. If one or two axes are readable but a third is missing, additional paid vision passes run only when explicitly enabled in server settings.</p>
     <form action='/picker/shipping-submit' method='post'>{measurement_form}{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('weight_source',str(visual_estimate.get('weight_source') or 'UNKNOWN'))}{hidden_field('dimensions_source',str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}{hidden_field('original_item_weight',str(est_weight))}{hidden_field('original_dim_l',str(est_l))}{hidden_field('original_dim_w',str(est_w))}{hidden_field('original_dim_h',str(est_h))}
     <p><label><b>Measured weight (kg; may include existing packaging):</b><br><input type='number' name='item_weight' step='0.0001' min='0.001' value='{est_weight}' required style='font-size:20px;padding:10px;width:180px'></label></p>
@@ -10373,7 +10411,9 @@ def _current_draft():
             draft['visual_object_type'] = visual
             changed = True
         changed=_p088_handoff(draft,identity,AUTO_FACT_CACHE.get(picker_id) or {}) or changed
-        specs=RESEARCH_SPEC_CACHE.get(picker_id) or _consensus_specs_from_research(IDENTIFICATION_CACHE.get(picker_id), MARKET_CACHE.get(picker_id))
+        specs = RESEARCH_SPEC_CACHE.get(picker_id) or _consensus_specs_from_research(
+            IDENTIFICATION_CACHE.get(picker_id), MARKET_CACHE.get(picker_id), len(PHOTO_CACHE.get(picker_id) or [])
+        )
         changed=_p089_research_handoff(draft,specs,AUTO_FACT_CACHE.get(picker_id) or {}) or changed
         changed=_p081_saved_passive(draft) or changed
         if re.search(r'(?i)\b(?:exact age|age|date|era)\b[^.]{0,100}\bunknown\b',str(draft.get('description') or '')):
