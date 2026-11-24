@@ -6551,6 +6551,24 @@ def shipping():
         return _shipping_page(picker_id)
 
 
+def _shipping_quote(item_weight, L, W, H):
+    # P026 packaging estimate: conservative but not wildly oversized for small collectibles.
+    if item_weight<=0.25: allowance=0.12
+    elif item_weight<=0.5: allowance=0.18
+    elif item_weight<=1: allowance=0.30
+    elif item_weight<=2: allowance=0.45
+    elif item_weight<=3: allowance=0.65
+    elif item_weight<=5: allowance=0.90
+    elif item_weight<=10: allowance=1.40
+    else: allowance=max(1.8,item_weight*0.15)
+    packed=round(item_weight+allowance,2)
+    max_dim=max(L,W,H)
+    package_pad = 4.0 if max_dim<=15 else 6.0 if max_dim<=30 else 8.0 if max_dim<=60 else 10.0
+    pL,pW,pH=round(L+package_pad,1),round(W+package_pad,1),round(H+package_pad,1)
+    quote = _ukrposhta_prime_us_shipping(packed, pL, pW, pH)
+    return (L, W, H), (pL, pW, pH), packed, quote
+
+
 def _shipping_page(picker_id):
     label = _current_lot_label()
     saved = SELLER_MEASUREMENT_CACHE.get(picker_id)
@@ -6604,20 +6622,7 @@ def _shipping_page(picker_id):
     item_weight, L, W, H = (accepted_measurement[key] for key in _MEASUREMENT_FIELDS)
     accepted_weight_source = accepted_measurement.get('weight_source', 'UNKNOWN')
     accepted_dimensions_source = accepted_measurement.get('dimensions_source', 'UNKNOWN')
-    # P026 packaging estimate: conservative but not wildly oversized for small collectibles.
-    if item_weight<=0.25: allowance=0.12
-    elif item_weight<=0.5: allowance=0.18
-    elif item_weight<=1: allowance=0.30
-    elif item_weight<=2: allowance=0.45
-    elif item_weight<=3: allowance=0.65
-    elif item_weight<=5: allowance=0.90
-    elif item_weight<=10: allowance=1.40
-    else: allowance=max(1.8,item_weight*0.15)
-    packed=round(item_weight+allowance,2)
-    max_dim=max(L,W,H)
-    package_pad = 4.0 if max_dim<=15 else 6.0 if max_dim<=30 else 8.0 if max_dim<=60 else 10.0
-    pL,pW,pH=round(L+package_pad,1),round(W+package_pad,1),round(H+package_pad,1)
-    ship_calc=_ukrposhta_prime_us_shipping(packed,pL,pW,pH)
+    _, (pL, pW, pH), packed, ship_calc = _shipping_quote(item_weight, L, W, H)
     if ship_calc.get("recommended_usd") is None:
         return page(label+" Перевірка доставки",
             "<h2>Доставка потребує ручної перевірки</h2>"
@@ -6653,7 +6658,7 @@ def _shipping_page(picker_id):
     _ebay_photo_count = sum(_roles.get(i) in EBAY_PHOTO_ROLES for i in range(1, count + 1)) if _photo_roles_ready(items, picker_id) else 0
     body=f"""<h2>{label} — Вага й доставка</h2><p>Фото <b>{count} у лоті / {min(24,_ebay_photo_count)} для eBay</b><br>Вага для розрахунку доставки <b>{item_weight:.4f} kg</b> ({html.escape(accepted_weight_source)})<br>Орієнтовна вага пакунка <b>{packed:.2f} kg</b><br>Розміри предмета <b>{L:g} × {W:g} × {H:g} cm</b> ({html.escape(accepted_dimensions_source)})<br>Орієнтовні габарити пакунка <b>{pL:g} × {pW:g} × {pH:g} cm</b><br>Базовий тариф Укрпошти PRIME США <b>${postage:.2f}</b><br>Рекомендована вартість доставки на eBay <b>${ebay_ship:.2f}</b></p>{_usage_summary_html(picker_id)}
     <p style='padding:10px;border-left:4px solid #b7791f;background:#fff8e6'><b>Митні збори США.</b> Розрахунок охоплює доставку. Мито перевіряйте окремо за кодом ТН ЗЕД, оголошеною вартістю та країною походження.</p>
-    <form action='/picker/final-listing' method='post'>{_measurement_form_fields(picker_id)}{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('item_weight',str(item_weight))}{hidden_field('estimated_packed_weight',str(packed))}{hidden_field('dimensions',f'{L:g} x {W:g} x {H:g} cm')}{hidden_field('package_dimensions',f'{pL:g} x {pW:g} x {pH:g} cm')}{hidden_field('shipping_usd',f'{ebay_ship:.2f}')}
+    <form action='/picker/final-listing' method='post'>{_measurement_form_fields(picker_id)}
     <fieldset style='padding:12px;margin:14px 0'><legend><b>Характеристики предмета</b></legend><p>Впевненість ШІ <b>{facts.get('confidence',0)}%</b>. Відомі значення вже підставлено.</p><p><b>Матеріали</b><br>{' &nbsp; '.join(checks)}</p><p>Опис матеріалу за фото. Підтвердьте, якщо його можна додати до оголошення.<br><input name='material_other' value='{html.escape(', '.join(material_details),quote=True)}' placeholder='optional' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><label><input type='checkbox' name='confirm_material_other' value='yes'> Додати підтверджений матеріал до оголошення</label></p>
     <p><b>Працездатність</b><br><select name='seller_tested_status' style='font-size:17px;padding:8px'>{status_options}</select></p>
     <p><b>Комплектність</b><br><select name='seller_completeness' style='font-size:17px;padding:8px'>{comp_options}</select></p>
@@ -6670,14 +6675,30 @@ def final_listing():
     error = _measurement_form_error(picker_id)
     if error:
         return error
-    analysis=request.form.get("analysis",""); identification=request.form.get("identification",""); market=request.form.get("market",""); item_weight=request.form.get("item_weight",""); packed_weight=request.form.get("estimated_packed_weight",""); dimensions=request.form.get("dimensions",""); package_dimensions=request.form.get("package_dimensions",""); shipping_usd=request.form.get("shipping_usd","")
+    analysis = ANALYSIS_CACHE.get(picker_id) or ''
+    identification = IDENTIFICATION_CACHE.get(picker_id) or ''
+    market = MARKET_CACHE.get(picker_id) or ''
+    accepted = SELLER_MEASUREMENT_CACHE.get(picker_id) or {}
+    measurements = [_p054_positive(accepted.get(key), limit)
+                    for key, limit in zip(_MEASUREMENT_FIELDS, (101, 1001, 1001, 1001))]
+    if not all(measurements):
+        return page('Дані доставки', '<h2>Підтвердьте виміри перед створенням чернетки</h2>'
+                    '<a href="/picker/resume-measurements">Відкрити виміри</a>'), 409
+    size, package_size, packed, quote = _shipping_quote(*measurements)
+    if quote.get('recommended_usd') is None:
+        return page('Дані доставки', '<h2>Потрібна перевірка тарифу доставки</h2>'
+                    '<a href="/picker/resume-shipping">Відкрити розрахунок</a>'), 409
+    item_weight, packed_weight = str(measurements[0]), str(packed)
+    dimensions = ' x '.join(f'{axis:g}' for axis in size) + ' cm'
+    package_dimensions = ' x '.join(f'{axis:g}' for axis in package_size) + ' cm'
+    shipping_usd = f"{quote['recommended_usd']:.2f}"
     materials=[x.strip() for x in request.form.getlist("material_choice") if x.strip()]
     other=request.form.get("material_other","").strip()
     # P016 FIX: "AI-detected detail" is hypothesis text, not a canonical material.
     # Never publish generic uncertainty phrases such as "plastic or polymer",
     # "likely ...", "possibly ...", etc. Seller-confirmed canonical checkboxes win.
     _uncertain_material = bool(re.search(
-        r"(?i)\\b(?:likely|possibly|possible|probably|appears?|looks?|may|might|unknown|uncertain|or\\s+(?:other\\s+)?(?:polymer|plastic|metal|wood|glass))\\b",
+        r"(?i)\b(?:likely|possibly|possible|probably|appears?|looks?|may|might|unknown|uncertain|or\s+(?:other\s+)?(?:polymer|plastic|metal|wood|glass))\b",
         other
     ))
     if other and request.form.get("confirm_material_other") == "yes" and not _uncertain_material:

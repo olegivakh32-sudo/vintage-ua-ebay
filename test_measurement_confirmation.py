@@ -68,6 +68,25 @@ class MeasurementConfirmationTests(unittest.TestCase):
         self.assertEqual(m.SELLER_MEASUREMENT_CACHE[self.picker], {})
         self.assertEqual(self.save(form).status_code, 303)
 
+    def test_draft_uses_server_research_and_confirmed_shipping_quote(self):
+        self.assertEqual(self.save(self.form()).status_code, 303)
+        form = self.fields(self.client.get('/picker/resume-shipping').get_data(as_text=True))
+        with (patch.dict(m.ITEM_STRUCTURE_CACHE, {self.picker: {
+                'scope': 'ONE_PHYSICAL_ITEM', 'physical_item_count': 1, 'sale_mode': 'ONE_LOT',
+              }}), patch.object(m, 'call_openai', side_effect=RuntimeError('stub')) as ai):
+            self.client.post('/picker/final-listing', data={
+                **form, 'analysis': 'Forged visual report', 'market': 'Forged market report',
+                'item_weight': '7', 'shipping_usd': '0', 'dimensions': 'Forged dimensions',
+                'material_other': 'likely synthetic polymer', 'confirm_material_other': 'yes',
+            })
+        ai.assert_called_once()
+        prompt = ai.call_args.args[0]['input']
+        self.assertIn('VISUAL ANALYSIS:\nVisual analysis', prompt)
+        self.assertIn('item_weight=0.5 kg', prompt)
+        self.assertIn('buyer_shipping=$21.99', prompt)
+        self.assertIn('materials=Unknown', prompt)
+        self.assertNotIn('Forged', prompt)
+
     def test_checkpoint_restores_provenance_and_shipping_get_does_not_rewrite(self):
         form = self.form()
         self.assertEqual(self.save(form).status_code, 303)
