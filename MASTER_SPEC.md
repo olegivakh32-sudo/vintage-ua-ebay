@@ -1,5 +1,7 @@
 # Vintage UA eBay — Master Specification v4
 
+> [Статут 1.0](Vintage_UA_MASTER_TASK.md) визначає чинні вимоги і приймання. Цей документ версії 4 зберігає специфікацію робочого потоку та історичний сценарій LOT004 з 19 фото. Для приймання E11 застосовується сценарій Android із 12 реальних фото.
+
 ## Goal
 A fast seller workflow for publishing vintage/collectible lots on eBay.com from Ukraine, designed to scale toward high daily volume without repeatedly re-entering information.
 

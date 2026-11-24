@@ -77,7 +77,7 @@ class CategoryTests(unittest.TestCase):
     def test_reported_lot_failure_patterns(self):
         # Reconstructed from the reported symptoms. Original lot data is unavailable.
         for label, primary in (
-            ("LOT058", "Military Collar Tabs"),
+            ("Synthetic collar tabs", "Military Collar Tabs"),
             ("LOT059", "Soviet Collar Tabs"),
             ("LOT060", "Historical Military Insignia"),
         ):
