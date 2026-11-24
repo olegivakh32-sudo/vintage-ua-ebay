@@ -4700,7 +4700,15 @@ def rerun_measurement_only():
     Picker URLs are refreshed when possible. A failed/UNKNOWN retry can never blank
     the seller UI or erase a previously known value.
     """
-    picker_id=session.get("picker_session_id")
+    picker_id = session.get('picker_session_id')
+    with _p054_lot_lock('measurements:' + str(picker_id)):
+        error = _measurement_form_error(picker_id)
+        if error:
+            return error
+        return _rerun_measurement_only(picker_id)
+
+
+def _rerun_measurement_only(picker_id):
     items=PHOTO_CACHE.get(picker_id,[]) if picker_id else []
     analysis=ANALYSIS_CACHE.get(picker_id,"") if picker_id else ""
     # The already-rendered Research page carries these values in hidden fields.
@@ -4866,33 +4874,34 @@ def fast_research():
         if market:
             MARKET_CACHE[picker_id] = market
         visual_estimate = _measurement_consistency_guard(visual_estimate, analysis)
-        # A seller may have saved a correction while the API request was in flight.
-        # Read that lock again after the slow stage, before merging newer posted edits.
-        latest_seller=SELLER_MEASUREMENT_CACHE.get(picker_id)
-        if _measurement_has_values(latest_seller):
-            visual_estimate.update(dict(latest_seller))
-        # P037 transactional retry merge. Missing/UNKNOWN fresh fields retain the
-        # previous measurement instead of blanking the form.
-        retry_baseline = MEASUREMENT_RERUN_BASELINE_CACHE.pop(picker_id, None)
-        if retry_baseline:
-            visual_estimate = _merge_measurement_retry(retry_baseline, visual_estimate)
-        pending_override = PENDING_MEASUREMENT_OVERRIDE_CACHE.pop(picker_id, None) or {}
-        if pending_override:
-            for _k in ("weight_kg","length_cm","width_cm","height_cm"):
-                if pending_override.get(_k):
-                    visual_estimate[_k] = pending_override[_k]
-            if pending_override.get("weight_kg"):
-                visual_estimate["weight_source"] = "SELLER_EDITED"
-            if any(pending_override.get(_k) for _k in ("length_cm","width_cm","height_cm")):
-                visual_estimate["dimensions_source"] = "SELLER_EDITED"
-            visual_estimate["confidence"] = 100
-        if _measurement_has_values(visual_estimate):
-            MEASUREMENT_CACHE[picker_id] = visual_estimate
-        else:
-            MEASUREMENT_CACHE.pop(picker_id, None)
-        session['p0249_orchestrated'] = True
-        _p0249_orchestrator_record(picker_id, identification, market, visual_estimate, structure)
-        _save_active_lot_checkpoint()
+        with _p054_lot_lock('measurements:' + str(picker_id)):
+            # A seller may have saved a correction while the API request was in flight.
+            # Read that lock again after the slow stage, before merging newer posted edits.
+            # P037 transactional retry merge. Missing/UNKNOWN fresh fields retain the
+            # previous measurement instead of blanking the form.
+            retry_baseline = MEASUREMENT_RERUN_BASELINE_CACHE.pop(picker_id, None)
+            if retry_baseline:
+                visual_estimate = _merge_measurement_retry(retry_baseline, visual_estimate)
+            pending_override = PENDING_MEASUREMENT_OVERRIDE_CACHE.pop(picker_id, None) or {}
+            if pending_override:
+                for _k in ("weight_kg","length_cm","width_cm","height_cm"):
+                    if pending_override.get(_k):
+                        visual_estimate[_k] = pending_override[_k]
+                if pending_override.get("weight_kg"):
+                    visual_estimate["weight_source"] = "SELLER_EDITED"
+                if any(pending_override.get(_k) for _k in ("length_cm","width_cm","height_cm")):
+                    visual_estimate["dimensions_source"] = "SELLER_EDITED"
+                visual_estimate["confidence"] = 100
+            latest_seller = SELLER_MEASUREMENT_CACHE.get(picker_id)
+            if latest_seller:
+                visual_estimate = dict(latest_seller)
+            if _measurement_has_values(visual_estimate):
+                MEASUREMENT_CACHE[picker_id] = visual_estimate
+            else:
+                MEASUREMENT_CACHE.pop(picker_id, None)
+            session['p0249_orchestrated'] = True
+            _p0249_orchestrator_record(picker_id, identification, market, visual_estimate, structure)
+            _save_active_lot_checkpoint()
     except Exception as exc:
         try:
             _save_active_lot_checkpoint()
@@ -4920,9 +4929,14 @@ def fast_research():
 
     consensus_specs=_consensus_specs_from_research(identification,market)
     RESEARCH_SPEC_CACHE[picker_id]=consensus_specs
-    visual_estimate=_p054_reconcile_measurements(visual_estimate,identification,market,len(items),structure)
-    MEASUREMENT_CACHE[picker_id] = dict(visual_estimate)
-    _save_active_lot_checkpoint()
+    with _p054_lot_lock('measurements:' + str(picker_id)):
+        locked = SELLER_MEASUREMENT_CACHE.get(picker_id)
+        visual_estimate = dict(locked) if locked else _p054_reconcile_measurements(
+            visual_estimate, identification, market, len(items), structure
+        )
+        MEASUREMENT_CACHE[picker_id] = dict(visual_estimate)
+        measurement_form = _measurement_form_fields(picker_id)
+        _save_active_lot_checkpoint()
     est_weight=visual_estimate.get("weight_kg",""); est_l=visual_estimate.get("length_cm",""); est_w=visual_estimate.get("width_cm",""); est_h=visual_estimate.get("height_cm",""); est_conf=visual_estimate.get("confidence",0)
     price=_market_bin_price(market)
     price_label=_market_price_label(market)
@@ -4991,7 +5005,7 @@ def fast_research():
     <details><summary><b>Show identification</b></summary><div style='border:1px solid #ddd;padding:12px;border-radius:8px;margin-top:8px'>{text_to_html(identification)}</div></details>
     <details><summary><b>Show market research</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:8px'>{text_to_html(market)}</div></details>
     <hr><h3>Weight & Shipping</h3>{measurement_warning}{measurement_suggestion}{_p054_evidence_html(visual_estimate)}<p>Measurement pass attempted to check selected photos. Weight source: <b>{html.escape(str(visual_estimate.get('weight_source') or 'UNKNOWN'))}</b>. Dimensions source: <b>{html.escape(str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}</b>. Confidence: <b>{est_conf}%</b>.</p><p><b>Scale transcription (may include existing packaging; see source above):</b> {html.escape(str(visual_estimate.get('mass_digits_text') or '—'))} {html.escape(str(visual_estimate.get('mass_unit_text') or ''))}</p><p><small>Measurement diagnostics: {html.escape(str(visual_estimate.get('measurement_note') or '—'))}</small></p><p><b>Rule:</b> P038 keeps literal scale/ruler evidence first and uses transactional retries: <b>NO SUCCESS = NO OVERWRITE</b>. Explicit ruler start/end arithmetic and face-axis summaries override inconsistent structured half-dimensions. If one or two axes are readable but a third is missing, additional paid vision passes run only when explicitly enabled in server settings.</p>
-    <form action='/picker/shipping-submit' method='post'>{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('weight_source',str(visual_estimate.get('weight_source') or 'UNKNOWN'))}{hidden_field('dimensions_source',str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}{hidden_field('original_item_weight',str(est_weight))}{hidden_field('original_dim_l',str(est_l))}{hidden_field('original_dim_w',str(est_w))}{hidden_field('original_dim_h',str(est_h))}
+    <form action='/picker/shipping-submit' method='post'>{measurement_form}{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('weight_source',str(visual_estimate.get('weight_source') or 'UNKNOWN'))}{hidden_field('dimensions_source',str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}{hidden_field('original_item_weight',str(est_weight))}{hidden_field('original_dim_l',str(est_l))}{hidden_field('original_dim_w',str(est_w))}{hidden_field('original_dim_h',str(est_h))}
     <p><label><b>Measured weight (kg; may include existing packaging):</b><br><input type='number' name='item_weight' step='0.0001' min='0.001' value='{est_weight}' required style='font-size:20px;padding:10px;width:180px'></label></p>
     <p><label><b>Length, cm:</b><br><input type='number' name='dim_l' step='0.1' min='0.1' value='{est_l}' required style='font-size:20px;padding:10px;width:180px'></label></p>
     <p><label><b>Width, cm:</b><br><input type='number' name='dim_w' step='0.1' min='0.1' value='{est_w}' required style='font-size:20px;padding:10px;width:180px'></label></p>
@@ -5195,6 +5209,14 @@ def _p052_recover_summary_weight_candidate(estimate, photo_count):
 @app.route('/picker/recover-saved-measurement', methods=['POST'])
 def recover_saved_measurement():
     picker_id = session.get('picker_session_id')
+    with _p054_lot_lock('measurements:' + str(picker_id)):
+        error = _measurement_form_error(picker_id)
+        if error:
+            return error
+        return _recover_saved_measurement(picker_id)
+
+
+def _recover_saved_measurement(picker_id):
     items = PHOTO_CACHE.get(picker_id) or []
     saved = SELLER_MEASUREMENT_CACHE.get(picker_id) or MEASUREMENT_CACHE.get(picker_id) or {}
     if not picker_id or not items or not saved or not request.form.get('analysis'):
@@ -6273,7 +6295,12 @@ The four recommended prices must be numeric USD values whenever there is enough 
         except Exception as exc:
             return page("Market Research Error",f"<h2>eBay market research error</h2><pre style='white-space:pre-wrap'>{html.escape(str(exc))}</pre><p>Use Back in the browser.</p>"),500
 
-    visual_estimate=estimate_item_size_weight_from_photos()
+    with _p054_lot_lock('measurements:' + str(picker_id)):
+        visual_estimate = SELLER_MEASUREMENT_CACHE.get(picker_id) or MEASUREMENT_CACHE.get(picker_id)
+        if visual_estimate is None:
+            visual_estimate = estimate_item_size_weight_from_photos()
+            MEASUREMENT_CACHE[picker_id] = visual_estimate
+        _save_active_lot_checkpoint()
     est_weight=visual_estimate.get("weight_kg",""); est_l=visual_estimate.get("length_cm",""); est_w=visual_estimate.get("width_cm",""); est_h=visual_estimate.get("height_cm",""); est_conf=visual_estimate.get("confidence",0)
     price=_market_bin_price(market)
     body=f"""<h2>{label} — Market Research</h2><p style='color:green'><b>✓ eBay market research completed</b></p>
@@ -6281,7 +6308,7 @@ The four recommended prices must be numeric USD values whenever there is enough 
     <details><summary><b>Show identification</b></summary><div style='border:1px solid #ddd;padding:12px;border-radius:8px;margin-top:8px'>{text_to_html(identification)}</div></details>
     <details open><summary><b>Show market research</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:8px'>{text_to_html(market)}</div></details>
     <hr><h3>Step 4 — Weight & Shipping</h3><p>Measurement pass attempted to check selected photos. Weight source: <b>{html.escape(str(visual_estimate.get('weight_source') or 'UNKNOWN'))}</b>. Dimensions source: <b>{html.escape(str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}</b>. Confidence: <b>{est_conf}%</b>.</p><p><b>Rule:</b> measured scale/ruler values take priority; estimated values must be seller-verified.</p>
-    <form action='/picker/shipping-submit' method='post'>{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('weight_source',str(visual_estimate.get('weight_source') or 'UNKNOWN'))}{hidden_field('dimensions_source',str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}
+    <form action='/picker/shipping-submit' method='post'>{_measurement_form_fields(picker_id)}{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('weight_source',str(visual_estimate.get('weight_source') or 'UNKNOWN'))}{hidden_field('dimensions_source',str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}
     <p><label><b>Measured weight (kg; may include existing packaging):</b><br><input type='number' name='item_weight' step='0.0001' min='0.001' value='{est_weight}' required style='font-size:20px;padding:10px;width:180px'></label></p>
     <p><label><b>Length, cm:</b><br><input type='number' name='dim_l' step='0.1' min='0.1' value='{est_l}' required style='font-size:20px;padding:10px;width:180px'></label></p>
     <p><label><b>Width, cm:</b><br><input type='number' name='dim_w' step='0.1' min='0.1' value='{est_w}' required style='font-size:20px;padding:10px;width:180px'></label></p>
@@ -6342,40 +6369,134 @@ def _ukrposhta_prime_us_shipping(packed_weight_kg, pL, pW, pH):
 # STEP 4 — WEIGHT & SHIPPING
 # ============================================================
 
+_MEASUREMENT_FIELDS = ('weight_kg', 'length_cm', 'width_cm', 'height_cm')
+_MEASUREMENT_INPUTS = ('item_weight', 'dim_l', 'dim_w', 'dim_h')
+
+
+def _measurement_revision(picker_id):
+    working = SELLER_MEASUREMENT_CACHE.get(picker_id) or MEASUREMENT_CACHE.get(picker_id) or {}
+    fields = (*_MEASUREMENT_FIELDS, 'weight_source', 'dimensions_source', 'measurement_field_sources',
+              'reference_weight_shipping_only', 'reference_dimensions_shipping_only',
+              'estimated_dimensions_shipping_only', 'seller_accepted_for_shipping', 'seller_edited')
+    state = [picker_id, session.get('current_lot_number'), [working.get(key) for key in fields]]
+    return hashlib.sha256(json.dumps(_p054_json_safe(state), sort_keys=True).encode()).hexdigest()
+
+
+def _measurement_form_fields(picker_id):
+    return (hidden_field('hold_csrf', _p058_csrf())
+            + hidden_field('measurement_revision', _measurement_revision(picker_id)))
+
+
+def _measurement_form_error(picker_id):
+    link = '<p><a href="/picker/resume-measurements">Відкрити актуальні виміри</a></p>'
+    if not _p058_csrf_valid():
+        return page('Підтвердження вимірів', '<h2>Оновіть форму вимірів</h2>' + link), 403
+    if not picker_id or request.form.get('measurement_revision') != _measurement_revision(picker_id):
+        return page('Виміри змінилися', '<h2>Цю форму відкрито для попередніх вимірів</h2>' + link), 409
+    return None
+
+
+def _confirmed_shipping_measurements(baseline, values, accepted, verified):
+    result = dict(baseline)
+    fields = dict(result.get('measurement_field_sources') or {})
+    previous_dimension_source = result.get('dimensions_source') or 'UNKNOWN'
+    previous_weight_source = result.get('weight_source') or 'UNKNOWN'
+    changed = {}
+    for index, (key, value) in enumerate(zip(_MEASUREMENT_FIELDS, values)):
+        previous = _p054_positive(result.get(key), 1001)
+        tolerance = .0001 if index == 0 else .05
+        changed[key] = previous is None or abs(previous - value) > tolerance
+        if verified:
+            source = 'SELLER_VERIFIED'
+        elif changed[key]:
+            source = 'SELLER_ENTERED'
+        else:
+            source = fields.get(key) or (previous_weight_source if index == 0 else previous_dimension_source)
+        fields[key] = source
+        result[key] = round(value, 4 if index == 0 else 2)
+
+    dims = {fields[key] for key in _MEASUREMENT_FIELDS[1:]}
+    result.update(weight_source=fields['weight_kg'], dimensions_source=dims.pop() if len(dims) == 1 else 'MIXED',
+                  measurement_field_sources=fields, seller_accepted_for_shipping=accepted,
+                  seller_edited=bool(result.get('seller_edited') or any(changed.values())))
+    direct = {'SELLER_ENTERED', 'SELLER_EDITED', 'SELLER_VERIFIED', 'MEASURED_FROM_RULER'}
+    if all(fields[key] in direct for key in _MEASUREMENT_FIELDS[1:]):
+        for key in ('reference_dimensions_shipping_only', 'estimated_dimensions_shipping_only', 'dimensions_require_confirmation'):
+            result.pop(key, None)
+    if fields['weight_kg'] in {'SELLER_ENTERED', 'SELLER_EDITED', 'SELLER_VERIFIED'}:
+        result.pop('reference_weight_shipping_only', None)
+    return _p062_measurement_public_meta(result)
+
+
 @app.route("/picker/resume-shipping", methods=["GET"])
 @app.route("/picker/shipping", methods=["POST"])
 @app.route("/picker/shipping-submit", methods=["POST"])
 def shipping():
-    picker_id=session.get("picker_session_id")
-    label=_current_lot_label()
-    form = request.form
+    picker_id = session.get('picker_session_id')
+    with _p054_lot_lock('measurements:' + str(picker_id)):
+        if request.method == 'POST':
+            error = _measurement_form_error(picker_id)
+            if error:
+                return error
+        return _shipping_page(picker_id)
+
+
+def _shipping_page(picker_id):
+    label = _current_lot_label()
+    saved = SELLER_MEASUREMENT_CACHE.get(picker_id)
+    analysis = ANALYSIS_CACHE.get(picker_id) or ''
+    identification = IDENTIFICATION_CACHE.get(picker_id) or ''
+    market = MARKET_CACHE.get(picker_id) or ''
     if request.method == 'GET':
-        saved = SELLER_MEASUREMENT_CACHE.get(picker_id) or {}
         if not saved:
-            return page('Shipping unavailable', '<h2>Збережений розрахунок доставки недоступний.</h2><p><a href="/picker/resume-measurements">Відкрити виміри без API</a></p>'),409
-        form = {key: str(saved.get(value) or '') for key,value in
-                (('item_weight','weight_kg'),('dim_l','length_cm'),('dim_w','width_cm'),('dim_h','height_cm'),
-                 ('weight_source','weight_source'),('dimensions_source','dimensions_source'))}
-        form.update(original_item_weight=form['item_weight'],original_dim_l=form['dim_l'],original_dim_w=form['dim_w'],original_dim_h=form['dim_h'])
-        form.update(analysis=ANALYSIS_CACHE.get(picker_id) or '', identification=IDENTIFICATION_CACHE.get(picker_id) or '',
-                    market=MARKET_CACHE.get(picker_id) or '', measurement_accepted='yes' if saved.get('seller_accepted_for_shipping') else '',
-                    seller_verified_measurements='yes' if saved.get('weight_source') == saved.get('dimensions_source') == 'SELLER_VERIFIED' else '')
-    analysis=form.get("analysis",""); identification=form.get("identification",""); market=form.get("market","")
-    try: item_weight=float(form.get("item_weight","").strip().replace(",","."))
-    except (TypeError,ValueError): return page("Invalid weight","<h2>Введіть вагу товару в кілограмах.</h2>"),400
-    # P045: reject NaN, infinity, and implausible shipping mass before calculations/API calls.
-    if not __import__("math").isfinite(item_weight) or not (0 < item_weight <= 100):
-        return page("Invalid weight", "<h2>Введіть додатну вагу до 100 кг.</h2>"), 400
-    if not analysis or not identification or not market: return page("Missing LOT data","<h2>LOT data missing or invalid.</h2>"),400
-    weight_source=str(form.get("weight_source") or "UNKNOWN").upper()
-    dimensions_source=str(form.get("dimensions_source") or "UNKNOWN").upper()
-    needs_measurement_acceptance = any(x in {"ESTIMATED","ESTIMATED_FROM_PHOTO","REFERENCE_MANUAL_OR_CATALOG","REFERENCE_EXACT_MATCH","REFERENCE_ANALOG_CONSENSUS","MIXED","MIXED_MEASURED_ESTIMATED_FROM_PHOTO","PARTIAL_MEASURED_FROM_RULER","SUMMARY_TRANSCRIPTION_UNVERIFIED","REFERENCE_ANALOG_ESTIMATE","MIXED_MEASURED_REFERENCE","RECOVERED_FORM_UNVERIFIED","UNKNOWN"} for x in (weight_source, dimensions_source))
-    accepted_by_seller = form.get("measurement_accepted") == "yes" or form.get("seller_verified_measurements") == "yes"
-    if needs_measurement_acceptance and not accepted_by_seller:
-        hidden=''.join('<input type="hidden" name="'+html.escape(str(k),quote=True)+'" value="'+html.escape(str(v),quote=True)+'">'
-                       for k,v in form.items() if k not in {'measurement_accepted','seller_verified_measurements'})
-        values=' · '.join(html.escape(str(form.get(k) or '')) for k in ('item_weight','dim_l','dim_w','dim_h'))
-        return page("Approve shipping values", '<h2>Погодьте оцінки для розрахунку доставки</h2><p>Частина розмірів отримана з оцінки або довідкових джерел. Погодження дозволяє використати їх для доставки й не перетворює їх на виміряні факти.</p><p>Вага, кг · довжина · ширина · товщина, см: <b>'+values+'</b></p><form action="/picker/shipping-submit" method="post">'+hidden+'<input type="hidden" name="measurement_accepted" value="yes"><button type="submit">Погоджую оцінки для доставки — продовжити без AI</button></form><p><a href="/picker/resume-measurements">Повернутися до вимірів і виправити значення</a></p><p><b>Новий платний AI-запит не потрібен.</b></p>'), 409
+            return page('Доставка', '<h2>Збережений розрахунок доставки недоступний.</h2><p><a href="/picker/resume-measurements">Відкрити виміри без API</a></p>'), 409
+        accepted_measurement = saved
+    else:
+        try:
+            values = [float(request.form.get(field, '').strip().replace(',', '.')) for field in _MEASUREMENT_INPUTS]
+            if any(not math.isfinite(value) or not 0 < value <= limit
+                   for value, limit in zip(values, (100, 1000, 1000, 1000))):
+                raise ValueError
+            if not round(values[0], 4) or any(not round(value, 2) for value in values[1:]):
+                raise ValueError
+        except ValueError:
+            return page('Виміри лота', '<h2>Введіть додатну вагу до 100 кг і розміри до 1000 см</h2>'), 400
+        if not (analysis and identification and market):
+            return page('Дані лота відсутні', '<h2>Відкрийте збережений аналіз лота</h2><a href="/picker/items">До фото лота</a>'), 409
+        baseline = saved or MEASUREMENT_CACHE.get(picker_id) or {}
+        verified = request.form.get('seller_verified_measurements') == 'yes'
+        accepted = verified or request.form.get('measurement_accepted') == 'yes'
+        accepted_measurement = _confirmed_shipping_measurements(baseline, values, accepted, verified)
+        plausible = {'SELLER_ENTERED', 'SELLER_VERIFIED', 'SELLER_EDITED', 'MEASURED_FROM_SCALE'}
+        uncertain = accepted_measurement.get('weight_source') not in plausible or any(
+            accepted_measurement.get(flag) for flag in
+            ('reference_weight_shipping_only', 'reference_dimensions_shipping_only', 'estimated_dimensions_shipping_only')
+        )
+        if uncertain and not accepted:
+            hidden = _measurement_form_fields(picker_id) + ''.join(
+                hidden_field(key, str(value)) for key, value in zip(_MEASUREMENT_INPUTS, values)
+            )
+            return page('Виміри для доставки', '<h2>Погодьте оцінки для розрахунку доставки</h2>'
+                        '<p>Оцінка зберігає своє джерело після підтвердження.</p>'
+                        '<form action="/picker/shipping-submit" method="post">' + hidden
+                        + '<input type="hidden" name="measurement_accepted" value="yes">'
+                        '<button>Погодити для доставки</button></form>'), 409
+
+        previous = MEASUREMENT_CACHE.get(picker_id)
+        SELLER_MEASUREMENT_CACHE[picker_id] = accepted_measurement
+        MEASUREMENT_CACHE[picker_id] = dict(accepted_measurement)
+        if not _save_active_lot_checkpoint():
+            for cache, entry in ((SELLER_MEASUREMENT_CACHE, saved), (MEASUREMENT_CACHE, previous)):
+                if entry is None:
+                    cache.pop(picker_id, None)
+                else:
+                    cache[picker_id] = entry
+            return page('Виміри лота', '<h2>Не вдалося зберегти виміри</h2>'
+                        '<p>Попередні значення збережено. Повторіть підтвердження.</p>'), 503
+
+    item_weight, L, W, H = (accepted_measurement[key] for key in _MEASUREMENT_FIELDS)
+    accepted_weight_source = accepted_measurement.get('weight_source', 'UNKNOWN')
+    accepted_dimensions_source = accepted_measurement.get('dimensions_source', 'UNKNOWN')
     # P026 packaging estimate: conservative but not wildly oversized for small collectibles.
     if item_weight<=0.25: allowance=0.12
     elif item_weight<=0.5: allowance=0.18
@@ -6386,48 +6507,6 @@ def shipping():
     elif item_weight<=10: allowance=1.40
     else: allowance=max(1.8,item_weight*0.15)
     packed=round(item_weight+allowance,2)
-    dl=form.get("dim_l","").strip(); dw=form.get("dim_w","").strip(); dh=form.get("dim_h","").strip()
-    try:
-        L,W,H=[float(x.replace(",",".")) for x in (dl,dw,dh)]
-        if not all(__import__("math").isfinite(v) and 0 < v <= 1000 for v in (L,W,H)): raise ValueError
-    except Exception: return page("Invalid dimensions","<h2>Введіть додатні розміри.</h2>"),400
-    # P026 SELLER LOCK: detect manual edits by comparing submitted fields to the AI/cache values.
-    explicitly_verified = form.get("seller_verified_measurements") == "yes"
-    prev = MEASUREMENT_CACHE.get(picker_id) or {}
-    def _changed(newv, oldv, tol):
-        try:
-            old=float(oldv)
-            return old<=0 or abs(float(newv)-old) > max(tol, abs(old)*0.001)
-        except Exception:
-            return True
-    weight_changed=_changed(item_weight,form.get('original_item_weight') if 'original_item_weight' in form else prev.get("weight_kg"),.0001)
-    changed_axes={k:_changed(nv,form.get(original) if original in form else prev.get(k),.05)
-                  for nv,k,original in ((L,'length_cm','original_dim_l'),(W,'width_cm','original_dim_w'),(H,'height_cm','original_dim_h'))}
-    dims_changed=any(changed_axes.values())
-    accepted_weight_source = "SELLER_ENTERED" if weight_changed else weight_source
-    accepted_dimensions_source = "SELLER_ENTERED" if dims_changed else dimensions_source
-    accepted_measurement = {**prev,
-        "weight_kg": round(item_weight,4), "length_cm": round(L,2), "width_cm": round(W,2), "height_cm": round(H,2),
-        "confidence": int(prev.get("confidence") or 0),
-        "weight_source": accepted_weight_source,
-        "dimensions_source": accepted_dimensions_source,
-        "seller_accepted_for_shipping": bool(accepted_by_seller),
-        "seller_edited": bool(weight_changed or dims_changed),
-    }
-    if all(changed_axes.values()):
-        accepted_measurement.pop('reference_dimensions_shipping_only',None)
-        accepted_measurement.pop('estimated_dimensions_shipping_only',None)
-        accepted_measurement['measurement_field_sources']={k:accepted_dimensions_source for k in ('length_cm','width_cm','height_cm')}
-    else:
-        fields=dict(prev.get('measurement_field_sources') or {})
-        for key,changed in changed_axes.items():
-            fields[key]='SELLER_ENTERED' if changed else fields.get(key,dimensions_source)
-        accepted_measurement['measurement_field_sources']=fields
-    accepted_measurement=_p062_measurement_public_meta(accepted_measurement)
-    if weight_changed:accepted_measurement.pop('reference_weight_shipping_only',None)
-    SELLER_MEASUREMENT_CACHE[picker_id] = accepted_measurement
-    MEASUREMENT_CACHE[picker_id] = dict(accepted_measurement)
-    _save_active_lot_checkpoint()
     max_dim=max(L,W,H)
     package_pad = 4.0 if max_dim<=15 else 6.0 if max_dim<=30 else 8.0 if max_dim<=60 else 10.0
     pL,pW,pH=round(L+package_pad,1),round(W+package_pad,1),round(H+package_pad,1)
@@ -6437,6 +6516,8 @@ def shipping():
             "<h2>Доставка потребує ручної перевірки</h2>"
             "<p>Габарити або вага пакунка виходять за межі таблиці Укрпошти PRIME США.</p>"
             "<p><b>Тариф не розраховано.</b> Поверніться й перевірте вагу та габарити пакунка.</p>"),409
+    if request.method == 'POST':
+        return redirect('/picker/resume-shipping', code=303)
     postage=float(ship_calc["base_usd"])
     ebay_ship=float(ship_calc["recommended_usd"])
     items=PHOTO_CACHE.get(picker_id,[]); count=len(items)
@@ -6465,7 +6546,7 @@ def shipping():
     _ebay_photo_count = sum(_roles.get(i) in EBAY_PHOTO_ROLES for i in range(1, count + 1)) if _photo_roles_ready(items, picker_id) else 0
     body=f"""<h2>{label} — Вага й доставка</h2><p>Фото <b>{count} у лоті / {min(24,_ebay_photo_count)} для eBay</b><br>Вага для розрахунку доставки <b>{item_weight:.4f} kg</b> ({html.escape(accepted_weight_source)})<br>Орієнтовна вага пакунка <b>{packed:.2f} kg</b><br>Розміри предмета <b>{L:g} × {W:g} × {H:g} cm</b> ({html.escape(accepted_dimensions_source)})<br>Орієнтовні габарити пакунка <b>{pL:g} × {pW:g} × {pH:g} cm</b><br>Базовий тариф Укрпошти PRIME США <b>${postage:.2f}</b><br>Рекомендована вартість доставки на eBay <b>${ebay_ship:.2f}</b></p>{_usage_summary_html(picker_id)}
     <p style='padding:10px;border-left:4px solid #b7791f;background:#fff8e6'><b>Митні збори США.</b> Розрахунок охоплює доставку. Мито перевіряйте окремо за кодом ТН ЗЕД, оголошеною вартістю та країною походження.</p>
-    <form action='/picker/final-listing' method='post'>{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('item_weight',str(item_weight))}{hidden_field('estimated_packed_weight',str(packed))}{hidden_field('dimensions',f'{L:g} x {W:g} x {H:g} cm')}{hidden_field('package_dimensions',f'{pL:g} x {pW:g} x {pH:g} cm')}{hidden_field('shipping_usd',f'{ebay_ship:.2f}')}
+    <form action='/picker/final-listing' method='post'>{_measurement_form_fields(picker_id)}{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('item_weight',str(item_weight))}{hidden_field('estimated_packed_weight',str(packed))}{hidden_field('dimensions',f'{L:g} x {W:g} x {H:g} cm')}{hidden_field('package_dimensions',f'{pL:g} x {pW:g} x {pH:g} cm')}{hidden_field('shipping_usd',f'{ebay_ship:.2f}')}
     <fieldset style='padding:12px;margin:14px 0'><legend><b>Характеристики предмета</b></legend><p>Впевненість ШІ <b>{facts.get('confidence',0)}%</b>. Відомі значення вже підставлено.</p><p><b>Матеріали</b><br>{' &nbsp; '.join(checks)}</p><p>Опис матеріалу за фото. Підтвердьте, якщо його можна додати до оголошення.<br><input name='material_other' value='{html.escape(', '.join(material_details),quote=True)}' placeholder='optional' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><label><input type='checkbox' name='confirm_material_other' value='yes'> Додати підтверджений матеріал до оголошення</label></p>
     <p><b>Працездатність</b><br><select name='seller_tested_status' style='font-size:17px;padding:8px'>{status_options}</select></p>
     <p><b>Комплектність</b><br><select name='seller_completeness' style='font-size:17px;padding:8px'>{comp_options}</select></p>
@@ -6474,15 +6555,14 @@ def shipping():
     <p><b>Підтверджений виробник для eBay</b><br><input name='seller_brand' value='' placeholder='Заповніть, якщо підтвердили виробника' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><label style='display:block;margin-top:8px;padding:10px;border:2px solid #b7791f;background:#fff8e6'><input type='checkbox' name='confirm_seller_brand' value='yes'> <b>Підтверджую точне написання назви виробника</b></label></p>
     <p><b>Підтверджена країна виробництва</b><br><input name='seller_origin' value='' placeholder='Заповніть, якщо знаєте країну' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><small>Порожнє поле не передається в eBay. Вказуйте країну виробництва предмета.</small></p><p><small>Виправте підставлені значення за потреби.</small></p></fieldset>
     <button type='submit' style='font-size:20px;padding:14px 20px'>Створити чернетку оголошення eBay</button></form>"""
-    for cache,key in ((ANALYSIS_CACHE,'analysis'),(IDENTIFICATION_CACHE,'identification'),(MARKET_CACHE,'market')):
-        cache[picker_id] = form.get(key,'')
-    _save_active_lot_checkpoint()
-    if request.method == 'POST':
-        return redirect('/picker/resume-shipping', code=303)
     return page(label+" Вага й доставка",body)
 
 @app.route("/picker/final-listing", methods=["POST"])
 def final_listing():
+    picker_id = session.get('picker_session_id')
+    error = _measurement_form_error(picker_id)
+    if error:
+        return error
     analysis=request.form.get("analysis",""); identification=request.form.get("identification",""); market=request.form.get("market",""); item_weight=request.form.get("item_weight",""); packed_weight=request.form.get("estimated_packed_weight",""); dimensions=request.form.get("dimensions",""); package_dimensions=request.form.get("package_dimensions",""); shipping_usd=request.form.get("shipping_usd","")
     materials=[x.strip() for x in request.form.getlist("material_choice") if x.strip()]
     other=request.form.get("material_other","").strip()
@@ -6921,8 +7001,20 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
     title,description,specifics = _type_draft['title'],_type_draft['description'],_type_draft['item_specifics']
     listing_text=(f"1 TITLE\n{title}\n\n2 PRICE USD\n${price if price else 'Not set'}\n\n3 CONDITION\n{condition_note}\n\n4 ITEM SPECIFICS\n"+"\n".join(f"{k}: {v}" for k,v in specifics.items())+f"\n\n5 DESCRIPTION\n{description}")
     draft={"listing_text":listing_text,"title":title,"price":price,"condition_note":condition_note,"description":description,"item_specifics":specifics,"shipping_usd":shipping_usd,"confirmed_material":confirmed_material,"seller_tested_status":seller_tested_status,"seller_completeness":seller_completeness,"seller_verified_marking":seller_verified_marking,"seller_brand":seller_brand,"seller_origin":seller_origin,"seller_confirmed_country":seller_origin,"marking_present":bool((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("marking_present") or brand_candidate),"brand_evidence":str((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("brand_evidence") or brand_candidate or ""),"physical_item_count":physical_count,"sale_mode":sale_mode,"ebay_quantity":(physical_count if sale_mode=="INDIVIDUAL" else 1),"item_weight":item_weight,"packed_weight":packed_weight,"dimensions":dimensions,"package_dimensions":package_dimensions,"draft_input_signature":_draft_sig,"handling_time_business_days":int(os.environ.get("EBAY_HANDLING_DAYS","3")),"measurement_source":dict(SELLER_MEASUREMENT_CACHE.get(session.get("picker_session_id")) or MEASUREMENT_CACHE.get(session.get("picker_session_id")) or {}),"seo_keywords":seo,"seller_check":checks,"price_research_ok":bool(price_quality.get("ok")),"price_research_reasons":list(price_quality.get("reasons") or []),"price_source":("RESEARCH" if price_quality.get("ok") else "MANUAL_REQUIRED"),"listing_readiness":listing_readiness,"readiness_failures":readiness_failures}
-    LOT002_DRAFT_CACHE[session.get("picker_session_id")]=draft
-    _save_active_lot_checkpoint()
+    with _p054_lot_lock('measurements:' + str(picker_id)):
+        error = _measurement_form_error(picker_id)
+        if error:
+            return error
+        previous = LOT002_DRAFT_CACHE.get(picker_id)
+        LOT002_DRAFT_CACHE[picker_id] = draft
+        if not _save_active_lot_checkpoint():
+            if previous is None:
+                LOT002_DRAFT_CACHE.pop(picker_id, None)
+            else:
+                LOT002_DRAFT_CACHE[picker_id] = previous
+            return page('Чернетка', '<h2>Не вдалося зберегти чернетку</h2>'
+                        '<p>Повторіть збереження з актуальної сторінки.</p>'
+                        '<a href="/picker/resume-shipping">До розрахунку доставки</a>'), 503
     return redirect('/picker/review-final-draft', code=303)
 
 
@@ -13008,7 +13100,8 @@ def _p051_restore_missing_runtime_state():
     picker_id = session.get("picker_session_id")
     if picker_id and request.path != "/health" and not PHOTO_CACHE.get(picker_id) and not LOT002_DRAFT_CACHE.get(picker_id):
         _restore_active_lot_checkpoint()
-    _p054_restore_posted_handoff()
+    if request.endpoint not in {'shipping', 'recover_saved_measurement', 'rerun_measurement_only', 'final_listing'}:
+        _p054_restore_posted_handoff()
 
 
 def _p054_restore_posted_handoff():

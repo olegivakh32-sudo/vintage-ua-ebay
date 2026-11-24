@@ -259,11 +259,15 @@ def run(data, photos, limits):
         stage_d = None
         if analysis and identification and market and data.get('seller_measurements'):
             fields = data['seller_measurements']
+            with vintage.app.test_request_context():
+                vintage.session.update(picker_session_id=picker, current_lot_number=4)
+                measurement_revision = vintage._measurement_revision(picker)
             stage_d = client.post('/picker/shipping-submit', data={
                 'analysis': analysis, 'identification': identification, 'market': market,
                 'item_weight': fields['weight_kg'], 'dim_l': fields['length_cm'],
                 'dim_w': fields['width_cm'], 'dim_h': fields['height_cm'],
-                'seller_verified_measurements': 'yes',
+                'seller_verified_measurements': 'yes', 'hold_csrf': csrf,
+                'measurement_revision': measurement_revision,
             })
             if stage_d.status_code == 303:
                 shipping = client.get('/picker/resume-shipping')
