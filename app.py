@@ -1700,17 +1700,28 @@ def extract_openai_text(data):
 
 def _web_search_source_urls(response):
     urls = set()
+
+    def add_url(record):
+        url = record.get('url') if isinstance(record, dict) else None
+        if isinstance(url, str) and _p054_source_host(url):
+            urls.add(url)
+
     for output in response.get('output') or []:
+        if not isinstance(output, dict):
+            continue
         if output.get('type') == 'web_search_call':
-            sources = (output.get('action') or {}).get('sources') or []
-            urls.update(source.get('url') for source in sources if isinstance(source, dict))
+            action = output.get('action')
+            if isinstance(action, dict):
+                for source in action.get('sources') or []:
+                    add_url(source)
         if output.get('type') == 'message':
             for content in output.get('content') or []:
-                urls.update(
-                    citation.get('url') for citation in content.get('annotations') or []
-                    if citation.get('type') == 'url_citation'
-                )
-    return sorted(url for url in urls if isinstance(url, str) and _p054_source_host(url))
+                if not isinstance(content, dict):
+                    continue
+                for citation in content.get('annotations') or []:
+                    if isinstance(citation, dict) and citation.get('type') == 'url_citation':
+                        add_url(citation)
+    return sorted(urls)
 
 
 def _reported_web_source_urls(text):
@@ -4181,12 +4192,12 @@ You are the evidence analyst for Vintage UA eBay Machine. Current lot: {label}. 
 
 BUSINESS GOAL: create a truthful, high-converting listing while minimizing false facts, wasted API calls, returns, policy risk and seller time. This stage does NOT research the web and does NOT price the item. It extracts evidence from seller photos for the next research stage.
 
-INPUT LIMIT: there are {count} seller photos total. You receive {len(used_indices)} representative ORIGINAL photos. Never claim you inspected unseen photos.
+INPUT LIMIT: there are {count} seller photos total. You receive all source photos, including {len(used_indices)} representative originals at high detail. Use low-detail photos for role classification and only record markings that are visibly legible at the supplied resolution.
 
 MANDATORY EVIDENCE PROCEDURE:
 1. OBJECT: determine the broad object type first. Do not force a subtype/mechanism unless visible evidence supports it.
 2. MARKINGS/OCR: inspect every received image for stamped, embossed, engraved, printed or cast text, logos, numbers, symbols, price marks, quality/state marks and model-like codes.
-3. For EACH unclear marking, explicitly list 2-6 plausible readings when possible. Distinguish Cyrillic/Latin/look-alike characters (К/K, И/N, П/P, З/3, О/0, etc.). Never silently choose one uncertain reading.
+3. For EACH unclear marking, explicitly list 2-6 plausible readings when possible. Distinguish Cyrillic/Latin/look-alike characters (К/K, И/N, П/P, З/3, О/0, etc.). For each marking cite the source photo number, preserve the visible script, spelling, line order and punctuation, and indicate unreadable characters with [?]. List inferred readings separately from the literal transcription. If photos disagree, report the discrepancy.
 4. A visible word is NOT automatically a brand. Classify each mark as one of: MAKER_CANDIDATE, MODEL_CANDIDATE, SERIAL/PRODUCTION, PRICE, QUALITY/STATE, DECORATIVE/INSCRIPTION, UNKNOWN.
 5. CONSTRUCTION: record distinctive features useful for exact-match research: body/spool/frame shape, perforation pattern, handle count/shape, knobs, screws, buttons, feet/mounts, hinges, locks, mechanism, decoration and unusual geometry.
 6. MATERIALS: only materials visually supported. If exact alloy/polymer/wood species is unknown, use the broader truthful class. Put a material in AUTO_FACTS_JSON only when the broad class is visually supported with materials_confidence >=70; otherwise leave materials empty.

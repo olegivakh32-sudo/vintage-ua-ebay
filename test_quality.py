@@ -205,8 +205,10 @@ class WorkflowTests(unittest.TestCase):
     def test_new_price_evidence_must_match_web_search_metadata(self):
         url = "https://market.example/item/1"
         result = {"output": [
-            {"type": "web_search_call", "action": {"sources": [{"url": url}]}},
-            {"type": "message", "content": [{"annotations": [
+            None,
+            {"type": "web_search_call", "action": {"sources": [{"url": url}, {"url": ["invalid"]}]}},
+            {"type": "message", "content": [None, {"annotations": [
+                None,
                 {"type": "url_citation", "url": url},
                 {"type": "url_citation", "url": "file:///private"},
             ]}]},
