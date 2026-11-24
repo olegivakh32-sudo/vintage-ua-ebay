@@ -1,5 +1,6 @@
 from decimal import Decimal
 from io import BytesIO
+import re
 import unittest
 from unittest.mock import patch
 
@@ -54,14 +55,16 @@ class AndroidTests(unittest.TestCase):
         self.assertEqual(upload.status_code, 201)
         self.assertEqual(upload.json, {'photos': 12})
         photo_roles = self.client.get('/picker/editor').get_data(as_text=True)
-        self.assertIn('можлива лінійка', photo_roles)
-        self.assertIn('можливі ваги', photo_roles)
+        self.assertIn('Можлива лінійка', photo_roles)
+        self.assertIn('Можливі ваги', photo_roles)
         self.assertNotIn('value="3" checked', photo_roles)
         self.assertNotIn('value="7" checked', photo_roles)
-        self.assertIn('value="11" checked', photo_roles)
+        self.assertNotIn('value="11" checked', photo_roles)
+        self.assertEqual(self.client.post('/picker/editor/approve', data={'main_photo': '1'}).status_code, 409)
+        selection = re.search(r'name="selection" value="([^"]+)"', photo_roles)[1]
         selected = [str(i) for i in range(1, 13) if i not in {3, 7}]
         self.assertEqual(self.client.post('/picker/editor', data={
-            'hold_csrf': self.csrf, 'product_photo': selected,
+            'hold_csrf': self.csrf, 'selection': selection, 'product_photo': selected,
         }).status_code, 303)
         self.assertEqual(self.client.post('/picker/editor/approve', data={'main_photo': '11'}).status_code, 302)
         with self.client.session_transaction() as current:
@@ -113,21 +116,28 @@ class AndroidTests(unittest.TestCase):
         self.assertEqual(facts['markings'], [{'photo': 11, 'literal': 'СД[?]'}])
         self.assertEqual(facts['brand'], '')
 
-    def test_pilot_caps_attempts_web_and_cost_before_sending(self):
+    def test_pilot_reserves_full_context_output_cap_and_failed_attempts(self):
         limits = PilotLimits(Decimal('0.25'))
-        text = {'input': 'texto', 'max_output_tokens': 1200}
-        web = dict(text, tools=[{'type': 'web_search'}])
-        with self.assertRaisesRegex(RuntimeError, 'ліміт'):
-            limits.bound(dict(text, max_output_tokens=5201), 0)
-        self.assertEqual(limits.bound(web, 0)['max_tool_calls'], 2)
-        with self.assertRaisesRegex(RuntimeError, 'Вебпошук'):
-            limits.bound(web, 0)
+        text = {'input': 'texto', 'max_output_tokens': 5200}
+        web = dict(text, tools=[{'type': 'web_search'}], service_tier='priority')
         with self.assertRaisesRegex(RuntimeError, 'Ліміт'):
-            limits.bound(text, 0.25)
+            limits.bound(dict(text, max_output_tokens=5201))
+        outbound = limits.bound(web)
+        self.assertNotIn('tools', outbound)
+        self.assertEqual(outbound['service_tier'], 'default')
+        self.assertEqual(outbound['truncation'], 'disabled')
+        with self.assertRaisesRegex(RuntimeError, 'один етап'):
+            limits.bound(web)
         for _ in range(4):
-            self.assertEqual(limits.bound(text, 0.24), text)
+            limits.bound(text)
+        self.assertEqual(limits.reserved_total, Decimal('0.19968'))
         with self.assertRaisesRegex(RuntimeError, 'Ліміт'):
-            limits.bound(text, 0.24)
+            limits.bound(text)
+        capped = PilotLimits(Decimal('0.025'))
+        capped.bound(text)
+        with self.assertRaisesRegex(RuntimeError, 'ліміт витрат'):
+            capped.bound(text)
+        self.assertEqual(capped.attempts, 1)
 
     def test_isolated_pilot_runs_recognition_through_draft_and_recorded_taxonomy(self):
         import tempfile
@@ -175,3 +185,96 @@ class AndroidTests(unittest.TestCase):
         self.assertFalse(report['admitted'])
         self.assertIn('Pocket Watch', report['draft']['title'])
         self.assertEqual(limits.attempts, 4)
+
+    def test_generic_filenames_measurement_frames_and_auto_main(self):
+        product, ruler = self.fixture_images()
+        scale = product.copy()
+        draw = ImageDraw.Draw(scale)
+        draw.rounded_rectangle((125, 160, 246, 211), radius=5, fill='#aabb99', outline='#333333', width=3)
+        for offset in (145, 175, 205):
+            draw.rectangle((offset, 175, offset + 14, 199), outline='black', width=3)
+            draw.line((offset, 187, offset + 14, 187), fill='black', width=3)
+        photos = [scale, *[ruler.rotate(angle, expand=True, fillcolor='grey') for angle in (15, 30, 45, 90)],
+                  *[product] * 7]
+        files = []
+        for number, image in enumerate(photos, 1):
+            result = BytesIO()
+            image.save(result, 'JPEG')
+            result.seek(0)
+            files.append((result, f'IMG_{number}.jpg'))
+        self.assertEqual(self.client.post('/mobile/upload', data={'hold_csrf': self.csrf, 'photos': files}).status_code, 303)
+        with self.client.session_transaction() as session:
+            pid = session['picker_session_id']
+            session['main_photo_index'] = 1
+            session['photo_order'] = list(range(1, 13))
+            session['photo_editor_approved'] = True
+        # Old Android 2 cached state looked like explicit selections. It is quarantined until re-reviewed.
+        m.PHOTO_ROLE_CACHE[pid] = dict.fromkeys(range(1, 13), 'EBAY_PRODUCT')
+        page = self.client.get('/picker/editor').get_data(as_text=True)
+        key = re.search(r'name="selection" value="([^"]+)"', page)[1]
+        self.assertEqual(page.count('Можлива лінійка'), 4)
+        self.assertEqual(page.count('Цифровий дисплей'), 1)
+        self.assertNotIn(' checked>', page)
+        self.assertEqual(self.client.post('/picker/editor/approve', data={}).status_code, 409)
+        self.assertEqual(self.client.post('/picker/editor', data={
+            'hold_csrf': self.csrf, 'selection': 'from-old-lot', 'product_photo': ['6'],
+        }).status_code, 409)
+        selected = [str(i) for i in range(6, 13)]
+        self.assertEqual(self.client.post('/picker/editor', data={
+            'hold_csrf': self.csrf, 'selection': key, 'product_photo': selected,
+        }).status_code, 303)
+        self.assertEqual(self.client.post('/picker/editor/approve', data={'main_photo': '1'}).status_code, 302)
+        with self.client.session_transaction() as session:
+            self.assertIn(session['main_photo_index'], range(6, 13))
+            self.assertEqual(set(session['photo_order']), set(range(6, 13)))
+        self.assertEqual(self.client.post('/picker/editor/approve', data={'main_photo': '11'}).status_code, 302)
+        with self.client.session_transaction() as session:
+            self.assertEqual(session['photo_order'], [11, 6, 7, 8, 9, 10, 12])
+
+    def test_ai_uncertain_photo_cannot_stay_in_approved_eps_snapshot(self):
+        product, _ = self.fixture_images()
+        photos = []
+        for i in range(2):
+            photo = BytesIO()
+            product.save(photo, 'JPEG')
+            photo.seek(0)
+            photos.append((photo, f'IMG_{i}.jpg'))
+        self.assertEqual(self.client.post('/mobile/upload', data={
+            'hold_csrf': self.csrf, 'photos': photos,
+        }).status_code, 303)
+        page = self.client.get('/picker/editor').get_data(as_text=True)
+        key = re.search(r'name="selection" value="([^"]+)"', page)[1]
+        self.client.post('/picker/editor', data={
+            'hold_csrf': self.csrf, 'selection': key, 'product_photo': ['1', '2'],
+        })
+        self.client.post('/picker/editor/approve', data={'main_photo': '1'})
+        response = 'PHOTO_ROLES_JSON: {"roles":{"1":"NEEDS_REVIEW","2":"EBAY_PRODUCT"}}'
+        with patch.dict(m.os.environ, {'ALLOW_PAID_AI': '1'}), patch.object(
+            m, 'OPENAI_API_KEY', 'fixture'
+        ), patch.object(m, 'call_openai', return_value=response):
+            self.assertEqual(self.client.post('/picker/analyze').status_code, 200)
+        with self.client.session_transaction() as session:
+            updated_session = dict(session)
+        pid = updated_session['picker_session_id']
+        self.assertEqual(updated_session['photo_order'], [2])
+        self.assertEqual(updated_session['main_photo_index'], 2)
+        self.assertFalse(updated_session['photo_editor_approved'])
+        with m.app.test_request_context():
+            m.session.update(updated_session)
+            self.assertFalse(m._p056_approved_photo_snapshot_ok(pid, [1, 2]))
+            with self.assertRaises(RuntimeError):
+                m._current_upload_photos('no-ebay')
+        self.assertEqual(self.client.post('/picker/editor/approve', data={'main_photo': '2'}).status_code, 302)
+        with self.client.session_transaction() as session:
+            self.assertEqual(session['photo_order'], [2])
+
+    def test_incomplete_roles_fail_closed_even_if_every_jpeg_is_approved(self):
+        picker = 'fixture-with-incomplete-roles'
+        with m.app.test_request_context(), patch.dict(m.PHOTO_CACHE, {picker: [{}, {}]}), patch.dict(
+            m.PHOTO_ROLE_CACHE, {picker: {2: 'EBAY_PRODUCT'}}
+        ), patch.dict(m.APPROVED_PHOTO_CACHE, {
+            picker: {1: {'bytes': b'first'}, 2: {'bytes': b'second'}}
+        }):
+            m.session.update(picker_session_id=picker, photo_editor_approved=True, main_photo_index=1)
+            self.assertEqual(m._ebay_photo_indices(m.PHOTO_CACHE[picker], picker), [])
+            self.assertFalse(m._p056_approved_photo_snapshot_ok(picker, [1, 2]))

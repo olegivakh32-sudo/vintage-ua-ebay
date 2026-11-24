@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import unittest
 from unittest.mock import Mock, patch
 
@@ -165,7 +166,7 @@ class WorkflowTests(unittest.TestCase):
             m.app.test_request_context(),
             patch.dict(m.PHOTO_CACHE, {picker: items}),
             patch.dict(m.APPROVED_PHOTO_CACHE, {picker: approved}),
-            patch.dict(m.PHOTO_ROLE_CACHE, {picker: {25: "EVIDENCE_ONLY"}}),
+            patch.dict(m.PHOTO_ROLE_CACHE, {picker: {**dict.fromkeys(range(1, 25), "EBAY_PRODUCT"), 25: "EVIDENCE_ONLY"}}),
             patch.dict(m.EBAY_MEDIA_CACHE, {sku: []}),
             patch.object(m, "_current_lot_sku", return_value=sku),
             patch.object(m, "_save_active_lot_checkpoint", return_value=True),
@@ -336,10 +337,12 @@ class WorkflowTests(unittest.TestCase):
                 "photos": [(BytesIO(photo.getvalue()), f"{i}.jpg") for i in range(1, 25)],
             })
             self.assertEqual(uploaded.status_code, 303)
-            self.assertIn(b'name="product_photo"', client.get("/picker/editor").data)
+            roles_page = client.get("/picker/editor").get_data(as_text=True)
+            self.assertIn('name="product_photo"', roles_page)
+            selection = re.search(r'name="selection" value="([^"]+)"', roles_page)[1]
             self.assertEqual(client.post("/picker/editor", data={"product_photo": "1"}).status_code, 403)
             selected = client.post("/picker/editor", data={
-                "hold_csrf": csrf, "product_photo": [str(i) for i in range(1, 25)],
+                "hold_csrf": csrf, "selection": selection, "product_photo": [str(i) for i in range(1, 25)],
             })
             self.assertEqual(selected.status_code, 303)
             self.assertEqual(client.get("/picker/editor").status_code, 200)

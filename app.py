@@ -55,7 +55,7 @@ from flask import (
     url_for,
 )
 
-APP_RELEASE = "P094 · Android 2"
+APP_RELEASE = "P094 · Android 3"
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 250 * 1024 * 1024
 
@@ -137,6 +137,8 @@ MEASUREMENT_EVIDENCE_IMAGE_CACHE = {}
 RESEARCH_SPEC_CACHE = {}
 # P024.3: automatic photo-role split. All photos remain available to AI; only eBay-eligible photos may reach EPS.
 PHOTO_ROLE_CACHE = {}
+EBAY_PHOTO_ROLES = frozenset({'EBAY_PRODUCT', 'EBAY_EVIDENCE'})
+PHOTO_REVIEW_VERSION = '2'
 
 # P026: per-LOT OpenAI usage/cost guard. Values are best-effort estimates from
 # Responses API usage fields; web-search calls are counted separately.
@@ -250,6 +252,7 @@ def _save_active_lot_checkpoint():
             "seller_measurement": SELLER_MEASUREMENT_CACHE.get(picker_id),
             "pending_measurement_override": PENDING_MEASUREMENT_OVERRIDE_CACHE.get(picker_id),
             "photo_roles": {str(k):v for k,v in roles.items()},
+            "photo_role_review": session.get("photo_role_review"),
             "research_specs": RESEARCH_SPEC_CACHE.get(picker_id),
             "draft": LOT002_DRAFT_CACHE.get(picker_id),
             "ai_usage": AI_USAGE_CACHE.get(picker_id),
@@ -302,7 +305,7 @@ def _restore_active_lot_checkpoint():
             session["photo_editor_approved"] = False
         elif "photo_editor_approved" not in session:
             session["photo_editor_approved"] = bool(data.get("photo_editor_approved"))
-        for k in ("main_photo_index","photo_order","photo_selection_signature"):
+        for k in ("main_photo_index","photo_order","photo_selection_signature","photo_role_review"):
             if k not in session and data.get(k) is not None:
                 session[k]=data.get(k)
         photos=data.get("photos") or []
@@ -472,48 +475,95 @@ def _download_picker_photo(index, edited=False, max_side=2400, edit_settings=Non
     return data
 
 
+def _mobile_role_review_key(picker_id, items):
+    return PHOTO_REVIEW_VERSION + ':' + str(picker_id) + ':' + hashlib.sha256(
+        json.dumps([item.get('id') for item in items]).encode()
+    ).hexdigest()
+
+
+def _photo_roles_ready(items, picker_id):
+    if str(picker_id or '').startswith('mobile-') and session.get('photo_role_review') != _mobile_role_review_key(picker_id, items):
+        return False
+    roles = PHOTO_ROLE_CACHE.get(picker_id) or {}
+    allowed = EBAY_PHOTO_ROLES | {'EVIDENCE_ONLY', 'NEEDS_REVIEW'}
+    return bool(items) and all(
+        roles.get(i) in allowed
+        for i in range(1, len(items) + 1)
+    )
+
+
+def _use_photo_roles(picker_id, items, roles):
+    PHOTO_ROLE_CACHE[picker_id] = roles
+    if str(picker_id or '').startswith('mobile-'):
+        session['photo_role_review'] = _mobile_role_review_key(picker_id, items)
+    if session.get('photo_editor_approved'):
+        _mobile_restore_approved_photos(picker_id)
+        approved = APPROVED_PHOTO_CACHE.get(picker_id) or {}
+        candidates = {i for i, role in roles.items() if role in EBAY_PHOTO_ROLES}
+        if not approved or not set(approved) <= candidates or (len(candidates) <= 24 and candidates != set(approved)):
+            session['photo_editor_approved'] = False
+    _refresh_ebay_photo_order(items, picker_id)
+
+
 @app.route("/picker/editor", methods=["GET", "POST"])
 def picker_editor():
     picker_id = session.get("picker_session_id")
     items = PHOTO_CACHE.get(picker_id, [])
     if not (1 <= len(items) <= 32):
         return page("Редактор фото", "<h2>Виберіть від 1 до 32 фото</h2><p><a href='/mobile'>До фото з телефона</a></p>"), 400
+    mobile = str(picker_id or '').startswith('mobile-') and all(item.get('mobile_file') for item in items)
+    ready = _photo_roles_ready(items, picker_id)
     if request.method == "POST":
         if not _p058_csrf_valid():
-            return 'Оновіть форму вибору фото', 403
-        if PHOTO_ROLE_CACHE.get(picker_id) or not all(item.get('mobile_file') for item in items):
-            return 'Вибір ролей уже збережено або цей лот створено через Google Photos.', 409
-        raw = request.form.getlist('product_photo')
-        valid = {str(i) for i in range(1, len(items) + 1)}
-        if not raw or not set(raw) <= valid or len(set(raw)) > 24:
-            return 'Виберіть від 1 до 24 фото товару.', 400
-        products = set(raw)
-        PHOTO_ROLE_CACHE[picker_id] = {
-            i: 'EBAY_PRODUCT' if str(i) in products else 'EVIDENCE_ONLY'
+            return page('Вибір фото', '<p>Оновіть форму вибору фото.</p><a href="/picker/editor">До редактора</a>'), 403
+        if not mobile or request.form.get('selection') != _mobile_role_review_key(picker_id, items):
+            return page('Вибір фото', '<p>Список фото змінився.</p><a href="/picker/editor">Оновити вибір</a>'), 409
+        picks = set(request.form.getlist('product_photo'))
+        allowed = {str(i) for i in range(1, len(items) + 1)}
+        if not picks or not picks <= allowed or len(picks) > 24:
+            return page('Вибір фото', '<p>Позначте від 1 до 24 фото товару.</p><a href="/picker/editor?roles=1">До фото</a>'), 400
+        previous = PHOTO_ROLE_CACHE.get(picker_id)
+        previous_session = dict(session)
+        _use_photo_roles(picker_id, items, {
+            i: 'EBAY_PRODUCT' if str(i) in picks else 'EVIDENCE_ONLY'
             for i in range(1, len(items) + 1)
-        }
+        })
         if not _save_active_lot_checkpoint():
-            PHOTO_ROLE_CACHE.pop(picker_id, None)
-            return 'Не вдалося зберегти вибір фото.', 503
+            session.clear()
+            session.update(previous_session)
+            if previous is None:
+                PHOTO_ROLE_CACHE.pop(picker_id, None)
+            else:
+                PHOTO_ROLE_CACHE[picker_id] = previous
+            return page('Вибір фото', '<p>Не вдалося зберегти вибір.</p><a href="/picker/editor?roles=1">Повторити</a>'), 503
         return redirect('/picker/editor', code=303)
-    if not PHOTO_ROLE_CACHE.get(picker_id) and all(item.get('mobile_file') for item in items):
+    roles = PHOTO_ROLE_CACHE.get(picker_id) if ready else {}
+    if mobile and (not ready or request.args.get('roles') == '1' or not (set(roles.values()) & EBAY_PHOTO_ROLES)):
         options = []
-        hints = {'ruler': 'можлива лінійка', 'scale': 'можливі ваги'}
         for i, item in enumerate(items, 1):
-            hint = hints.get(item.get('measurement_hint'))
-            checked = '' if hint else ' checked'
+            hint = _mobile_evidence_hint(item)
+            checked = ' checked' if roles.get(i) in EBAY_PHOTO_ROLES else ''
+            status = {'ruler': 'Можлива лінійка', 'scale': 'Можливі ваги', 'display': 'Цифровий дисплей'}.get(hint)
+            if not status:
+                status = ('Службовий кадр' if roles.get(i) == 'EVIDENCE_ONLY'
+                          else 'Потребує перевірки' if not checked else 'Фото товару')
             options.append(
-                f'<label><input type="checkbox" name="product_photo" value="{i}"{checked}> Фото {i}'
-                f'<img src="/picker/thumb/{i}?size=200" loading="lazy" decoding="async" alt="">'
-                + (f'<small>{hint}</small>' if hint else '') + '</label>'
+                f'<label class="photo-choice"><img src="/picker/thumb/{i}?size=200" loading="lazy" decoding="async" alt="">'
+                f'<span><input type="checkbox" name="product_photo" value="{i}"{checked}> Фото {i}</span>'
+                f'<small>{status}</small></label>'
             )
-        return page('Вибір фото товару', '<h2>Фото для оголошення</h2>'
-                    '<p>Можливі кадри з вимірами вже знято з вибору. Перевірте список. '
-                    'Кадри без позначки залишаться в лоті для вимірювання.</p>'
+        automatic = ''
+        if OPENAI_API_KEY and os.environ.get('ALLOW_PAID_AI') == '1' and not ANALYSIS_CACHE.get(picker_id):
+            automatic = '<form method="post" action="/picker/analyze"><button>Розпізнати й розподілити фото за допомогою ШІ</button></form>'
+        key = _mobile_role_review_key(picker_id, items)
+        return page('Вибір фото товару', '<h2>Які фото показати на eBay?</h2>'
+                    '<p>Позначте лише фото товару. Кадри з вагами, лінійкою, пакуванням та невизначені '
+                    'залиште порожніми. Вони збережуться для вимірювання.</p>' + automatic +
                     '<form method="post"><input type="hidden" name="hold_csrf" value="' + _p058_csrf()
-                    + '"><div class="photo-grid">' + ''.join(options)
-                    + '</div><p><button>Відкрити редактор</button></p></form>')
-    if not PHOTO_ROLE_CACHE.get(picker_id):
+                    + '"><input type="hidden" name="selection" value="' + html.escape(key, quote=True)
+                    + '"><div class="photo-grid photo-choices">' + ''.join(options)
+                    + '</div><div class="role-actions"><button>Підтвердити фото товару</button></div></form>')
+    if not ready:
         return page("Редактор фото", "<h2>Спочатку визначте, які фото підходять для оголошення.</h2><p><a href='/picker/items'>Аналіз і розподіл фото</a></p>"), 409
     eligible = _ebay_photo_indices(items, picker_id)
     if not eligible:
@@ -543,11 +593,14 @@ def picker_editor():
         </div>""")
 
     approved = bool(session.get("photo_editor_approved"))
+    excluded = sum(roles.get(i) not in EBAY_PHOTO_ROLES for i in range(1, len(items) + 1))
+    review_link = '<a href="/picker/editor?roles=1">Змінити перелік фото товару</a>' if mobile else ''
     status = "<p style='color:green'><b>✓ Відредаговані фото затверджено.</b></p>" if approved else "<p>Перегляньте й затвердьте фото для оголошення.</p>"
     return page("Редактор фото поточного лота", f"""
       <h2>Редактор фото</h2>
       <p>Виберіть головне фото та відкоригуйте зображення за потреби. Кадри для вимірювання залишаться в лоті.</p>
       {status}
+      <p>{len(eligible)} для eBay · {excluded} поза оголошенням. {review_link}</p>
       <div class="editor-tools">
         <b>Налаштування для всіх фото</b>
         <button type='button' id='preset-natural'>Природні кольори</button>
@@ -608,8 +661,8 @@ def picker_edited(index):
         settings={"brightness":request.args.get("b",1.0,type=float),"contrast":request.args.get("c",1.0,type=float),"color":request.args.get("s",1.0,type=float),"sharpness":request.args.get("h",1.0,type=float)}
         data = _download_picker_photo(index, edited=True, max_side=1600, edit_settings=settings)
         return Response(data, content_type="image/jpeg", headers={"Cache-Control": "no-store"})
-    except Exception as exc:
-        return f"Відредаговане фото недоступне: {html.escape(str(exc))}", 404
+    except Exception:
+        return 'Відредаговане фото недоступне. Відкрийте редактор, щоб повторити.', 404
 
 
 def _auto_main_score(jpeg_bytes):
@@ -647,14 +700,14 @@ def picker_editor_approve():
     picker_id = session.get("picker_session_id")
     items = PHOTO_CACHE.get(picker_id, [])
     if not (1 <= len(items) <= 32):
-        return page("Photo editor", "<h2>Approval stopped: select from 1 to 32 active photos.</h2>"), 400
+        return page("Редактор фото", "<h2>Додайте від 1 до 32 фото</h2><p><a href='/mobile'>До фото з телефона</a></p>"), 400
     try:
         main_index = int(request.form.get("main_photo") or 0)
     except Exception:
         main_index = 0
     eligible = _ebay_photo_indices(items, picker_id)
     if not eligible:
-        return page("Photo editor", "<h2>Approval stopped: no eBay-eligible product photo.</h2>"), 409
+        return page("Редактор фото", "<h2>Спочатку підтвердьте фото товару</h2><p><a href='/picker/editor'>Перевірити фото</a></p>"), 409
     # main_index==0 means AUTO. A manual radio choice remains an override.
     # Freeze only eBay-eligible edited JPEGs. Evidence-only originals remain available
     # to Measurement/Research but are never frozen for EPS/eBay upload.
@@ -682,7 +735,7 @@ def picker_editor_approve():
             failures.append(f"Photo {i}: {last_exc}")
     if failures:
         session["photo_editor_approved"] = False
-        return page("Photo editor", "<h2>Approval stopped — edited files were not frozen.</h2><pre>" + html.escape("\n".join(failures)) + "</pre><p><a href='/picker/editor'>Back</a></p>"), 409
+        return page("Редактор фото", "<h2>Не вдалося затвердити фото</h2><pre>" + html.escape("\n".join(failures)) + "</pre><p><a href='/picker/editor'>Back</a></p>"), 409
     APPROVED_PHOTO_CACHE[picker_id] = approved
     if main_index not in eligible:
         scored=[(_auto_main_score(approved[i]["bytes"]), i) for i in eligible]
@@ -708,7 +761,7 @@ def picker_approved(index):
     _mobile_restore_approved_photos(picker_id)
     snap = (APPROVED_PHOTO_CACHE.get(picker_id) or {}).get(index)
     if not snap:
-        return "Approved photo snapshot unavailable", 404
+        return "Затверджене фото недоступне.", 404
     return Response(snap["bytes"], content_type="image/jpeg", headers={"Cache-Control":"no-store"})
 
 
@@ -767,6 +820,11 @@ def page(title, body):
       .mobile-actions {{ display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }}
       .mobile-actions a {{ padding:10px 0; }}
       .photo-grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:10px; }}
+      .photo-choice {{ display:grid; gap:4px; padding:6px; border:1px solid var(--line); border-radius:10px; }}
+      .photo-choice span {{ min-height:44px; display:flex; align-items:center; gap:6px; }}
+      .photo-choice input {{ width:20px; height:20px; }}
+      .role-actions {{ position:sticky; bottom:0; padding:10px 0; background:var(--card); }}
+      .role-actions button {{ width:100%; }}
       .photo-grid img {{ width:100%; aspect-ratio:1; object-fit:contain; background:#f4f4f4; }}
       .editor-tools {{ position:sticky; top:0; z-index:20; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; margin:10px 0; }}
       .edit-controls label {{ min-width:0; }}
@@ -779,14 +837,16 @@ def page(title, body):
         button {{ min-height:44px; white-space:normal; }}
         input[type=file] {{ width:100%; }}
         table {{ display:block; overflow-x:auto; }}
-        .editor-tools button {{ font-size:14px; padding:8px; }}
+        .editor-tools {{ position:static; }}
+      .editor-tools button {{ font-size:14px; padding:8px; }}
+      .photo-choices {{ grid-template-columns:repeat(auto-fill,minmax(126px,1fr)); }}
       }}
     </style>
 </head>
 <body>
   <div class="shell">
     <div class="topbar"><div><div class="brand">Vintage UA eBay Machine <span class="subtitle">{APP_RELEASE}</span></div><div class="subtitle">Підготовка товарів до продажу на eBay</div></div></div>
-    <nav><a href="/mobile">Мобільний застосунок</a> · <a href="/">Головна</a> · <a href="/markets/compare">США / Україна — прибуток</a> · <a href="/picker/resume-measurements">Виміри без API</a> · <a href="/ebay/hold-queue">HOLD ({_p058_count()})</a></nav>
+    <nav aria-label="Навігація"><a href="/mobile">Фото з телефона</a><a href="/">Головна</a><a href="/markets/compare">Оцінка прибутку</a><a href="/picker/resume-measurements">Виміри</a><a href="/ebay/hold-queue">Відкладені ({_p058_count()})</a></nav>
     <main class="content">{body}</main>
     <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/mobile-sw.js').catch(function(){{}});</script>
     {_P054_BROWSER_BACKUP_SCRIPT}
@@ -2137,7 +2197,7 @@ def _measurement_photo_data_url(picker_id, index, item, size, token=None):
         return cached
 
     roles = PHOTO_ROLE_CACHE.get(picker_id) or {}
-    persist = (roles.get(int(index)) == "EVIDENCE_ONLY")
+    persist = roles.get(int(index)) in {"EVIDENCE_ONLY", "NEEDS_REVIEW"}
     path = _measurement_evidence_cache_file(picker_id, index, size) if persist else None
     if path and os.path.exists(path):
         try:
@@ -2380,6 +2440,13 @@ def _auto_facts_from_analysis(analysis):
         if isinstance(mark, dict) and type(mark.get('photo')) is int and 1 <= mark['photo'] <= 32
         and isinstance(mark.get('literal'), str) and mark['literal'].strip()
     ] if isinstance(markings, list) else []
+    symbols = obj.get('symbols')
+    symbols = [
+        {'photo': mark['photo'], 'description': mark['description'].strip()[:200]}
+        for mark in symbols[:12]
+        if isinstance(mark, dict) and type(mark.get('photo')) is int and 1 <= mark['photo'] <= 32
+        and isinstance(mark.get('description'), str) and mark['description'].strip()
+    ] if isinstance(symbols, list) else []
     mats = obj.get("materials") or []
     if isinstance(mats, str):
         mats = [x.strip() for x in re.split(r"[,;/]", mats) if x.strip()]
@@ -2415,6 +2482,7 @@ def _auto_facts_from_analysis(analysis):
     return {
         "object_type": object_type[:120],
         "markings": markings,
+        "symbols": symbols,
         "materials": list(dict.fromkeys(mats)),
         "materials_confidence": materials_conf if mats else 0,
         "material_evidence": material_evidence if mats else "",
@@ -4012,22 +4080,22 @@ def picker_items():
 
     if 1 <= count <= 32:
         status = f"""
-        <p style="color:green;">
+        <p>
             <b>
-                Вибрано {count} фото. До eBay можна додати щонайбільше 24 фото товару.
+                У лоті {count} фото. До eBay можна додати щонайбільше 24 підтверджені фото товару.
             </b>
         </p>
         """
 
-        roles_ready = bool(PHOTO_ROLE_CACHE.get(picker_id))
+        roles_ready = _photo_roles_ready(items, picker_id)
         if session.get("photo_editor_approved") and roles_ready:
             roles = PHOTO_ROLE_CACHE.get(picker_id) or {}
             ebay_n = len(_ebay_photo_indices(items, picker_id))
-            evidence_n = sum(1 for i in range(1, count+1) if roles.get(i) == "EVIDENCE_ONLY")
+            evidence_n = sum(roles.get(i) not in EBAY_PHOTO_ROLES for i in range(1, count + 1))
             saved_analysis = ANALYSIS_CACHE.get(picker_id, "")
             if saved_analysis:
                 button = f"""
-                <p style="color:green"><b>Розподіл завершено. {ebay_n} фото для eBay, {evidence_n} кадрів для вимірювання. Фото затверджено.</b></p>
+                <p style="color:green"><b>Розподіл завершено. {ebay_n} фото для eBay, {evidence_n} кадрів поза оголошенням. Фото затверджено.</b></p>
                 <p><a href="/picker/editor" style="display:inline-block;padding:12px 16px;border:1px solid #777;border-radius:7px;text-decoration:none">Переглянути фото для eBay</a></p>
                 <form action="/picker/fast-research" method="post">
                     {hidden_field('analysis', saved_analysis)}
@@ -4036,7 +4104,7 @@ def picker_items():
                 """
             else:
                 button = f"""
-                <p style="color:green"><b>Розподіл завершено. {ebay_n} фото для eBay, {evidence_n} кадрів для вимірювання. Фото затверджено.</b></p>
+                <p style="color:green"><b>Розподіл завершено. {ebay_n} фото для eBay, {evidence_n} кадрів поза оголошенням. Фото затверджено.</b></p>
                 <form action="/picker/analyze" method="post">
                     <button type="submit" style="font-size:20px;padding:14px 20px;margin-top:20px">Проаналізувати фото</button>
                 </form>
@@ -4044,9 +4112,9 @@ def picker_items():
         elif roles_ready:
             roles = PHOTO_ROLE_CACHE.get(picker_id) or {}
             ebay_n = len(_ebay_photo_indices(items, picker_id))
-            evidence_n = sum(1 for i in range(1, count+1) if roles.get(i) == "EVIDENCE_ONLY")
+            evidence_n = sum(roles.get(i) not in EBAY_PHOTO_ROLES for i in range(1, count + 1))
             button = f"""
-            <p><b>Розподіл фото завершено.</b> {ebay_n} кандидатів для eBay, {evidence_n} кадрів для вимірювання. Ці кадри залишаться в лоті.</p>
+            <p><b>Розподіл фото завершено.</b> {ebay_n} кандидатів для eBay, {evidence_n} кадрів поза оголошенням. Ці кадри залишаться в лоті.</p>
             <p><a href="/picker/editor" style="display:inline-block;padding:12px 16px;border:1px solid #777;border-radius:7px;text-decoration:none">Відкрити редактор фото</a></p>
             """
         else:
@@ -4057,7 +4125,7 @@ def picker_items():
             </form>
             """
             if all(item.get('mobile_file') for item in items):
-                button += '<p><a href="/picker/editor">Відкрити редактор без ШІ</a></p>'
+                button += '<p><a href="/picker/editor">Вибрати фото товару без ШІ</a></p>'
     else:
         status = f"""
         <p style="color:red;">
@@ -4142,7 +4210,7 @@ def _photo_roles_from_analysis(text, total):
         raw = obj.get('roles') if isinstance(obj, dict) else None
         if not isinstance(raw, dict):
             return None
-        allowed={'EBAY_PRODUCT','EVIDENCE_ONLY','EBAY_EVIDENCE'}
+        allowed=EBAY_PHOTO_ROLES | {'EVIDENCE_ONLY', 'NEEDS_REVIEW'}
         roles={}
         for i in range(1,total+1):
             role=str(raw.get(str(i), raw.get(i, '')) or '').strip().upper()
@@ -4184,7 +4252,9 @@ def _ebay_photo_indices(items, picker_id=None):
     """
     picker_id=picker_id or session.get('picker_session_id')
     roles=PHOTO_ROLE_CACHE.get(picker_id) or {}
-    eligible=[i for i in range(1,len(items)+1) if roles.get(i,'EBAY_PRODUCT') != 'EVIDENCE_ONLY']
+    if not _photo_roles_ready(items, picker_id):
+        return []
+    eligible = [i for i in range(1, len(items) + 1) if roles.get(i) in EBAY_PHOTO_ROLES]
     # Freeze membership as well as JPEG bytes. Choosing a new MAIN among >24
     # products must not silently swap a 25th source into the approved set.
     approved=APPROVED_PHOTO_CACHE.get(picker_id) or {}
@@ -4227,6 +4297,10 @@ def picker_analyze():
                     '<div class="mobile-actions"><a href="/picker/editor">Редактор фото</a>'
                     '<a href="/ebay/hold-queue">Відкладені лоти</a><a href="/mobile">До фото з телефона</a></div>'), 503
     used_indices = _representative_photo_indices(items, max_count=6)
+    if not analysis and str(picker_id).startswith('mobile-'):
+        hinted = [i for i, item in enumerate(items, 1) if _mobile_evidence_hint(item)]
+        # Keep room for close-ups while showing suspect measuring devices at higher detail.
+        used_indices = list(dict.fromkeys([*hinted[:3], *used_indices]))[:6]
     if not analysis:
         prompt = f"""MASTER AI OPERATING SPEC — STAGE A: SELLER-PHOTO EVIDENCE EXTRACTION
 You are the evidence analyst for Vintage UA eBay Machine. Current lot: {label}. This is ONE seller lot intended for eBay.com.
@@ -4250,11 +4324,11 @@ MANDATORY EVIDENCE PROCEDURE:
 12. ORIGIN/PERIOD: visual style alone is not proof of country or date. Keep unknown unless a direct visible mark supports it.
 13. SELLER-VERIFIED evidence, when later supplied, overrides uncertain AI OCR.
 14. UNKNOWN is preferable to a fabricated fact. Confidence must reflect evidence and must never be inflated to satisfy listing readiness.
-15. PHOTO ROLE SPLIT: classify EVERY supplied photo by its source photo number. Use EBAY_PRODUCT for normal buyer-facing item photos; EVIDENCE_ONLY for scale/weight, ruler/tape/caliper/measurement, packing-only or internal workflow photos that should never be published; EBAY_EVIDENCE for buyer-useful close-ups such as maker marks, serials, defects or construction details that are both evidence and useful listing photos. A ruler or scale photo is always EVIDENCE_ONLY even if the item is visible.
+15. PHOTO ROLE SPLIT: classify EVERY supplied photo by its source photo number. Use EBAY_PRODUCT for normal buyer-facing item photos; EVIDENCE_ONLY for scale/weight, ruler/tape/caliper/measurement, packing-only or internal workflow photos that should never be published; EBAY_EVIDENCE for buyer-useful close-ups such as maker marks, serials, defects or construction details that are both evidence and useful listing photos. An external ruler, tape, caliper or scale photo is always EVIDENCE_ONLY even if the item occupies most of the image. Look around the entire frame, including cropped scale displays, measurement ticks at steep angles, and measuring tools at the margins. If unsure whether a measuring tool is visible, use NEEDS_REVIEW. A scale or ruler that is itself the product may be EBAY_PRODUCT when shown on its own; an external device measuring that product is evidence only.
 
 OUTPUT ORDER IS CRITICAL. Before any prose, output EXACTLY these THREE machine-readable lines, with one role for EVERY source photo number:
 PHOTO_ROLES_JSON: {{"roles":{{"1":"EBAY_PRODUCT","2":"EVIDENCE_ONLY"}}}}
-AUTO_FACTS_JSON: {{"materials":[],"materials_confidence":0,"material_evidence":"","tested_status":"Untested","completeness":"Unknown","brand":"","origin":"","marking_present":false,"brand_evidence":"","confidence":0,"object_type":"UNKNOWN","markings":[{{"photo":1,"literal":""}}]}}
+AUTO_FACTS_JSON: {{"materials":[],"materials_confidence":0,"material_evidence":"","tested_status":"Untested","completeness":"Unknown","brand":"","origin":"","marking_present":false,"brand_evidence":"","confidence":0,"object_type":"UNKNOWN","markings":[{{"photo":1,"literal":""}}],"symbols":[{{"photo":1,"description":""}}]}}
 SCOPE_JSON: {{"scope":"ONE_PHYSICAL_ITEM","physical_item_count":1,"confidence":0,"note":""}}
 For SCOPE_JSON, front/back/detail/scale views of one object are ONE_PHYSICAL_ITEM. Count separate cards, stickers, inserts and other loose pieces in the clearest complete overview, not across repeated photos. A collection sold as one lot is still MULTIPLE_PHYSICAL_ITEMS. If exact count is unclear use UNCERTAIN, never report one physical item merely because it is one sale lot. Use MULTIPLE_PHYSICAL_ITEMS only for truly separate physical objects.
 A ruler/tape/caliper/scale/packing-only photo MUST be EVIDENCE_ONLY. Do not omit any source photo number.
@@ -4272,7 +4346,7 @@ Then return IN UKRAINIAN using EXACTLY these sections:
 10. ПОШУКОВІ КЛЮЧІ ДЛЯ RESEARCH
 11. ВПЕВНЕНІСТЬ
 
-Use only tested_status: Untested, Tested working, Tested not working, Not applicable. Use only completeness: Unknown, Complete, Incomplete. Give object_type as a short English phrase describing visible object function; use UNKNOWN when ambiguous. Add up to six literal markings with source photo numbers; preserve uncertain characters as [?] and put alternatives in prose only. Fill brand only when a maker/brand name is CLEARLY legible on the physical item. origin must be blank unless directly supported by a visible origin mark. confidence 0-100. Do not repeat the machine-readable lines at the end. Do not research market prices in this stage."""
+Use only tested_status: Untested, Tested working, Tested not working, Not applicable. Use only completeness: Unknown, Complete, Incomplete. Give object_type as a short English phrase describing visible object function; use UNKNOWN when ambiguous. Add up to six literal markings with source photo numbers; preserve uncertain characters as [?] and put alternatives in prose only. Describe up to six clearly visible non-text symbols in symbols, with their photo number and literal shape, count and arrangement. Keep inferred historical meaning out of this field. Fill brand only when a maker/brand name is CLEARLY legible on the physical item. origin must be blank unless directly supported by a visible origin mark. confidence 0-100. Do not repeat the machine-readable lines at the end. Do not research market prices in this stage."""
         content=[{"type":"input_text","text":prompt}]
         try:
             for i in range(1, len(items)+1):
@@ -4291,30 +4365,28 @@ Use only tested_status: Untested, Tested working, Tested not working, Not applic
             if parsed_roles is None:
                 return page("Перевірка фото", "<h2>ШІ повернув неповний розподіл фото</h2>"
                             "<p>Лот і фото збережено.</p><a href='/picker/editor'>Відкрити редактор</a>"), 422
-            previous = PHOTO_ROLE_CACHE.get(picker_id) or {}
-            for i, role in parsed_roles.items():
-                if previous.get(i) == 'EVIDENCE_ONLY' or (not previous and items[i-1].get('measurement_hint')):
+            previous = PHOTO_ROLE_CACHE.get(picker_id) if _photo_roles_ready(items, picker_id) else {}
+            for i in parsed_roles:
+                hint = _mobile_evidence_hint(items[i-1]) if str(picker_id).startswith('mobile-') else None
+                if previous.get(i) == 'EVIDENCE_ONLY' or hint in {'ruler', 'scale'}:
                     parsed_roles[i] = 'EVIDENCE_ONLY'
-            PHOTO_ROLE_CACHE[picker_id] = parsed_roles
-            if session.get('photo_editor_approved') and any(
-                parsed_roles[i] == 'EVIDENCE_ONLY' for i in APPROVED_PHOTO_CACHE.get(picker_id, {}) if i in parsed_roles
-            ):
-                session['photo_editor_approved'] = False
+                elif hint == 'display' and parsed_roles[i] in EBAY_PHOTO_ROLES:
+                    parsed_roles[i] = 'NEEDS_REVIEW'
+            _use_photo_roles(picker_id, items, parsed_roles)
             ANALYSIS_CACHE[picker_id] = analysis
             AUTO_FACT_CACHE[picker_id] = _auto_facts_from_analysis(analysis)
             _scope_stage_a=_scope_from_analysis(analysis)
             if _scope_stage_a:
                 ITEM_STRUCTURE_CACHE[picker_id]=_scope_stage_a
-            _refresh_ebay_photo_order(items,picker_id)
             _save_active_lot_checkpoint()
         except Exception as exc:
             app.logger.warning("Visual analysis stopped (%s)", type(exc).__name__)
             return page("Помилка аналізу", "<h2>Не вдалося завершити аналіз ШІ</h2><p>Фото збережено.</p><a href='/mobile'>До фото з телефона</a>"), 502
 
-    if picker_id not in PHOTO_ROLE_CACHE:
+    if picker_id not in PHOTO_ROLE_CACHE and not str(picker_id).startswith('mobile-'):
         parsed_roles=_photo_roles_from_analysis(analysis,len(items))
         if parsed_roles is None:
-            return page("Photo Split Review", "<h2>Photo role classification incomplete</h2><p>Saved analysis has no valid complete PRODUCT/EVIDENCE map. For safety, no photo has been approved for eBay.</p><p><a href='/picker/items'>Return to photos</a></p>"), 422
+            return page("Перевірка фото", "<h2>У збереженому аналізі не визначено ролі всіх фото</h2><p><a href='/picker/items'>До фото лота</a></p>"), 422
         PHOTO_ROLE_CACHE[picker_id]=parsed_roles
         _scope_stage_a=_scope_from_analysis(analysis)
         if _scope_stage_a and picker_id not in ITEM_STRUCTURE_CACHE:
@@ -4332,10 +4404,10 @@ Use only tested_status: Untested, Tested working, Tested not working, Not applic
             AUTO_FACT_CACHE[picker_id]=facts
     mats=', '.join(facts.get('materials') or []) or 'потребує підтвердження'
     roles=PHOTO_ROLE_CACHE.get(picker_id) or {}
-    ebay_n=sum(1 for i in range(1,count+1) if roles.get(i,'EBAY_PRODUCT')!='EVIDENCE_ONLY')
-    evidence_n=sum(1 for i in range(1,count+1) if roles.get(i)=='EVIDENCE_ONLY')
-    compact=f"<p><b>Фото</b> {count} у лоті, {min(24,ebay_n)} для eBay, {evidence_n} для вимірювання. {len(used_indices)} фото проаналізовано з підвищеною деталізацією.<br><b>Матеріал за фото</b> {html.escape(mats)}<br><b>Впевненість ШІ</b> {facts.get('confidence',0)}%</p>"
-    if not session.get('photo_editor_approved'):
+    ebay_n = len(_ebay_photo_indices(items, picker_id))
+    evidence_n = count - ebay_n
+    compact=f"<p><b>Фото</b> {count} у лоті, {min(24,ebay_n)} для eBay, {evidence_n} поза оголошенням. {len(used_indices)} фото проаналізовано з підвищеною деталізацією.<br><b>Матеріал за фото</b> {html.escape(mats)}<br><b>Впевненість ШІ</b> {facts.get('confidence',0)}%</p>"
+    if not session.get('photo_editor_approved') or not _photo_roles_ready(items, picker_id):
         next_step = "<p style='margin-top:25px'><a href='/picker/editor' style='display:inline-block;padding:14px 20px;border-radius:7px;background:#1466d8;color:white;text-decoration:none;font-weight:bold'>Відкрити редактор фото для eBay</a></p>"
     else:
         next_step = f"<form action='/picker/fast-research' method='post' style='margin-top:25px'>{hidden_field('analysis',analysis)}<button type='submit' style='font-size:20px;padding:14px 20px'>Продовжити до розпізнавання, ціни й вимірів</button></form>"
@@ -5423,7 +5495,7 @@ def estimate_item_size_weight_from_photos(picker_id=None, items=None, google_tok
 
     numbered = list(enumerate(items, start=1))
     roles = PHOTO_ROLE_CACHE.get(picker_id) or {}
-    evidence = [(n, item) for n, item in numbered if roles.get(n) == "EVIDENCE_ONLY"]
+    evidence = [(n, item) for n, item in numbered if roles.get(n) in {'EVIDENCE_ONLY', 'NEEDS_REVIEW'}]
 
     # P034 quality-first: send every evidence photo to the same Sol call. If the
     # classifier missed evidence, fall back to every selected photo so the model sees
@@ -5958,7 +6030,7 @@ Return ONLY valid JSON:
         recovery_indices=[]
         roles_now=PHOTO_ROLE_CACHE.get(picker_id) or {}
         for n,_item in numbered:
-            if roles_now.get(n) != "EVIDENCE_ONLY":
+            if roles_now.get(n) not in {"EVIDENCE_ONLY", "NEEDS_REVIEW"}:
                 recovery_indices.append(n)
         for n,_item in chosen:
             if n not in recovery_indices:
@@ -6269,10 +6341,10 @@ def shipping():
                     seller_verified_measurements='yes' if saved.get('weight_source') == saved.get('dimensions_source') == 'SELLER_VERIFIED' else '')
     analysis=form.get("analysis",""); identification=form.get("identification",""); market=form.get("market","")
     try: item_weight=float(form.get("item_weight","").strip().replace(",","."))
-    except (TypeError,ValueError): return page("Invalid weight","<h2>Enter item weight in kg.</h2>"),400
+    except (TypeError,ValueError): return page("Invalid weight","<h2>Введіть вагу товару в кілограмах.</h2>"),400
     # P045: reject NaN, infinity, and implausible shipping mass before calculations/API calls.
     if not __import__("math").isfinite(item_weight) or not (0 < item_weight <= 100):
-        return page("Invalid weight", "<h2>Enter a finite positive weight (up to 100 kg).</h2>"), 400
+        return page("Invalid weight", "<h2>Введіть додатну вагу до 100 кг.</h2>"), 400
     if not analysis or not identification or not market: return page("Missing LOT data","<h2>LOT data missing or invalid.</h2>"),400
     weight_source=str(form.get("weight_source") or "UNKNOWN").upper()
     dimensions_source=str(form.get("dimensions_source") or "UNKNOWN").upper()
@@ -6297,7 +6369,7 @@ def shipping():
     try:
         L,W,H=[float(x.replace(",",".")) for x in (dl,dw,dh)]
         if not all(__import__("math").isfinite(v) and 0 < v <= 1000 for v in (L,W,H)): raise ValueError
-    except Exception: return page("Invalid dimensions","<h2>Use positive dimensions.</h2>"),400
+    except Exception: return page("Invalid dimensions","<h2>Введіть додатні розміри.</h2>"),400
     # P026 SELLER LOCK: detect manual edits by comparing submitted fields to the AI/cache values.
     explicitly_verified = form.get("seller_verified_measurements") == "yes"
     prev = MEASUREMENT_CACHE.get(picker_id) or {}
@@ -6340,10 +6412,10 @@ def shipping():
     pL,pW,pH=round(L+package_pad,1),round(W+package_pad,1),round(H+package_pad,1)
     ship_calc=_ukrposhta_prime_us_shipping(packed,pL,pW,pH)
     if ship_calc.get("recommended_usd") is None:
-        return page(label+" Shipping Review",
-            "<h2>Shipping needs manual review</h2>"
-            "<p>This packed weight/size is outside the verified Ukrposhta PRIME USA table used by the app.</p>"
-            "<p><b>No shipping price was invented.</b> Return and enter/verify another package or use the future carrier/customs module.</p>"),409
+        return page(label+" Перевірка доставки",
+            "<h2>Доставка потребує ручної перевірки</h2>"
+            "<p>Габарити або вага пакунка виходять за межі таблиці Укрпошти PRIME США.</p>"
+            "<p><b>Тариф не розраховано.</b> Поверніться й перевірте вагу та габарити пакунка.</p>"),409
     postage=float(ship_calc["base_usd"])
     ebay_ship=float(ship_calc["recommended_usd"])
     items=PHOTO_CACHE.get(picker_id,[]); count=len(items)
@@ -6369,24 +6441,24 @@ def shipping():
     status_options=''.join(f"<option value='{html.escape(x,quote=True)}' {'selected' if x==status else ''}>{html.escape(x)}</option>" for x in ("Untested","Tested working","Tested not working","Not applicable"))
     comp_options=''.join(f"<option value='{x}' {'selected' if x==comp else ''}>{x}</option>" for x in ("Unknown","Complete","Incomplete"))
     _roles=PHOTO_ROLE_CACHE.get(picker_id) or {}
-    _ebay_photo_count=sum(1 for i in range(1,count+1) if _roles.get(i)!="EVIDENCE_ONLY")
-    body=f"""<h2>{label} — Weight & Shipping</h2><p>✓ Photos: <b>{count} total / {min(24,_ebay_photo_count)} to eBay</b><br>✓ Weight used for shipping estimate: <b>{item_weight:.4f} kg</b> ({html.escape(accepted_weight_source)})<br>✓ Estimated packed weight: <b>{packed:.2f} kg</b><br>✓ Item dimensions: <b>{L:g} × {W:g} × {H:g} cm</b> ({html.escape(accepted_dimensions_source)})<br>✓ Estimated package: <b>{pL:g} × {pW:g} × {pH:g} cm</b><br>✓ Ukrposhta PRIME USA base: <b>${postage:.2f}</b><br>✓ Recommended eBay shipping: <b>${ebay_ship:.2f}</b></p>{_usage_summary_html(picker_id)}
-    <p style='padding:10px;border-left:4px solid #b7791f;background:#fff8e6'><b>USA customs note:</b> this shipping recommendation does NOT include customs/duty amounts that may depend on HS/UKTZED code, declared value and country of origin. Customs Engine is a separate pending module.</p>
+    _ebay_photo_count = sum(_roles.get(i) in EBAY_PHOTO_ROLES for i in range(1, count + 1)) if _photo_roles_ready(items, picker_id) else 0
+    body=f"""<h2>{label} — Вага й доставка</h2><p>Фото <b>{count} у лоті / {min(24,_ebay_photo_count)} для eBay</b><br>Вага для розрахунку доставки <b>{item_weight:.4f} kg</b> ({html.escape(accepted_weight_source)})<br>Орієнтовна вага пакунка <b>{packed:.2f} kg</b><br>Розміри предмета <b>{L:g} × {W:g} × {H:g} cm</b> ({html.escape(accepted_dimensions_source)})<br>Орієнтовні габарити пакунка <b>{pL:g} × {pW:g} × {pH:g} cm</b><br>Базовий тариф Укрпошти PRIME США <b>${postage:.2f}</b><br>Рекомендована вартість доставки на eBay <b>${ebay_ship:.2f}</b></p>{_usage_summary_html(picker_id)}
+    <p style='padding:10px;border-left:4px solid #b7791f;background:#fff8e6'><b>Митні збори США.</b> Розрахунок охоплює доставку. Мито перевіряйте окремо за кодом ТН ЗЕД, оголошеною вартістю та країною походження.</p>
     <form action='/picker/final-listing' method='post'>{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('item_weight',str(item_weight))}{hidden_field('estimated_packed_weight',str(packed))}{hidden_field('dimensions',f'{L:g} x {W:g} x {H:g} cm')}{hidden_field('package_dimensions',f'{pL:g} x {pW:g} x {pH:g} cm')}{hidden_field('shipping_usd',f'{ebay_ship:.2f}')}
-    <fieldset style='padding:12px;margin:14px 0'><legend><b>AUTO FACTS — correct only if needed</b></legend><p>AI confidence: <b>{facts.get('confidence',0)}%</b>. Known values are prefilled automatically.</p><p><b>Material(s):</b><br>{' &nbsp; '.join(checks)}</p><p>AI-detected material detail (not published unless you confirm it):<br><input name='material_other' value='{html.escape(', '.join(material_details),quote=True)}' placeholder='optional' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><label><input type='checkbox' name='confirm_material_other' value='yes'> Confirm this detail as a public material fact</label></p>
-    <p><b>Working / tested status:</b><br><select name='seller_tested_status' style='font-size:17px;padding:8px'>{status_options}</select></p>
-    <p><b>Completeness:</b><br><select name='seller_completeness' style='font-size:17px;padding:8px'>{comp_options}</select></p>
-    <p><b>Visible marking / AI candidate (research only — NOT a public brand):</b><br><input value='{html.escape(facts.get('brand') or '',quote=True)}' readonly style='font-size:17px;padding:8px;width:min(420px,90%);background:#f3f4f6'><br><small>Evidence: {html.escape(facts.get('brand_evidence') or ('detected but not safely readable' if facts.get('marking_present') else 'none confirmed'))}</small></p>
-    <p style='padding:10px;border:2px solid #177a3f;background:#f1fff5'><b>Seller-verified visible inscription / marking (NOT brand):</b><br><input name='seller_verified_marking' value='' placeholder='Example: ПОЛОЦК — leave blank if you cannot read it exactly' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><small>If you enter text here, it overrides conflicting AI/OCR readings everywhere in the public listing. It does NOT confirm a maker, brand, model, origin, theme, or subject.</small></p>
-    <p><b>Confirmed Brand / maker for public eBay listing:</b><br><input name='seller_brand' value='' placeholder='leave blank unless YOU confirm the brand' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><label style='display:block;margin-top:8px;padding:10px;border:2px solid #b7791f;background:#fff8e6'><input type='checkbox' name='confirm_seller_brand' value='yes'> <b>Only check this if you personally confirm the exact brand spelling entered above.</b></label></p>
-    <p><b>Country of origin — seller-confirmed only:</b><br><input name='seller_origin' value='' placeholder='leave blank unless YOU can confirm it' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><small>AI/research origin is not prefilled. Blank means OMIT from the outgoing eBay payload. Country of manufacture is NOT the shipping location. eBay may add defaults to its public page; verify after publishing.</small></p><p><small>You do not need to re-enter known data. Change only something you know is wrong.</small></p></fieldset>
-    <button type='submit' style='font-size:20px;padding:14px 20px'>Create Final eBay Listing Draft</button></form>"""
+    <fieldset style='padding:12px;margin:14px 0'><legend><b>Характеристики предмета</b></legend><p>Впевненість ШІ <b>{facts.get('confidence',0)}%</b>. Відомі значення вже підставлено.</p><p><b>Матеріали</b><br>{' &nbsp; '.join(checks)}</p><p>Опис матеріалу за фото. Підтвердьте, якщо його можна додати до оголошення.<br><input name='material_other' value='{html.escape(', '.join(material_details),quote=True)}' placeholder='optional' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><label><input type='checkbox' name='confirm_material_other' value='yes'> Додати підтверджений матеріал до оголошення</label></p>
+    <p><b>Працездатність</b><br><select name='seller_tested_status' style='font-size:17px;padding:8px'>{status_options}</select></p>
+    <p><b>Комплектність</b><br><select name='seller_completeness' style='font-size:17px;padding:8px'>{comp_options}</select></p>
+    <p><b>Напис або знак, розпізнаний ШІ</b><br><input value='{html.escape(facts.get('brand') or '',quote=True)}' readonly style='font-size:17px;padding:8px;width:min(420px,90%);background:#f3f4f6'><br><small>Evidence: {html.escape(facts.get('brand_evidence') or ('detected but not safely readable' if facts.get('marking_present') else 'none confirmed'))}</small></p>
+    <p style='padding:10px;border:2px solid #177a3f;background:#f1fff5'><b>Точний напис на предметі</b><br><input name='seller_verified_marking' value='' placeholder='Наприклад, ПОЛОЦК' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><small>Введений напис має пріоритет над розпізнаним. Виробника, модель і походження підтверджуйте окремо.</small></p>
+    <p><b>Підтверджений виробник для eBay</b><br><input name='seller_brand' value='' placeholder='Заповніть, якщо підтвердили виробника' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><label style='display:block;margin-top:8px;padding:10px;border:2px solid #b7791f;background:#fff8e6'><input type='checkbox' name='confirm_seller_brand' value='yes'> <b>Підтверджую точне написання назви виробника</b></label></p>
+    <p><b>Підтверджена країна виробництва</b><br><input name='seller_origin' value='' placeholder='Заповніть, якщо знаєте країну' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><small>Порожнє поле не передається в eBay. Вказуйте країну виробництва предмета.</small></p><p><small>Виправте підставлені значення за потреби.</small></p></fieldset>
+    <button type='submit' style='font-size:20px;padding:14px 20px'>Створити чернетку оголошення eBay</button></form>"""
     for cache,key in ((ANALYSIS_CACHE,'analysis'),(IDENTIFICATION_CACHE,'identification'),(MARKET_CACHE,'market')):
         cache[picker_id] = form.get(key,'')
     _save_active_lot_checkpoint()
     if request.method == 'POST':
         return redirect('/picker/resume-shipping', code=303)
-    return page(label+" Weight & Shipping",body)
+    return page(label+" Вага й доставка",body)
 
 @app.route("/picker/final-listing", methods=["POST"])
 def final_listing():
@@ -11085,6 +11157,11 @@ def _current_shipping_policy(token,shipping_usd):
 
 def _p056_approved_photo_snapshot_ok(picker_id, order):
     _mobile_restore_approved_photos(picker_id)
+    items = PHOTO_CACHE.get(picker_id) or []
+    if not order or not _photo_roles_ready(items, picker_id) or len(set(order)) != len(order):
+        return False
+    if any(PHOTO_ROLE_CACHE[picker_id].get(i) not in EBAY_PHOTO_ROLES for i in order):
+        return False
     snapshots=APPROVED_PHOTO_CACHE.get(picker_id) or {}
     return bool(order and set(snapshots)==set(order) and
                 all(isinstance(snapshots.get(i),dict) and isinstance(snapshots[i].get('bytes'),bytes) and snapshots[i]['bytes'] for i in order))
@@ -12212,7 +12289,7 @@ def _p058_open_record(rid):
     session['hold_next_lot']=max(int(session.get('hold_next_lot') or 4),int(session.get('current_lot_number') or 4),_p058_next_number())
     # Switching to an older held item is explicit; preserve the independent next-lot counter.
     for key in ('picker_session_id','current_lot_number','main_photo_index','photo_order','photo_selection_signature',
-                'photo_editor_approved','last_published_sku','last_published_lot_number','current_publish_block_reason'):
+                'photo_editor_approved','photo_role_review','last_published_sku','last_published_lot_number','current_publish_block_reason'):
         session.pop(key,None)
     session['active_lot_checkpoint_id']='hold-'+str(rid)
     session['current_lot_number']=int(data['lot_number'])
@@ -13085,6 +13162,18 @@ def _mobile_local_bytes(item):
     if not re.fullmatch(r'[a-f0-9]{64}/[a-f0-9]{32}\.jpg',str(key)):raise ValueError('Invalid local photo')
     with open(os.path.join(ACTIVE_LOT_CHECKPOINT_DIR,'mobile_photos',key),'rb') as f:return f.read()
 
+def _mobile_evidence_hint(item):
+    if item.get('measurement_hint_version') == PHOTO_REVIEW_VERSION:
+        return item.get('measurement_hint')
+    try:
+        with Image.open(BytesIO(_mobile_local_bytes(item))) as image:
+            hint = measurement_hint(image, (item.get('mediaFile') or {}).get('filename'))
+    except (OSError, ValueError, TypeError):
+        hint = None
+    item.update(measurement_hint=hint, measurement_hint_version=PHOTO_REVIEW_VERSION)
+    return hint
+
+
 def _mobile_resized(raw,size):
     im=ImageOps.exif_transpose(Image.open(BytesIO(raw))).convert('RGB');im.thumbnail((size,size))
     out=BytesIO();im.save(out,'JPEG',quality=92);return out.getvalue()
@@ -13172,8 +13261,11 @@ def mobile_upload():
     items = list(items)
     for name,raw,hint in converted:
         filename=secrets.token_hex(16)+'.jpg';_mobile_write(os.path.join(root,filename),raw)
-        items.append({'id':filename,'mobile_file':folder+'/'+filename,'mediaFile':{'filename':name,'mimeType':'image/jpeg'},'measurement_hint':hint})
+        items.append({'id':filename,'mobile_file':folder+'/'+filename,'mediaFile':{'filename':name,'mimeType':'image/jpeg'},'measurement_hint':hint,'measurement_hint_version':PHOTO_REVIEW_VERSION})
     PHOTO_CACHE[pid]=items;session['photo_editor_approved']=False;APPROVED_PHOTO_CACHE.pop(pid,None)
+    session.pop('photo_role_review', None)
+    session.pop('photo_order', None)
+    session.pop('main_photo_index', None)
     # Adding images invalidates stale approval, photo roles and all derived facts.
     try:os.remove(os.path.join(root,'approved.json'))
     except FileNotFoundError:pass
