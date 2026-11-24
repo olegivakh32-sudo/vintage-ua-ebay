@@ -128,14 +128,17 @@ class PreviewRestartTests(unittest.TestCase):
             with launched(root):
                 request('GET', '/hold/state', 401)
                 client.auth = ('vintage', 'integration-password')
-                csrf = field(request('GET', '/mobile', 200).text, 'hold_csrf')
+                markup = request('GET', '/mobile', 200).text
+                csrf = field(markup, 'hold_csrf')
+                initial_cookies = client.cookies.copy()
+                upload_form = {'hold_csrf': csrf, 'upload_batch': field(markup, 'upload_batch')}
                 image = BytesIO()
                 Image.new('RGB', (200, 180), 'blue').save(image, 'JPEG')
                 photos = [
                     ('photos', (f'IMG_{index}.jpg', image.getvalue(), 'image/jpeg'))
                     for index in range(1, 13)
                 ]
-                request('POST', '/mobile/upload', 303, files=photos, data={'hold_csrf': csrf})
+                request('POST', '/mobile/upload', 303, files=photos, data=upload_form)
                 selection = field(request('GET', '/picker/editor', 200).text, 'selection')
                 request('POST', '/picker/editor', 303, data={
                     'hold_csrf': csrf, 'selection': selection, 'product_photo': list(range(6, 13)),
@@ -147,6 +150,14 @@ class PreviewRestartTests(unittest.TestCase):
                 record = field(request('GET', '/ebay/hold-queue', 200).text, 'record_id')
                 request('POST', '/picker/analyze', 503)
             with launched(root):
+                with requests.Session() as retry:
+                    retry.trust_env = False
+                    retry.auth = client.auth
+                    retry.cookies.update(initial_cookies)
+                    result = retry.post(base + '/mobile/upload', files=photos, data=upload_form,
+                                        headers={'Accept': 'application/json'}, timeout=10)
+                    self.assertEqual(result.status_code, 201)
+                    self.assertEqual(result.json(), {'photos': 12})
                 self.assertEqual(request('GET', '/picker/approved/11', 200).content, approved)
                 request('POST', '/ebay/hold-queue/open', 303, data={'hold_csrf': csrf, 'record_id': record})
                 self.assertEqual(request('GET', '/picker/approved/11', 200).content, approved)

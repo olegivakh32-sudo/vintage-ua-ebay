@@ -41,6 +41,7 @@ import statistics
 import threading
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from io import BytesIO
+from itsdangerous import BadSignature, URLSafeSerializer
 from PIL import Image, ImageEnhance, ImageOps, ImageStat, ImageFilter
 
 from mobile_photos import measurement_hint
@@ -317,11 +318,12 @@ def _restore_active_lot_checkpoint():
         if data.get("picker_uri"):
             session["picker_uri"]=data.get("picker_uri")
         # Exact approved photos are stored separately on the persistent disk.
-        _mobile_restore_approved_photos(picker_id)
-        if picker_id not in APPROVED_PHOTO_CACHE:
+        if data.get("photo_editor_approved"):
+            _mobile_restore_approved_photos(picker_id)
+        if not data.get("photo_editor_approved") or picker_id not in APPROVED_PHOTO_CACHE:
             session["photo_editor_approved"] = False
         elif "photo_editor_approved" not in session:
-            session["photo_editor_approved"] = bool(data.get("photo_editor_approved"))
+            session["photo_editor_approved"] = True
         for k in ("main_photo_index","photo_order","photo_selection_signature","photo_role_review"):
             if k not in session and data.get(k) is not None:
                 session[k]=data.get(k)
@@ -774,6 +776,8 @@ def picker_editor_approve():
 
 @app.route("/picker/approved/<int:index>")
 def picker_approved(index):
+    if not session.get('photo_editor_approved'):
+        return 'Затверджене фото недоступне.', 404
     picker_id = session.get("picker_session_id")
     _mobile_restore_approved_photos(picker_id)
     snap = (APPROVED_PHOTO_CACHE.get(picker_id) or {}).get(index)
@@ -13130,10 +13134,20 @@ def _mobile_photo_root(pid):
     os.makedirs(root,exist_ok=True)
     return root
 
-def _mobile_write(path,raw):
-    with tempfile.NamedTemporaryFile(dir=os.path.dirname(path),delete=False) as f:
-        f.write(raw);tmp=f.name
-    os.replace(tmp,path)
+def _mobile_write(path, raw):
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=os.path.dirname(path), delete=False) as f:
+            temporary = f.name
+            f.write(raw)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            try:
+                os.remove(temporary)
+            except FileNotFoundError:
+                pass
+
 
 def _mobile_file_matches(path, expected):
     try:
@@ -13206,9 +13220,19 @@ def _mobile_test_guards():
             if request.path!='/ebay/current-publish' or request.method!='GET':
                 return page('Тестовий режим','<h2>Реальна публікація вимкнена</h2><p>Підготовка та Hold доступні. Для публікації налаштуйте ENABLE_LIVE_PUBLISH=1 на сервері.</p>'),409
 
+def _mobile_batch_signer():
+    return URLSafeSerializer(app.secret_key, salt='vintage-mobile-upload-v1')
+
+
 @app.route('/mobile')
 def mobile_home():
+    if session.get('active_lot_checkpoint_id') and not session.get('picker_session_id') and not session.get('last_published_sku'):
+        _restore_active_lot_checkpoint()
     pid=session.get('picker_session_id');photos=PHOTO_CACHE.get(pid) or []
+    _checkpoint_file()
+    batch_token = _mobile_batch_signer().dumps({
+        'checkpoint': session.get('active_lot_checkpoint_id'), 'picker': pid, 'batch': secrets.token_hex(16),
+    })
     csrf=_p058_csrf();live=os.environ.get('ENABLE_LIVE_PUBLISH','0')=='1';paid=os.environ.get('ALLOW_PAID_AI','0')=='1'
     images = ''.join(
         f'<img src="/picker/thumb/{i}?size=200" loading="lazy" decoding="async" alt="Фото {i}">'
@@ -13223,11 +13247,13 @@ def mobile_home():
     <p>Публікація на eBay: {'увімкнена' if live else 'вимкнена'} · Аналіз ШІ: {ai_label}</p>
     <form id="mobile-upload" action="/mobile/upload" method="post" enctype="multipart/form-data" data-remaining="{24-len(photos)}">
         <input type="hidden" name="hold_csrf" value="{csrf}">
+        <input type="hidden" name="upload_batch" value="{html.escape(batch_token, quote=True)}">
         <label for="mobile-photos">Додати фото ({len(photos)} з 24)</label>
         <input id="mobile-photos" type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" required>
         <p><button type="submit">Завантажити фото</button></p>
         <progress id="upload-progress" max="100" aria-label="Перебіг завантаження" hidden></progress>
         <p id="upload-status" role="status"></p>
+        <a id="upload-reload" href="/mobile" hidden>Перевірити фото в поточному лоті</a>
     </form>
     <div class="photo-grid">{images}</div>
     {controls}
@@ -13245,55 +13271,159 @@ def _mobile_upload_error(message, status):
                 '<p>' + html.escape(message) + '</p><a href="/mobile">До фото з телефона</a>'), status
 
 
-@app.route('/mobile/upload',methods=['POST'])
-def mobile_upload():
-    if not _p058_csrf_valid():return _mobile_upload_error('Оновіть форму завантаження.', 403)
-    if session.get('last_published_sku'):return _mobile_upload_error('Почніть новий лот перед додаванням фото.', 409)
-    files=request.files.getlist('photos')
-    pid=session.get('picker_session_id');items=PHOTO_CACHE.get(pid) or []
-    if items and not str(pid).startswith('mobile-'):
-        return _mobile_upload_error('Завершіть або відкладіть поточний лот із Google Фото.', 409)
-    if LOT002_DRAFT_CACHE.get(pid) or ANALYSIS_CACHE.get(pid):return _mobile_upload_error('Поточний лот уже проаналізовано. Відкладіть його перед створенням нового.', 409)
-    if not files or len(files)+len(items)>24:return _mobile_upload_error('Дозволено від 1 до 24 фото на лот.', 400)
-    converted=[]
-    for f in files:
-        raw=f.read(10*1024*1024+1)
-        if len(raw)>10*1024*1024:return _mobile_upload_error('Фото перевищує 10 МБ.', 413)
-        try:
-            with Image.open(BytesIO(raw)) as im:
-                if im.format not in ('JPEG', 'PNG', 'WEBP'):
-                    return _mobile_upload_error('Підтримуються формати JPEG, PNG і WEBP.', 400)
-                if im.width * im.height > 64_000_000:
-                    return _mobile_upload_error('Роздільність фото перевищує 64 мегапікселі.', 413)
-                if im.format == 'JPEG':
-                    im.draft('RGB', (2400, 2400))
-                im.thumbnail((2400, 2400))
-                oriented = ImageOps.exif_transpose(im).convert('RGB')
-                hint = measurement_hint(oriented, f.filename)
-                encoded = BytesIO()
-                oriented.save(encoded, 'JPEG', quality=92)
-        except (OSError, ValueError, Image.DecompressionBombError):
-            return _mobile_upload_error('Не вдалося прочитати зображення.', 400)
-        converted.append((f.filename, encoded.getvalue(), hint))
-    if not pid:
-        _sync_current_lot_once();pid='mobile-'+secrets.token_hex(16);session['picker_session_id']=pid
-    root=_mobile_photo_root(pid);folder=os.path.basename(root)
-    items = list(items)
-    for name,raw,hint in converted:
-        filename=secrets.token_hex(16)+'.jpg';_mobile_write(os.path.join(root,filename),raw)
-        items.append({'id':filename,'mobile_file':folder+'/'+filename,'mediaFile':{'filename':name,'mimeType':'image/jpeg'},'measurement_hint':hint,'measurement_hint_version':PHOTO_REVIEW_VERSION})
-    PHOTO_CACHE[pid]=items;session['photo_editor_approved']=False;APPROVED_PHOTO_CACHE.pop(pid,None)
-    session.pop('photo_role_review', None)
-    session.pop('photo_order', None)
-    session.pop('main_photo_index', None)
-    # Adding images invalidates stale approval, photo roles and all derived facts.
-    try:os.remove(os.path.join(root,'approved.json'))
-    except FileNotFoundError:pass
-    for cache in (PHOTO_ROLE_CACHE,ANALYSIS_CACHE,IDENTIFICATION_CACHE,MARKET_CACHE,AUTO_FACT_CACHE,ITEM_STRUCTURE_CACHE,MEASUREMENT_CACHE,RESEARCH_SPEC_CACHE,LOT002_DRAFT_CACHE):cache.pop(pid,None)
-    if not _save_active_lot_checkpoint():return _mobile_upload_error('Не вдалося зберегти лот. Перевірте його перед повтором.', 503)
+def _mobile_upload_success(items):
     if request.accept_mimetypes.best == 'application/json':
         return {'photos': len(items)}, 201
-    return redirect('/mobile',code=303)
+    return redirect('/mobile', code=303)
+
+
+def _mobile_prepare_photo(raw, name):
+    with Image.open(BytesIO(raw)) as image:
+        if image.format not in ('JPEG', 'PNG', 'WEBP'):
+            raise ValueError('Підтримуються формати JPEG, PNG і WEBP.')
+        if image.width * image.height > 64_000_000:
+            raise OverflowError('Роздільність фото перевищує 64 мегапікселі.')
+        if image.format == 'JPEG':
+            image.draft('RGB', (2400, 2400))
+        image.thumbnail((2400, 2400))
+        oriented = ImageOps.exif_transpose(image).convert('RGB')
+        hint = measurement_hint(oriented, name)
+        encoded = BytesIO()
+        oriented.save(encoded, 'JPEG', quality=92)
+        return name, encoded.getvalue(), hint
+
+
+def _mobile_save_batch(pid, items, converted, batch_id, digest):
+    """Keep the batch receipt with the same checkpoint as the uploaded images."""
+    before = dict(session)
+    removed = []
+    paths = []
+    updated = None
+    try:
+        if not pid:
+            _sync_current_lot_once()
+            pid = 'mobile-' + secrets.token_hex(16)
+            session['picker_session_id'] = pid
+        root = _mobile_photo_root(pid)
+        updated = list(items)
+        for name, raw, hint in converted:
+            filename = secrets.token_hex(16) + '.jpg'
+            path = os.path.join(root, filename)
+            paths.append(path)
+            _mobile_write(path, raw)
+            photo = {'id': filename, 'mobile_file': os.path.basename(root) + '/' + filename,
+                     'mediaFile': {'filename': name, 'mimeType': 'image/jpeg'},
+                     'measurement_hint': hint, 'measurement_hint_version': PHOTO_REVIEW_VERSION}
+            if batch_id:
+                photo.update(upload_batch=batch_id, upload_digest=digest)
+            updated.append(photo)
+
+        invalidated = (PHOTO_CACHE, APPROVED_PHOTO_CACHE, PHOTO_ROLE_CACHE, ANALYSIS_CACHE,
+                       IDENTIFICATION_CACHE, MARKET_CACHE, AUTO_FACT_CACHE, ITEM_STRUCTURE_CACHE,
+                       MEASUREMENT_CACHE, RESEARCH_SPEC_CACHE, LOT002_DRAFT_CACHE)
+        removed = [(cache, cache.pop(pid)) for cache in invalidated if pid in cache]
+        PHOTO_CACHE[pid] = updated
+        session['photo_editor_approved'] = False
+        for key in ('photo_role_review', 'photo_order', 'main_photo_index'):
+            session.pop(key, None)
+        if not _save_active_lot_checkpoint():
+            raise OSError('Checkpoint write failed')
+    except OSError:
+        if updated is not None and PHOTO_CACHE.get(pid) is updated:
+            PHOTO_CACHE.pop(pid, None)
+        for cache, value in removed:
+            cache[pid] = value
+        session.clear()
+        session.update(before)
+        for path in paths:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+            except OSError:
+                app.logger.warning('Uncommitted mobile photo could not be removed.')
+        return None
+
+    try:
+        os.remove(os.path.join(root, 'approved.json'))
+    except FileNotFoundError:
+        pass
+    except OSError:
+        app.logger.warning('Previous photo approval file could not be removed.')
+    return updated
+
+
+@app.route('/mobile/upload', methods=['POST'])
+def mobile_upload():
+    if not _p058_csrf_valid():
+        return _mobile_upload_error('Оновіть форму завантаження.', 403)
+    token = request.form.get('upload_batch')
+    batch = {}
+    if token:
+        try:
+            batch = _mobile_batch_signer().loads(token)
+        except BadSignature:
+            return _mobile_upload_error('Форма завантаження застаріла. Оновіть сторінку.', 409)
+        if not isinstance(batch, dict) or batch.get('checkpoint') != session.get('active_lot_checkpoint_id'):
+            return _mobile_upload_error('Форма належить іншому лоту. Оновіть сторінку.', 409)
+
+    _checkpoint_file()
+    lock_key = 'mobile-upload:' + str(session.get('active_lot_checkpoint_id'))
+    with _p054_lot_lock(lock_key):
+        if batch and not session.get('picker_session_id') and not session.get('last_published_sku'):
+            # The first request may have committed even if its updated cookie never arrived.
+            _restore_active_lot_checkpoint()
+        return _mobile_receive_batch(batch)
+
+
+def _mobile_receive_batch(batch):
+    pid = session.get('picker_session_id')
+    items = PHOTO_CACHE.get(pid) or []
+    batch_id = batch.get('batch')
+    previous = next((item for item in items if batch_id and item.get('upload_batch') == batch_id), None)
+    files = request.files.getlist('photos')
+    if not files or len(files) > 24:
+        return _mobile_upload_error('Дозволено від 1 до 24 фото на лот.', 400)
+    if previous is None:
+        if batch and batch.get('picker') != pid:
+            return _mobile_upload_error('Поточний лот змінився. Оновіть сторінку.', 409)
+        if session.get('last_published_sku'):
+            return _mobile_upload_error('Почніть новий лот перед додаванням фото.', 409)
+        if items and not str(pid).startswith('mobile-'):
+            return _mobile_upload_error('Завершіть або відкладіть поточний лот із Google Фото.', 409)
+        if LOT002_DRAFT_CACHE.get(pid) or ANALYSIS_CACHE.get(pid):
+            return _mobile_upload_error('Поточний лот уже проаналізовано. Відкладіть його перед створенням нового.', 409)
+        if len(files) + len(items) > 24:
+            return _mobile_upload_error('Дозволено від 1 до 24 фото на лот.', 400)
+
+    fingerprint = []
+    converted = []
+    for file in files:
+        raw = file.read(10 * 1024 * 1024 + 1)
+        if len(raw) > 10 * 1024 * 1024:
+            return _mobile_upload_error('Фото перевищує 10 МБ.', 413)
+        if batch_id:
+            fingerprint.append((file.filename, hashlib.sha256(raw).hexdigest()))
+        if previous is not None:
+            continue
+        try:
+            converted.append(_mobile_prepare_photo(raw, file.filename))
+        except ValueError as exc:
+            return _mobile_upload_error(str(exc), 400)
+        except OverflowError as exc:
+            return _mobile_upload_error(str(exc), 413)
+        except (OSError, Image.DecompressionBombError):
+            return _mobile_upload_error('Не вдалося прочитати зображення.', 400)
+    digest = hashlib.sha256(json.dumps(fingerprint).encode()).hexdigest() if batch_id else None
+    if previous is not None:
+        if previous.get('upload_digest') != digest:
+            return _mobile_upload_error('Ця спроба вже зберегла іншу партію. Оновіть сторінку.', 409)
+        return _mobile_upload_success(items)
+    updated = _mobile_save_batch(pid, items, converted, batch_id, digest)
+    if updated is None:
+        return _mobile_upload_error('Не вдалося зберегти партію. Повторіть завантаження.', 503)
+    return _mobile_upload_success(updated)
+
 
 @app.route('/mobile/manifest.webmanifest')
 def mobile_manifest():

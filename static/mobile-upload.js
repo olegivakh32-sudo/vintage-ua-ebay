@@ -4,6 +4,9 @@
     const button = form.querySelector('button[type="submit"]');
     const status = document.querySelector('#upload-status');
     const progress = document.querySelector('#upload-progress');
+    const reload = document.querySelector('#upload-reload');
+    const input = form.elements.photos;
+    let prepared;
 
     async function prepare(file) {
         if (file.type !== 'image/jpeg' || file.size < 1024 * 1024) return file;
@@ -25,28 +28,42 @@
         }
     }
 
+    function offerRetry(message) {
+        status.textContent = message;
+        progress.hidden = true;
+        reload.hidden = false;
+        button.textContent = 'Повторити цю партію';
+        button.disabled = false;
+    }
+
     form.addEventListener('submit', async event => {
-        const files = [...form.elements.photos.files];
-        if (!files.length || button.disabled) return;
         event.preventDefault();
-        if (files.length > Number(form.dataset.remaining)) {
+        if (button.disabled) return;
+        const files = [...input.files];
+        if (!prepared && !files.length) return;
+        if (!prepared && files.length > Number(form.dataset.remaining)) {
             status.textContent = 'У лоті може бути щонайбільше 24 фото.';
             return;
         }
         button.disabled = true;
+        input.disabled = true;
         progress.hidden = false;
         progress.removeAttribute('value');
-        const data = new FormData();
-        data.append('hold_csrf', form.elements.hold_csrf.value);
-        for (const [index, file] of files.entries()) {
-            status.textContent = `Підготовка фото ${index + 1} з ${files.length}…`;
-            data.append('photos', await prepare(file));
+        reload.hidden = true;
+        if (!prepared) {
+            prepared = new FormData();
+            prepared.append('hold_csrf', form.elements.hold_csrf.value);
+            prepared.append('upload_batch', form.elements.upload_batch.value);
+            for (const [index, file] of files.entries()) {
+                status.textContent = `Підготовка фото ${index + 1} з ${files.length}…`;
+                prepared.append('photos', await prepare(file));
+            }
         }
         const upload = new XMLHttpRequest();
         upload.open('POST', form.action);
         upload.setRequestHeader('Accept', 'application/json');
         upload.responseType = 'json';
-        let serverProcessing = false;
+        upload.timeout = 180_000;
         upload.upload.onprogress = event => {
             if (event.lengthComputable) {
                 progress.value = Math.round(100 * event.loaded / event.total);
@@ -54,7 +71,6 @@
             }
         };
         upload.upload.onload = () => {
-            serverProcessing = true;
             progress.removeAttribute('value');
             status.textContent = 'Сервер обробляє та зберігає фото…';
         };
@@ -63,17 +79,26 @@
                 location.assign('/mobile');
                 return;
             }
-            status.textContent = upload.response?.error || 'Сервер не підтвердив збереження. Відкрийте лот, щоб перевірити фото.';
-            if (upload.status < 500) button.disabled = false;
+            const message = upload.response?.error || 'Сервер не підтвердив збереження.';
+            if (upload.status >= 500 || !upload.status) {
+                offerRetry(message);
+                return;
+            }
+            status.textContent = message;
             progress.hidden = true;
+            reload.hidden = false;
+            if (upload.status !== 409 && upload.status !== 403) {
+                prepared = undefined;
+                button.textContent = 'Завантажити фото';
+                button.disabled = false;
+                input.disabled = false;
+            }
         };
-        upload.onerror = () => {
-            status.textContent = serverProcessing
-                ? 'Зв’язок перервано. Відкрийте лот і перевірте, які фото збереглися.'
-                : 'Мережевий збій. Перевірте з’єднання й повторіть передавання.';
-            if (!serverProcessing) button.disabled = false;
-            progress.hidden = true;
-        };
-        upload.send(data);
+        const lostAnswer = () => offerRetry(
+            'Відповідь не надійшла. Повторіть цю партію або перевірте фото в лоті.'
+        );
+        upload.onerror = lostAnswer;
+        upload.ontimeout = lostAnswer;
+        upload.send(prepared);
     });
 })();
