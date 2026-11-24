@@ -45,6 +45,7 @@ from itsdangerous import BadSignature, URLSafeSerializer
 from PIL import Image, ImageEnhance, ImageOps, ImageStat, ImageFilter
 
 from identity_evidence import corroborated_value, identity_claims
+from measurement_units import metric_value
 from mobile_photos import duplicate_photo_indices, image_sharpness, measurement_hint
 
 from flask import (
@@ -4790,21 +4791,17 @@ def _rerun_measurement_only(picker_id):
     if not picker_id or not items or not analysis:
         return page("Measurement retry unavailable","<h2>Current lot/photos are unavailable.</h2><p><a href='/picker/start'>Return to lot</a></p>"),409
 
-    def _num(name):
-        raw=str(request.form.get(name) or "").strip().replace(",",".")
-        try:
-            v=float(raw)
-            return v if v>0 else None
-        except Exception:
-            return None
-
     overrides={}
     mapping=(("item_weight","original_item_weight","weight_kg"),
              ("dim_l","original_dim_l","length_cm"),
              ("dim_w","original_dim_w","width_cm"),
              ("dim_h","original_dim_h","height_cm"))
     for current_name, original_name, key in mapping:
-        cur=_num(current_name); orig=_num(original_name)
+        try:
+            cur = _posted_metric(current_name)
+            orig = _posted_metric(original_name, original=True)
+        except ValueError:
+            return page('Виміри лота', '<h2>Перевірте числа та одиниці вимірювання</h2>'), 400
         if cur is not None and (orig is None or abs(cur-orig) > max(0.0001, abs(orig)*0.001)):
             overrides[key]=cur
     if overrides:
@@ -5075,11 +5072,11 @@ def fast_research():
     <details><summary><b>Show market research</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:8px'>{text_to_html(market)}</div></details>
     {claims_html}
     <hr><h3>Weight & Shipping</h3>{measurement_warning}{measurement_suggestion}{_p054_evidence_html(visual_estimate)}<p>Measurement pass attempted to check selected photos. Weight source: <b>{html.escape(str(visual_estimate.get('weight_source') or 'UNKNOWN'))}</b>. Dimensions source: <b>{html.escape(str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}</b>. Confidence: <b>{est_conf}%</b>.</p><p><b>Scale transcription (may include existing packaging; see source above):</b> {html.escape(str(visual_estimate.get('mass_digits_text') or '—'))} {html.escape(str(visual_estimate.get('mass_unit_text') or ''))}</p><p><small>Measurement diagnostics: {html.escape(str(visual_estimate.get('measurement_note') or '—'))}</small></p><p><b>Rule:</b> P038 keeps literal scale/ruler evidence first and uses transactional retries: <b>NO SUCCESS = NO OVERWRITE</b>. Explicit ruler start/end arithmetic and face-axis summaries override inconsistent structured half-dimensions. If one or two axes are readable but a third is missing, additional paid vision passes run only when explicitly enabled in server settings.</p>
-    <form action='/picker/shipping-submit' method='post'>{measurement_form}{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('weight_source',str(visual_estimate.get('weight_source') or 'UNKNOWN'))}{hidden_field('dimensions_source',str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}{hidden_field('original_item_weight',str(est_weight))}{hidden_field('original_dim_l',str(est_l))}{hidden_field('original_dim_w',str(est_w))}{hidden_field('original_dim_h',str(est_h))}
-    <p><label><b>Measured weight (kg; may include existing packaging):</b><br><input type='number' name='item_weight' step='0.0001' min='0.001' value='{est_weight}' required style='font-size:20px;padding:10px;width:180px'></label></p>
-    <p><label><b>Length, cm:</b><br><input type='number' name='dim_l' step='0.1' min='0.1' value='{est_l}' required style='font-size:20px;padding:10px;width:180px'></label></p>
-    <p><label><b>Width, cm:</b><br><input type='number' name='dim_w' step='0.1' min='0.1' value='{est_w}' required style='font-size:20px;padding:10px;width:180px'></label></p>
-    <p><label><b>Height / thickness, cm:</b><br><input type='number' name='dim_h' step='0.1' min='0.1' value='{est_h}' required style='font-size:20px;padding:10px;width:180px'></label></p>
+    <form action='/picker/shipping-submit' method='post'>{measurement_form}{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('weight_source',str(visual_estimate.get('weight_source') or 'UNKNOWN'))}{hidden_field('dimensions_source',str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}{hidden_field('original_item_weight',str(est_weight))}{hidden_field('original_dim_l',str(est_l))}{hidden_field('original_dim_w',str(est_w))}{hidden_field('original_dim_h',str(est_h))}{_measurement_unit_choices()}
+    <p><label><b>Вага товару (пакування враховується окремо)</b><br><input type='text' inputmode='decimal' name='item_weight' value='{est_weight}' required style='font-size:20px;padding:10px;width:180px'></label></p>
+    <p><label><b>Довжина</b><br><input type='text' inputmode='decimal' name='dim_l' value='{est_l}' required style='font-size:20px;padding:10px;width:180px'></label></p>
+    <p><label><b>Ширина</b><br><input type='text' inputmode='decimal' name='dim_w' value='{est_w}' required style='font-size:20px;padding:10px;width:180px'></label></p>
+    <p><label><b>Висота або товщина</b><br><input type='text' inputmode='decimal' name='dim_h' value='{est_h}' required style='font-size:20px;padding:10px;width:180px'></label></p>
     <p><label><input type='checkbox' name='measurement_accepted' value='yes'> <b>I verified/edited these values or approve them for the shipping calculation.</b> If you change a value manually, the program preserves it and AI can no longer overwrite it.</label></p>
     <button type='submit' style='font-size:20px;padding:14px 20px'>Weight & Shipping</button>
     <button type='submit' formaction='/picker/recover-saved-measurement' formmethod='post' formnovalidate>Відновити збережені покази — без API</button>
@@ -5299,17 +5296,13 @@ def _recover_saved_measurement(picker_id):
                                   ("dim_l","original_dim_l","length_cm"),
                                   ("dim_w","original_dim_w","width_cm"),
                                   ("dim_h","original_dim_h","height_cm")):
-        raw = request.form.get(field, "").strip().replace(",", ".")
-        old = request.form.get(original, "").strip().replace(",", ".")
-        if not raw:
-            continue
         try:
-            val = float(raw)
-            if not math.isfinite(val) or not 0 < val <= (100 if key == "weight_kg" else 1000):
-                raise ValueError
-            before = float(old) if old else None
+            val = _posted_metric(field)
+            before = _posted_metric(original, original=True)
         except ValueError:
-            return page("Invalid measurement", "<h2>Enter finite positive measurements. No API request was made.</h2>"),400
+            return page("Виміри лота", "<h2>Перевірте числа та одиниці вимірювання</h2>"), 400
+        if val is None:
+            continue
         if before is None or abs(val-before) > max(.0001,abs(before)*.001):
             overrides[key] = val
     if overrides:
@@ -6378,11 +6371,11 @@ The four recommended prices must be numeric USD values whenever there is enough 
     <details><summary><b>Show identification</b></summary><div style='border:1px solid #ddd;padding:12px;border-radius:8px;margin-top:8px'>{text_to_html(identification)}</div></details>
     <details open><summary><b>Show market research</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:8px'>{text_to_html(market)}</div></details>
     <hr><h3>Step 4 — Weight & Shipping</h3><p>Measurement pass attempted to check selected photos. Weight source: <b>{html.escape(str(visual_estimate.get('weight_source') or 'UNKNOWN'))}</b>. Dimensions source: <b>{html.escape(str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}</b>. Confidence: <b>{est_conf}%</b>.</p><p><b>Rule:</b> measured scale/ruler values take priority; estimated values must be seller-verified.</p>
-    <form action='/picker/shipping-submit' method='post'>{_measurement_form_fields(picker_id)}{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('weight_source',str(visual_estimate.get('weight_source') or 'UNKNOWN'))}{hidden_field('dimensions_source',str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}
-    <p><label><b>Measured weight (kg; may include existing packaging):</b><br><input type='number' name='item_weight' step='0.0001' min='0.001' value='{est_weight}' required style='font-size:20px;padding:10px;width:180px'></label></p>
-    <p><label><b>Length, cm:</b><br><input type='number' name='dim_l' step='0.1' min='0.1' value='{est_l}' required style='font-size:20px;padding:10px;width:180px'></label></p>
-    <p><label><b>Width, cm:</b><br><input type='number' name='dim_w' step='0.1' min='0.1' value='{est_w}' required style='font-size:20px;padding:10px;width:180px'></label></p>
-    <p><label><b>Height / thickness, cm:</b><br><input type='number' name='dim_h' step='0.1' min='0.1' value='{est_h}' required style='font-size:20px;padding:10px;width:180px'></label></p>
+    <form action='/picker/shipping-submit' method='post'>{_measurement_form_fields(picker_id)}{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('weight_source',str(visual_estimate.get('weight_source') or 'UNKNOWN'))}{hidden_field('dimensions_source',str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}{_measurement_unit_choices()}
+    <p><label><b>Вага товару (пакування враховується окремо)</b><br><input type='text' inputmode='decimal' name='item_weight' value='{est_weight}' required style='font-size:20px;padding:10px;width:180px'></label></p>
+    <p><label><b>Довжина</b><br><input type='text' inputmode='decimal' name='dim_l' value='{est_l}' required style='font-size:20px;padding:10px;width:180px'></label></p>
+    <p><label><b>Ширина</b><br><input type='text' inputmode='decimal' name='dim_w' value='{est_w}' required style='font-size:20px;padding:10px;width:180px'></label></p>
+    <p><label><b>Висота або товщина</b><br><input type='text' inputmode='decimal' name='dim_h' value='{est_h}' required style='font-size:20px;padding:10px;width:180px'></label></p>
     <p><label><input type='checkbox' name='measurement_accepted' value='yes'> <b>I approve these values for the shipping calculation.</b> If a value is AI-estimated/reference-derived, it remains labelled as such and is NOT converted into a measured fact.</label></p><button type='submit' style='font-size:20px;padding:14px 20px'>Step 4 — Weight & Shipping</button></form>"""
     return page(label+" Market Research",body)
 
@@ -6441,6 +6434,21 @@ def _ukrposhta_prime_us_shipping(packed_weight_kg, pL, pW, pH):
 
 _MEASUREMENT_FIELDS = ('weight_kg', 'length_cm', 'width_cm', 'height_cm')
 _MEASUREMENT_INPUTS = ('item_weight', 'dim_l', 'dim_w', 'dim_h')
+
+
+def _posted_metric(field, *, original=False):
+    weight = field.removeprefix('original_') == 'item_weight'
+    key, default = ('mass_unit', 'kg') if weight else ('dimension_unit', 'cm')
+    unit = default if original else request.form.get(key, default)
+    return metric_value(request.form.get(field), unit, weight=weight)
+
+
+def _measurement_unit_choices():
+    return ('<p><label>Одиниця ваги <select name="mass_unit"><option value="kg">кг</option>'
+            '<option value="g">г</option></select></label> '
+            '<label>Одиниця розмірів <select name="dimension_unit"><option value="cm">см</option>'
+            '<option value="mm">мм</option></select></label></p>'
+            '<small>Підставлені значення наведено в кг і см. Якщо обираєте г або мм, введіть числа у вибраних одиницях.</small>')
 
 
 def _measurement_revision(picker_id):
@@ -6523,11 +6531,8 @@ def _shipping_page(picker_id):
         accepted_measurement = saved
     else:
         try:
-            values = [float(request.form.get(field, '').strip().replace(',', '.')) for field in _MEASUREMENT_INPUTS]
-            if any(not math.isfinite(value) or not 0 < value <= limit
-                   for value, limit in zip(values, (100, 1000, 1000, 1000))):
-                raise ValueError
-            if not round(values[0], 4) or any(not round(value, 2) for value in values[1:]):
+            values = [_posted_metric(field) for field in _MEASUREMENT_INPUTS]
+            if any(value is None for value in values):
                 raise ValueError
         except ValueError:
             return page('Виміри лота', '<h2>Введіть додатну вагу до 100 кг і розміри до 1000 см</h2>'), 400

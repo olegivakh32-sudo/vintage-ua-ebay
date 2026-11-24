@@ -89,3 +89,21 @@ class MeasurementConfirmationTests(unittest.TestCase):
         self.assertIn('Погодьте оцінки', response.get_data(as_text=True))
         self.assertEqual(m.SELLER_MEASUREMENT_CACHE[self.picker], {})
         self.assertEqual(self.save(self.fields(response.get_data(as_text=True))).status_code, 303)
+
+    def test_both_forms_persist_grams_and_millimetres_in_canonical_units(self):
+        form = self.form()
+        self.assertEqual(self.save(form, item_weight='125,5', dim_l='165', dim_w='90', dim_h='40',
+                                   mass_unit='g', dimension_unit='mm').status_code, 303)
+        saved = m.SELLER_MEASUREMENT_CACHE[self.picker]
+        self.assertEqual(saved['weight_kg'], .1255)
+        self.assertEqual(saved['length_cm'], 16.5)
+        self.assertEqual(saved['width_cm'], 9)
+        self.assertEqual(saved['measurement_field_sources']['width_cm'], 'REFERENCE_ANALOG_ESTIMATE')
+
+    def test_rejects_unknown_unit_and_out_of_range_conversion(self):
+        form = self.form()
+        for fields in ({'mass_unit': 'oz'}, {'dimension_unit': 'in'},
+                       {'item_weight': '100001', 'mass_unit': 'g'}, {'dim_w': 'NaN'}):
+            with self.subTest(fields=fields):
+                self.assertEqual(self.save(form, **fields).status_code, 400)
+        self.assertEqual(m.SELLER_MEASUREMENT_CACHE[self.picker], {})
