@@ -196,6 +196,19 @@ class WorkflowTests(unittest.TestCase):
                 self.assertEqual(m._ukrposhta_prime_us_shipping(*values)["service"], "MANUAL_REVIEW")
         self.assertEqual(m._ukrposhta_prime_us_shipping(0.25, 10, 10, 10)["recommended_usd"], 10.99)
 
+    def test_prime_quote_exact_limits_and_customs_scope(self):
+        quote = m._ukrposhta_prime_us_shipping('2', '60', '29.9', '0.1')
+        self.assertEqual((quote['base_usd'], quote['maximum_band_g']), (26, 2000))
+        self.assertFalse(quote['includes_duties'])
+        self.assertEqual(quote['vat_on_domestic_portion_uah'], 14)
+        self.assertEqual(m._ukrposhta_prime_us_shipping('0.250001', 10, 10, 10)['base_usd'], 12)
+        self.assertIsNone(m._ukrposhta_prime_us_shipping('2.000001', 60, 30, 0.1)['base_usd'])
+        self.assertIsNone(m._ukrposhta_prime_us_shipping('2', 60, 30, 0.1)['base_usd'])
+        compliance = m._p083_compliance({'title': 'Old textile item', 'primary_type': 'collar tab'})
+        self.assertEqual(compliance['status'], 'REVIEW')
+        self.assertEqual(compliance['scope'], 'LOCAL_SCREENING')
+        self.assertEqual(compliance['customs_code_status'], 'UNVERIFIED')
+
     def test_live_reference_weight_detected(self):
         draft = {"measurement_source": {"reference_weight_shipping_only": True}}
         product = {"description": "The watch weighs 200 g.", "aspects": {"Item Weight": ["200 g"]}}

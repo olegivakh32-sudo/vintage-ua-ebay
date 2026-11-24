@@ -6411,50 +6411,29 @@ The four recommended prices must be numeric USD values whenever there is enough 
     <p><label><input type='checkbox' name='measurement_accepted' value='yes'> <b>I approve these values for the shipping calculation.</b> If a value is AI-estimated/reference-derived, it remains labelled as such and is NOT converted into a measured fact.</label></p><button type='submit' style='font-size:20px;padding:14px 20px'>Step 4 — Weight & Shipping</button></form>"""
     return page(label+" Market Research",body)
 
-# PATCH002 — deterministic Ukraine -> USA shipping baseline.
-# Source basis: Ukrposhta published 2026 Small Packet PRIME USA bands.
-# IMPORTANT: commercial shipments to the USA can also incur customs charges
-# based on HS/UKTZED code, declared value and origin. Those charges are NOT
-# invented here; the future Customs Engine must calculate/verify them.
+PRIME_US_SOURCE = 'https://www.ukrposhta.ua/en/taryfy'
+PRIME_US_RATES = ((100, 6), (250, 7), (500, 12), (750, 18), (1000, 20), (2000, 26))
+PRIME_US_RATE_REVISION = 'ukrposhta-prime-us-2026-11-24'
+
+
 def _ukrposhta_prime_us_shipping(packed_weight_kg, pL, pW, pH):
-    weight = _p054_positive(packed_weight_kg)
-    dims = [_p054_positive(value) for value in (pL, pW, pH)]
-    if weight is None or any(value is None for value in dims):
-        return {"base_usd": None, "recommended_usd": None, "service": "MANUAL_REVIEW",
-                "note": "Use positive finite package dimensions and packed weight."}
-    grams = weight * 1000.0
-    prime_size_ok = max(dims) <= 60.0 and sum(dims) <= 90.0
-
-    bands = (
-        (100, 6.00),
-        (250, 7.00),
-        (500, 12.00),
-        (750, 18.00),
-        (1000, 20.00),
-        (2000, 26.00),
-    )
-    base = None
-    for limit_g, usd in bands:
-        if grams <= limit_g:
-            base = usd
-            break
-
-    if base is None or not prime_size_ok:
-        return {
-            "base_usd": None,
-            "recommended_usd": None,
-            "service": "MANUAL_REVIEW",
-            "note": "Outside verified PRIME <=2 kg / size limits; verify current carrier tariff manually.",
-        }
-
-    # Small operating buffer only. Customs/duties are deliberately excluded.
-    recommended = round(base + 3.99, 2)
-    return {
-        "base_usd": round(base, 2),
-        "recommended_usd": recommended,
-        "service": "Ukrposhta Small Packet PRIME — USA",
-        "note": "Base postage + $3.99 operating buffer. US customs/duties are NOT included.",
-    }
+    quote = {'base_usd': None, 'recommended_usd': None, 'service': 'MANUAL_REVIEW',
+             'origin': 'UA', 'destination': 'US', 'tariff_source': PRIME_US_SOURCE,
+             'tariff_revision': PRIME_US_RATE_REVISION, 'includes_duties': False,
+             'vat_on_domestic_portion_uah': 14}
+    try:
+        weight, *dims = (Decimal(str(value).replace(',', '.')) for value in (packed_weight_kg, pL, pW, pH))
+        if any(not value.is_finite() or not 0 < value for value in (weight, *dims)):
+            raise ValueError
+    except (DecimalException, ValueError):
+        return dict(quote, note='Use positive finite package dimensions and packed weight.')
+    if weight > 2 or max(dims) > 60 or sum(dims) > 90:
+        return dict(quote, note='Outside local PRIME limits. Verify the carrier rate and parcel size manually.')
+    grams = weight * 1000
+    limit, base = next((limit, usd) for limit, usd in PRIME_US_RATES if grams <= limit)
+    return dict(quote, base_usd=base, recommended_usd=float(base + Decimal('3.99')),
+                service='Ukrposhta Small Packet PRIME — USA', maximum_band_g=limit,
+                note='Base postage plus operating buffer. Taxes and customs duties are separate.')
 
 
 # ============================================================
@@ -6657,7 +6636,7 @@ def _shipping_page(picker_id):
     _roles=PHOTO_ROLE_CACHE.get(picker_id) or {}
     _ebay_photo_count = sum(_roles.get(i) in EBAY_PHOTO_ROLES for i in range(1, count + 1)) if _photo_roles_ready(items, picker_id) else 0
     body=f"""<h2>{label} — Вага й доставка</h2><p>Фото <b>{count} у лоті / {min(24,_ebay_photo_count)} для eBay</b><br>Вага для розрахунку доставки <b>{item_weight:.4f} kg</b> ({html.escape(accepted_weight_source)})<br>Орієнтовна вага пакунка <b>{packed:.2f} kg</b><br>Розміри предмета <b>{L:g} × {W:g} × {H:g} cm</b> ({html.escape(accepted_dimensions_source)})<br>Орієнтовні габарити пакунка <b>{pL:g} × {pW:g} × {pH:g} cm</b><br>Базовий тариф Укрпошти PRIME США <b>${postage:.2f}</b><br>Рекомендована вартість доставки на eBay <b>${ebay_ship:.2f}</b></p>{_usage_summary_html(picker_id)}
-    <p style='padding:10px;border-left:4px solid #b7791f;background:#fff8e6'><b>Митні збори США.</b> Розрахунок охоплює доставку. Мито перевіряйте окремо за кодом ТН ЗЕД, оголошеною вартістю та країною походження.</p>
+    <p style='padding:10px;border-left:4px solid #b7791f;background:#fff8e6'><b>Податки та митне оформлення.</b> Базовий тариф подано без ПДВ. Укрпошта вказує {ship_calc['vat_on_domestic_portion_uah']} грн ПДВ за українську частину тарифу. Для митних зборів потрібні підтверджені код ТН ЗЕД, оголошена вартість і країна походження. <a href="{PRIME_US_SOURCE}">Тарифи Укрпошти</a>.</p>
     <form action='/picker/final-listing' method='post'>{_measurement_form_fields(picker_id)}
     <fieldset style='padding:12px;margin:14px 0'><legend><b>Характеристики предмета</b></legend><p>Впевненість ШІ <b>{facts.get('confidence',0)}%</b>. Відомі значення вже підставлено.</p><p><b>Матеріали</b><br>{' &nbsp; '.join(checks)}</p><p>Опис матеріалу за фото. Підтвердьте, якщо його можна додати до оголошення.<br><input name='material_other' value='{html.escape(', '.join(material_details),quote=True)}' placeholder='optional' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><label><input type='checkbox' name='confirm_material_other' value='yes'> Додати підтверджений матеріал до оголошення</label></p>
     <p><b>Працездатність</b><br><select name='seller_tested_status' style='font-size:17px;padding:8px'>{status_options}</select></p>
@@ -7128,7 +7107,7 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
     _p060_ensure_title_object(_type_draft)
     title,description,specifics = _type_draft['title'],_type_draft['description'],_type_draft['item_specifics']
     listing_text=(f"1 TITLE\n{title}\n\n2 PRICE USD\n${price if price else 'Not set'}\n\n3 CONDITION\n{condition_note}\n\n4 ITEM SPECIFICS\n"+"\n".join(f"{k}: {v}" for k,v in specifics.items())+f"\n\n5 DESCRIPTION\n{description}")
-    draft={"listing_text":listing_text,"title":title,"price":price,"condition_note":condition_note,"description":description,"item_specifics":specifics,"shipping_usd":shipping_usd,"confirmed_material":confirmed_material,"seller_tested_status":seller_tested_status,"seller_completeness":seller_completeness,"seller_verified_marking":seller_verified_marking,"seller_brand":seller_brand,"seller_origin":seller_origin,"seller_confirmed_country":seller_origin,"marking_present":bool((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("marking_present") or brand_candidate),"brand_evidence":str((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("brand_evidence") or brand_candidate or ""),"physical_item_count":physical_count,"sale_mode":sale_mode,"ebay_quantity":(physical_count if sale_mode=="INDIVIDUAL" else 1),"item_weight":item_weight,"packed_weight":packed_weight,"dimensions":dimensions,"package_dimensions":package_dimensions,"draft_input_signature":_draft_sig,"handling_time_business_days":int(os.environ.get("EBAY_HANDLING_DAYS","3")),"measurement_source":dict(SELLER_MEASUREMENT_CACHE.get(session.get("picker_session_id")) or MEASUREMENT_CACHE.get(session.get("picker_session_id")) or {}),"seo_keywords":seo,"seller_check":checks,"price_research_ok":bool(price_quality.get("ok")),"price_research_reasons":list(price_quality.get("reasons") or []),"price_source":("RESEARCH" if price_quality.get("ok") else "MANUAL_REQUIRED"),"listing_readiness":listing_readiness,"readiness_failures":readiness_failures}
+    draft={"listing_text":listing_text,"title":title,"price":price,"condition_note":condition_note,"description":description,"item_specifics":specifics,"shipping_usd":shipping_usd,"confirmed_material":confirmed_material,"seller_tested_status":seller_tested_status,"seller_completeness":seller_completeness,"seller_verified_marking":seller_verified_marking,"seller_brand":seller_brand,"seller_origin":seller_origin,"seller_confirmed_country":seller_origin,"marking_present":bool((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("marking_present") or brand_candidate),"brand_evidence":str((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("brand_evidence") or brand_candidate or ""),"physical_item_count":physical_count,"sale_mode":sale_mode,"ebay_quantity":(physical_count if sale_mode=="INDIVIDUAL" else 1),"item_weight":item_weight,"packed_weight":packed_weight,"dimensions":dimensions,"package_dimensions":package_dimensions,"shipping_quote":quote,"draft_input_signature":_draft_sig,"handling_time_business_days":int(os.environ.get("EBAY_HANDLING_DAYS","3")),"measurement_source":dict(SELLER_MEASUREMENT_CACHE.get(session.get("picker_session_id")) or MEASUREMENT_CACHE.get(session.get("picker_session_id")) or {}),"seo_keywords":seo,"seller_check":checks,"price_research_ok":bool(price_quality.get("ok")),"price_research_reasons":list(price_quality.get("reasons") or []),"price_source":("RESEARCH" if price_quality.get("ok") else "MANUAL_REQUIRED"),"listing_readiness":listing_readiness,"readiness_failures":readiness_failures}
     with _p054_lot_lock('measurements:' + str(picker_id)):
         error = _measurement_form_error(picker_id)
         if error:
@@ -12238,18 +12217,22 @@ def ebay_current_sync():
 
 def _p083_compliance(draft):
     """Conservative local policy screen for the current listing pipeline."""
-    fields = ('title', 'description', 'category_path', 'category_name', 'item_specifics')
+    evidence = {'scope': 'LOCAL_SCREENING', 'revision': '2026-11-24.1',
+                'origin': 'UA', 'destination': 'US', 'customs_code_status': 'UNVERIFIED'}
+    fields = ('title', 'description', 'category_path', 'category_name', 'item_specifics',
+              'condition_note', 'primary_type', 'confirmed_material')
     text = ' '.join(str(draft.get(key) or '') for key in fields)
     plain = ' '.join(re.sub(r'<[^>]*>', ' ', html.unescape(text)).split())
     blocked = re.search(r'\b(?:live ammunition|functional firearms?|explosive ordnance)\b', plain, re.I)
     if blocked:
-        return {'status': 'BLOCK', 'trigger': blocked[0]}
+        return dict(evidence, status='BLOCK', rule='LOCAL_RESTRICTED_TERM', trigger=blocked[0])
     review = re.search(
         r'\b(?:militaria|military|epaulettes?|shoulder boards?|collar tabs?|antique|antiquities|medals?|insignia|'
         r'ammunition|firearms?|ivory|cultural property)\b', plain, re.I)
     if review or not str(draft.get('title') or '').strip():
-        return {'status': 'REVIEW', 'trigger': review[0] if review else ''}
-    return {'status': 'CLEAR', 'trigger': ''}
+        return dict(evidence, status='REVIEW', rule='LOCAL_EXPORT_REVIEW' if review else 'MISSING_TITLE',
+                    trigger=review[0] if review else '')
+    return dict(evidence, status='CLEAR', rule='NO_LOCAL_MATCH', trigger='')
 
 
 def _p083_review_page(draft):
@@ -12264,7 +12247,7 @@ def _p083_review_page(draft):
         '<li><a href="https://zakon.rada.gov.ua/laws/show/1068-14#Text">Закон України про вивезення культурних цінностей</a>: визначити статус предмета та необхідність свідоцтва або експертного висновку.</li>'
         '<li><a href="https://www.ukrposhta.ua/">Укрпошта</a>: підтвердити приймання та необхідні документи.</li>'
         '<li><a href="https://www.cbp.gov/">CBP США</a>: перевірити ввезення; <a href="https://hts.usitc.gov/">HTS</a>: визначити митну класифікацію.</li></ol>'
-        '<p>Митний код: не підтверджено. Перевірки не виконані автоматично; посилання є точками початку перевірки, а не доказами дозволу.</p>'
+        '<p>Статус митного коду — потребує перевірки. Почніть з <a href="https://www.ukrposhta.ua/ua/mytne-oformlennia/">інструкцій Укрпошти</a> та правил класифікації Держмитслужби України.</p>'
         '<p>Публікацію зупинено. Повторний AI не запускався.</p>'
         '<p><a href="/ebay/current-compliance">Повторити локальну перевірку — без AI</a> · <a href="/picker/review-final-draft">Повернутися до чернетки</a> · <a href="/ebay/hold-queue">HOLD</a></p>'+_p059_hold_next_button()),409
 
@@ -12273,7 +12256,7 @@ def _p083_review_page(draft):
 def ebay_current_compliance():
     draft=_current_draft()
     if _p083_compliance(draft or {})['status'] != 'CLEAR':return _p083_review_page(draft or {})
-    return page('Compliance', '<h2>CLEAR — локальний фільтр</h2><p>Локальний фільтр не виявив відомих ключових слів. Це не юридичний дозвіл.</p><a href="/ebay/current-preflight">Preflight</a>')
+    return page('Compliance', '<h2>CLEAR — локальний фільтр</h2><p>За локальними правилами немає збігів. Для маршруту Україна → США перевірте митний код і вимоги експорту.</p><a href="/ebay/current-preflight">Preflight</a>')
 
 
 def _p068_publish_button():
