@@ -183,9 +183,13 @@ def main():
     try:
         if args.prepare:
             prepare(args.root.resolve(), args.originals)
-        print(json.dumps(evaluate(args.root.resolve(), execute=args.execute), ensure_ascii=False, indent=2))
+        report = evaluate(args.root.resolve(), execute=args.execute)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
     except (OSError, KeyError, ValueError, RuntimeError) as exc:
         parser.exit(2, f'{exc}\n')
+    if args.execute and (report['priced_requests'] != len(REFERENCES)
+                         or any(row['vision'] != 'PARSED' for row in report['cases'])):
+        parser.exit(1, 'Візуальний пілот завершився без повного набору результатів. Перевірте звіт.\n')
 
 
 if __name__ == '__main__':

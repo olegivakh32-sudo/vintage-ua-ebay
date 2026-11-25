@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
-from io import BytesIO
+from contextlib import redirect_stderr, redirect_stdout
+from io import BytesIO, StringIO
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -13,13 +14,27 @@ import requests
 from ai_pilot import PilotLimits, run, visual_usage
 from product_evidence import recognition_route
 from test_mobile import m
-from visual_acceptance import evaluate, outcome, REFERENCES
+from visual_acceptance import evaluate, main, outcome, REFERENCES
 
 
 MODEL = 'gpt-4o-mini-2024-07-18'
 
 
 class VisualAcceptanceTests(unittest.TestCase):
+    def test_execution_reports_partial_run_but_exits_unsuccessfully(self):
+        report = {
+            'requests_sent': 1, 'priced_requests': 0, 'standard_cost_usd': None,
+            'cases': [{'vision': 'NO_RESULT'}, {'vision': 'NOT_RUN'}, {'vision': 'NOT_RUN'}],
+        }
+        stdout = StringIO()
+        with (patch('sys.argv', ['visual_acceptance.py', '/tmp/fixture', '--execute']),
+              patch('visual_acceptance.evaluate', return_value=report),
+              redirect_stdout(stdout), redirect_stderr(StringIO())):
+            with self.assertRaises(SystemExit) as error:
+                main()
+        self.assertEqual(error.exception.code, 1)
+        self.assertEqual(json.loads(stdout.getvalue()), report)
+
     def test_public_category_requires_independent_type_and_exact_model(self):
         expected = REFERENCES['A02']
         case = dict(lot='A02', category=expected['category'], labels=expected,
