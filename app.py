@@ -46,6 +46,7 @@ from zipfile import ZIP_STORED, ZipFile
 from itsdangerous import BadSignature, URLSafeSerializer
 from PIL import Image, ImageEnhance, ImageOps, ImageStat, ImageFilter
 
+from catalog_policy import LEGACY_MARKETPLACE, TaxonomyTree, catalog_key, marketplace_code, object_words, selectable_aspects
 from identity_evidence import corroborated_value, identity_claims
 from measurement_units import metric_value
 from mobile_photos import duplicate_photo_indices, image_sharpness, measurement_hint
@@ -6717,6 +6718,7 @@ def _shipping_page(picker_id):
     <form action='/picker/final-listing' method='post'>{_measurement_form_fields(picker_id)}
     <fieldset style='padding:12px;margin:14px 0'><legend><b>Характеристики предмета</b></legend><p>Впевненість ШІ <b>{facts.get('confidence',0)}%</b>. Відомі значення вже підставлено.</p><p><b>Матеріали</b><br>{' &nbsp; '.join(checks)}</p><p>Опис матеріалу за фото. Підтвердьте, якщо його можна додати до оголошення.<br><input name='material_other' value='{html.escape(', '.join(material_details),quote=True)}' placeholder='optional' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><label><input type='checkbox' name='confirm_material_other' value='yes'> Додати підтверджений матеріал до оголошення</label></p>
     <p><b>Працездатність</b><br><select name='seller_tested_status' style='font-size:17px;padding:8px'>{status_options}</select></p>
+    <p><label><input type='checkbox' name='seller_declared_condition' value='NEW'> Підтверджую стан «Новий». Товар невикористаний і відповідає вимогам до пакування для обраної категорії.</label></p>
     <p><b>Комплектність</b><br><select name='seller_completeness' style='font-size:17px;padding:8px'>{comp_options}</select></p>
     <p><b>Напис або знак, розпізнаний ШІ</b><br><input value='{html.escape(facts.get('brand') or '',quote=True)}' readonly style='font-size:17px;padding:8px;width:min(420px,90%);background:#f3f4f6'><br><small>Evidence: {html.escape(facts.get('brand_evidence') or ('detected but not safely readable' if facts.get('marking_present') else 'none confirmed'))}</small></p>
     <p style='padding:10px;border:2px solid #177a3f;background:#f1fff5'><b>Точний напис на предметі</b><br><input name='seller_verified_marking' value='' placeholder='Наприклад, ПОЛОЦК' style='font-size:17px;padding:8px;width:min(420px,90%)'><br><small>Введений напис має пріоритет над розпізнаним. Виробника, модель і походження підтверджуйте окремо.</small></p>
@@ -6776,6 +6778,7 @@ def final_listing(automatic_revision=None):
     default_test_status = 'Not applicable' if automatic and _p081_passive(kind) else 'Untested'
     seller_tested_status = form.get('seller_tested_status', default_test_status).strip() or default_test_status
     seller_completeness = form.get('seller_completeness', 'Unknown').strip() or 'Unknown'
+    seller_declared_condition = 'NEW' if form.get('seller_declared_condition') == 'NEW' else ''
     seller_verified_marking = form.get('seller_verified_marking', '').strip()
     brand_candidate = form.get('seller_brand', '').strip()
     brand_confirmed = form.get('confirm_seller_brand') == 'yes'
@@ -6806,6 +6809,8 @@ def final_listing(automatic_revision=None):
     }
     if automatic:
         _draft_sig_payload['automatic_material_source'] = material_source
+    if seller_declared_condition:
+        _draft_sig_payload['seller_declared_condition'] = seller_declared_condition
     _draft_sig=hashlib.sha256(json.dumps(_draft_sig_payload,ensure_ascii=False,sort_keys=True).encode("utf-8")).hexdigest()
     _existing_draft=LOT002_DRAFT_CACHE.get(session.get("picker_session_id")) or {}
     if (_existing_draft.get("draft_input_signature")==_draft_sig
@@ -6853,6 +6858,7 @@ MARKET RESEARCH:
 {market}
 
 Seller/automatic facts: materials={confirmed_material or 'Unknown'}; tested_status={seller_tested_status}; completeness={seller_completeness}; seller_verified_visible_marking={seller_verified_marking or 'none'}; brand={seller_brand or 'not confirmed'}; origin={seller_origin or 'not confirmed'}.
+Seller's explicit new-condition declaration: {seller_declared_condition or 'none'}. Use the declaration only if it is consistent with visible evidence.
 MEASUREMENT PROVENANCE: {json.dumps(_p054_measurement_provenance(session.get('picker_session_id')),ensure_ascii=False)}
 Any REFERENCE_ANALOG_ESTIMATE or mixed reference dimension is SHIPPING-ONLY. Do not put those numbers into public item specifics or description. Do not describe a reference/estimate as an actual measurement.
 Measurements: item_weight={item_weight} kg; packed_weight={packed_weight} kg; item_dimensions={dimensions}; package_dimensions={package_dimensions}; buyer_shipping=${shipping_usd} from Ukraine to USA.
@@ -7202,6 +7208,8 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
     draft={"listing_text":listing_text,"title":title,"price":price,"condition_note":condition_note,"description":description,"item_specifics":specifics,"shipping_usd":shipping_usd,"confirmed_material":confirmed_material,"seller_tested_status":seller_tested_status,"seller_completeness":seller_completeness,"seller_verified_marking":seller_verified_marking,"seller_brand":seller_brand,"seller_origin":seller_origin,"seller_confirmed_country":seller_origin,"marking_present":bool((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("marking_present") or brand_candidate),"brand_evidence":str((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("brand_evidence") or brand_candidate or ""),"physical_item_count":physical_count,"sale_mode":sale_mode,"ebay_quantity":(physical_count if sale_mode=="INDIVIDUAL" else 1),"item_weight":item_weight,"packed_weight":packed_weight,"dimensions":dimensions,"package_dimensions":package_dimensions,"shipping_quote":quote,"draft_input_signature":_draft_sig,"handling_time_business_days":int(os.environ.get("EBAY_HANDLING_DAYS","3")),"measurement_source":dict(SELLER_MEASUREMENT_CACHE.get(session.get("picker_session_id")) or MEASUREMENT_CACHE.get(session.get("picker_session_id")) or {}),"seo_keywords":seo,"seller_check":checks,"price_research_ok":bool(price_quality.get("ok")),"price_research_reasons":list(price_quality.get("reasons") or []),"price_source":("RESEARCH" if price_quality.get("ok") else "MANUAL_REQUIRED"),"listing_readiness":listing_readiness,"readiness_failures":readiness_failures}
     draft['automatic_draft'] = automatic
     draft['material_evidence_source'] = material_source
+    if seller_declared_condition:
+        draft['seller_declared_condition'] = seller_declared_condition
     with _p054_lot_lock('measurements:' + str(picker_id)):
         error = _measurement_form_error(picker_id, automatic_revision)
         if error:
@@ -10634,7 +10642,7 @@ def _draft_primary_type(draft, title=""):
 def _category_core_tokens(primary_type):
     stop={"the","and","with","for","from","item","object","vintage","antique","used","fishing"}
     toks=[]
-    for tok in re.findall(r"[A-Za-z0-9]+", str(primary_type or "").casefold()):
+    for tok in re.findall(r"[^\W_]+", str(primary_type or "").casefold()):
         if len(tok)>=3 and tok not in stop:
             toks.append(tok)
     generic = {'case','cases','box','boxes','holder','holders','cover','covers','stand','stands',
@@ -10724,21 +10732,6 @@ def _category_semantic_match(primary_type, category_name, path_text=""):
         return True, 'Tobacciana cigarette case'
     # Keep object-defining terms (case, holder, cover) in the comparison.
     # Token overlap alone cannot distinguish a reel from a reel case.
-    noise = {'the', 'vintage', 'antique', 'used', 'collectible', 'collectibles'}
-    def object_words(value):
-        words = []
-        for word in re.findall(r'[a-z0-9]+', value):
-            if word in noise:
-                continue
-            if word.endswith('ies'):
-                word = word[:-3] + 'y'
-            elif re.search(r'(?:ch|sh|ss|x|lens)es$', word):
-                word = word[:-2]
-            elif word.endswith('s') and not word.endswith(('ss', 'us', 'is', 'lens')):
-                word = word[:-1]
-            words.append(word)
-        return words
-
     primary_words = object_words(primary)
     leaf_words = object_words(leaf)
     if primary_words == ['fishing', 'reel'] and leaf_words == ['reel'] and 'fishing' in segments[:-1]:
@@ -10843,8 +10836,10 @@ def _visual_category_conflict(draft, path):
     return ''
 
 
-def _p057_category_snapshot_check(draft):
+def _p057_category_snapshot_check(draft, *, token=None):
     draft=draft or {}
+    if draft.get('category_marketplace_id', LEGACY_MARKETPLACE) != LEGACY_MARKETPLACE:
+        return False, 'The saved category belongs to a different eBay marketplace'
     path=str(draft.get('category_path') or '')
     if (draft.get('category_guard_version')!='P057' or not path or
         str(draft.get('category_path_category_id') or '')!=str(draft.get('category_id') or '')):
@@ -10862,6 +10857,11 @@ def _p057_category_snapshot_check(draft):
     period_ok, period_note = _category_period_check(draft, path)
     if not period_ok:
         return False, period_note + '; run Preflight again'
+    if token and draft.get('category_tree_id'):
+        current_tree = _load_category_tree(token)
+        if (current_tree.tree_id != draft['category_tree_id'] or
+            (draft.get('category_tree_version') and current_tree.version != draft['category_tree_version'])):
+            return False, 'The eBay category tree has changed. Run Preflight again.'
     return _p057_category_material_check(draft,path)
 
 
@@ -10900,11 +10900,26 @@ def _p057_live_aspect_violations(draft, aspects):
 
 
 def _p092_missing_required(token, category_id, aspects):
-    present={str(k).casefold() for k,v in (aspects or {}).items()
+    supported = selectable_aspects(aspects or {}, _current_aspect_metadata(token, category_id))
+    present={catalog_key(k) for k,v in supported.items()
              if any(str(x or '').strip().casefold() not in {'','unknown','n/a','not applicable','not specified','does not apply'}
                     for x in (v if isinstance(v,list) else [v]))}
     return [m['name'] for m in _current_required_aspects(token,category_id)
-            if m['name'].casefold() not in present]
+            if catalog_key(m['name']) not in present]
+
+
+def _live_aspect_metadata_violations(token, category_id, aspects):
+    """Detect values the payload builder would remove, including optional values."""
+    def by_name(data):
+        return {
+            catalog_key(key): sorted({catalog_key(value) for value in values})
+            for key, values in data.items()
+        }
+
+    actual = {key: value if isinstance(value, list) else [value] for key, value in aspects.items()}
+    expected = by_name(_sanitize_aspect_cardinality(token, category_id, aspects))
+    names = {catalog_key(name): name for name in aspects}
+    return [names[key] for key, values in by_name(actual).items() if values != expected.get(key, [])]
 
 
 def _p092_choose_complete_category(token,draft,candidates):
@@ -10935,12 +10950,8 @@ def _current_category(token,title,draft=None):
             draft["category_primary_type"]=primary or "Photographic Enlarger"
         # Use live Taxonomy below so the complete hierarchy is checked too.
 
-    tr=_lot002_request('GET','https://api.ebay.com/commerce/taxonomy/v1/get_default_category_tree_id',headers=_current_headers(token),params={'marketplace_id':'EBAY_US'},timeout=30)
-    if tr.status_code!=200:
-        raise RuntimeError(f'Taxonomy tree failed: HTTP {tr.status_code}')
-    tree=str((tr.json() or {}).get('categoryTreeId') or '')
-    if not tree:
-        raise RuntimeError('eBay returned no categoryTreeId.')
+    taxonomy = _load_category_tree(token)
+    tree = taxonomy.tree_id
 
     queries=[]
     if _p081_family(primary)=="insignia":
@@ -11042,29 +11053,44 @@ def _current_category(token,title,draft=None):
         draft["category_semantic_note"]=note
         draft['category_path']=path
         draft['category_path_category_id']=cid
-        draft['category_guard_version']='P057' 
+        draft['category_guard_version']='P057'
+        draft['category_marketplace_id'] = taxonomy.marketplace_id
+        draft['category_tree_id'] = taxonomy.tree_id
+        draft['category_tree_version'] = taxonomy.version
     return cid,cname
 
-_COND_ENUM={'3000':'USED_EXCELLENT','4000':'USED_VERY_GOOD','5000':'USED_GOOD','6000':'USED_ACCEPTABLE','7000':'FOR_PARTS_OR_NOT_WORKING'}
+_COND_ENUM={'1000':'NEW','3000':'USED_EXCELLENT','4000':'USED_VERY_GOOD','5000':'USED_GOOD','6000':'USED_ACCEPTABLE','7000':'FOR_PARTS_OR_NOT_WORKING'}
 
 
-def _current_condition(token,category_id,draft):
+def _current_condition(token, category_id, draft, *, marketplace_id=LEGACY_MARKETPLACE):
     """Use live eBay condition policy. If category does not support structured condition, omit it."""
-    r=_lot002_request('GET','https://api.ebay.com/sell/metadata/v1/marketplace/EBAY_US/get_item_condition_policies',headers=_current_headers(token),params={'category_ids':category_id},timeout=30)
+    marketplace = marketplace_code(marketplace_id)
+    r=_lot002_request('GET',f'https://api.ebay.com/sell/metadata/v1/marketplace/{marketplace}/get_item_condition_policies',headers=_current_headers(token),params={'category_ids':category_id},timeout=30)
     if r.status_code!=200: raise RuntimeError(f'Condition policy failed: HTTP {r.status_code}: {r.text[:2500]}')
     target=None
     for pol in (r.json() or {}).get('itemConditionPolicies') or []:
         if str(pol.get('categoryId') or '')==str(category_id): target=pol; break
     allowed=[str(x.get('conditionId') or '') for x in ((target or {}).get('itemConditions') or [])]
     required=bool((target or {}).get('itemConditionRequired'))
+    declared_new = draft.get('seller_declared_condition') == 'NEW'
     # eBay explicitly allows categories (notably some Antiques/Collectibles) with no ConditionID.
     if not allowed:
-        if required: raise RuntimeError(f'eBay marks condition required for category {category_id} but returned no supported condition values. Category must be reviewed.')
+        if required or declared_new: raise RuntimeError(f'No supported condition metadata for category {category_id}. Category must be reviewed.')
         return None,None
     text=str(draft.get('condition_note') or '').casefold()
     broken=str(draft.get('seller_tested_status') or '').strip().casefold()=='tested not working'
     severe=bool(re.search(r'heavy wear|severe wear|major damage|significant damage|heavy rust|corrosion|missing parts|(?:multiple|numerous|pronounced|deep).{0,80}(?:folds|creases)|storage-related distortion',text))
     normal=bool(re.search(r'wear|scratch|scuff|chip|age-related|used condition|fold|creas|distort|crack',text))
+    if declared_new:
+        positive_signs = re.sub(r'\b(?:no|without)\s+(?:visible\s+)?(?:wear|scratches?|scuffs?|chips?|cracks?)\b', '', text)
+        has_use = re.search(r'\b(?:wear|scratch(?:es|ed)?|scuffs?|chips?|cracks?|used condition|open(?:ed)?[-\s]+box)\b', positive_signs)
+        if '1000' not in allowed or broken or severe or has_use:
+            raise RuntimeError(f'The declared new condition conflicts with the evidence or eBay policy for category {category_id}.')
+        draft['condition_display_label'] = next(
+            (item.get('conditionDescription') or item.get('conditionDisplayName') or 'New'
+             for item in target['itemConditions'] if str(item.get('conditionId')) == '1000'), 'New',
+        )
+        return '1000', 'NEW'
     excellent=bool(re.search(r'excellent condition|near mint|like new',text))
     very_good=bool(re.search(r'very good condition|very good overall',text))
     pref=(['7000','6000','5000'] if broken else ['6000','5000'] if severe else ['5000','6000'] if normal else ['3000','4000','5000','6000'] if excellent else ['4000','5000','6000'] if very_good else ['5000','6000','3000'])
@@ -11130,19 +11156,31 @@ def _parse_cm_dimensions(draft):
     return {'length':vals[0],'width':vals[1],'height':vals[2]}
 
 
-def _current_aspect_metadata(token, category_id):
-    """Return all eBay aspect metadata for the selected leaf category."""
-    cache = g.setdefault('ebay_aspect_metadata', {})
-    key = (token, str(category_id))
+def _load_category_tree(token, marketplace_id=LEGACY_MARKETPLACE):
+    marketplace = marketplace_code(marketplace_id)
+    cache = g.setdefault('ebay_category_trees', {})
+    key = (token, marketplace)
     if key in cache:
         return cache[key]
-    tree=_lot002_request('GET','https://api.ebay.com/commerce/taxonomy/v1/get_default_category_tree_id',headers=_current_headers(token),params={'marketplace_id':'EBAY_US'},timeout=30)
+    tree=_lot002_request('GET','https://api.ebay.com/commerce/taxonomy/v1/get_default_category_tree_id',headers=_current_headers(token),params={'marketplace_id':marketplace},timeout=30)
     if tree.status_code!=200:
         raise RuntimeError(f'Category tree lookup failed: HTTP {tree.status_code}: {tree.text[:1500]}')
-    tree_id=str((tree.json() or {}).get('categoryTreeId') or '')
-    if not tree_id:
-        raise RuntimeError('eBay did not return a categoryTreeId.')
-    r=_lot002_request('GET',f'https://api.ebay.com/commerce/taxonomy/v1/category_tree/{tree_id}/get_item_aspects_for_category',headers=_current_headers(token),params={'category_id':str(category_id)},timeout=30)
+    try:
+        scope = TaxonomyTree.from_response(marketplace, tree.json())
+    except ValueError as error:
+        raise RuntimeError(str(error)) from error
+    cache[key] = scope
+    return scope
+
+
+def _current_aspect_metadata(token, category_id, *, marketplace_id=LEGACY_MARKETPLACE):
+    """Return aspect metadata for the leaf scoped by marketplace and tree version."""
+    scope = _load_category_tree(token, marketplace_id)
+    cache = g.setdefault('ebay_aspect_metadata', {})
+    key = (token, scope, str(category_id))
+    if key in cache:
+        return cache[key]
+    r=_lot002_request('GET',f'https://api.ebay.com/commerce/taxonomy/v1/category_tree/{scope.tree_id}/get_item_aspects_for_category',headers=_current_headers(token),params={'category_id':str(category_id)},timeout=30)
     if r.status_code!=200:
         raise RuntimeError(f'Item specifics lookup failed: HTTP {r.status_code}: {r.text[:2000]}')
     aspects = (r.json() or {}).get('aspects')
@@ -11256,30 +11294,29 @@ def _sanitize_aspect_cardinality(token, category_id, aspects):
     out={str(k): [str(x).strip() for x in (v if isinstance(v,list) else [v]) if str(x).strip()]
          for k,v in (aspects or {}).items()}
     meta_by_name={}
-    for meta in _current_aspect_metadata(token, category_id):
+    metadata = _current_aspect_metadata(token, category_id)
+    for meta in metadata:
         name=str(meta.get('localizedAspectName') or '').strip()
         if name:
             meta_by_name[name.casefold()]=meta
+    for key in list(out):
+        constraint = (meta_by_name.get(str(key).casefold()) or {}).get('aspectConstraint') or {}
+        values = out[key]
+        if str(key).casefold() == 'material' and constraint.get('itemToAspectCardinality') == 'SINGLE' and len(values) == 1:
+            out[key] = [part.strip() for part in re.split(r'[,;/|]', values[0]) if part.strip()]
+    out = selectable_aspects(out, metadata)
     for key in list(out):
         vals=out.get(key) or []
         meta=meta_by_name.get(str(key).casefold()) or {}
         c=meta.get('aspectConstraint') or {}
         cardinality=str(c.get('itemToAspectCardinality') or '').upper()
         if cardinality == 'SINGLE' and vals:
-            # Material is often assembled upstream from seller-confirmed checkboxes.
-            # If it arrived as one comma/semicolon-separated string, choose the first
-            # explicit material for the single-value eBay field; the full material
-            # description remains in the listing description/draft.
-            if str(key).casefold() == 'material' and len(vals)==1 and re.search(r'[,;/|]', vals[0]):
-                parts=[x.strip() for x in re.split(r'\s*[,;/|]\s*', vals[0]) if x.strip()]
-                if parts:
-                    vals=parts
             out[key]=[vals[0]]
         elif vals:
             out[key]=vals
         else:
             out.pop(key,None)
-    return out
+    return selectable_aspects(out, metadata)
 
 
 def _current_required_aspects(token, category_id):
@@ -11839,6 +11876,9 @@ def ebay_current_setup():
         return page(label+' setup','<h2>Safety stop — draft, shipping, reviewed price, or seller review is missing.</h2><p>Nothing was sent to eBay.</p>'),400
     try:
         token=get_ebay_access_token()
+        category_ok, category_note = _p057_category_snapshot_check(draft, token=token)
+        if not category_ok:
+            return page(label+' setup stop','<h2>'+html.escape(category_note)+'</h2><a href="/ebay/current-preflight">Preflight</a>'),409
         existing_offers=_current_get_offers(token)
         if existing_offers:
             # Idempotent recovery: a previous click/retry may already have
@@ -11855,19 +11895,19 @@ def ebay_current_setup():
             return page(label+' setup',f'<h2>{sku} inventory already exists. It was not overwritten.</h2>'),409
         if chk.status_code!=404:
             raise RuntimeError(f'Could not confirm clean SKU: HTTP {chk.status_code}: {chk.text[:2000]}')
-        photos=_current_upload_photos(token); pid=_current_shipping_policy(token,draft['shipping_usd']); desc=draft.get('description') or draft.get('listing_text') or ''
         asp=draft.get('resolved_aspects') if isinstance(draft.get('resolved_aspects'),dict) else _current_aspects(draft)
         asp=_enrich_recommended_aspects(token,draft['category_id'],draft,asp)
-        asp, missing_required=_fill_required_aspects(token,draft['category_id'],draft,asp)
+        asp,_=_fill_required_aspects(token,draft['category_id'],draft,asp)
         asp=_sanitize_country_aspects(draft,asp)
         asp=_sanitize_identity_aspects(draft,asp)
-        asp, missing_required=_fill_required_aspects(token,draft['category_id'],draft,asp)
+        asp,_=_fill_required_aspects(token,draft['category_id'],draft,asp)
         # FINAL payload boundary: enrichment/required-aspect repair must never reintroduce
         # an inferred country or maker after the earlier safety pass.
         asp=_sanitize_country_aspects(draft,asp)
         asp=_sanitize_identity_aspects(draft,asp)
         # FINAL cardinality gate must run after every enrichment/fill/safety pass.
         asp=_sanitize_aspect_cardinality(token,draft['category_id'],asp)
+        missing_required=_p092_missing_required(token,draft['category_id'],asp)
         draft['resolved_aspects']=asp; draft['missing_required_aspects']=missing_required; LOT002_DRAFT_CACHE[session.get('picker_session_id')]=draft
         if missing_required:
             return page(
@@ -11877,10 +11917,13 @@ def ebay_current_setup():
                 '</b></p><p>No Inventory Item or Offer was created. No value was invented.</p>'
                 '<p><a href="/ebay/current-preflight">Return to Preflight</a></p>'
             ),409
+        photos=_current_upload_photos(token); pid=_current_shipping_policy(token,draft['shipping_usd']); desc=draft.get('description') or draft.get('listing_text') or ''
         product={'title':str(draft['title'])[:80],'description':desc,'imageUrls':[x['image_url'] for x in photos]}
         if asp: product['aspects']=asp
         ebay_qty=max(1,int(draft.get('ebay_quantity') or 1))
-        inv={'availability':{'shipToLocationAvailability':{'quantity':ebay_qty}},'conditionDescription':(draft.get('condition_note') or '')[:1000],'product':product}
+        inv={'availability':{'shipToLocationAvailability':{'quantity':ebay_qty}},'product':product}
+        if draft.get('condition_enum') != 'NEW':
+            inv['conditionDescription']=(draft.get('condition_note') or '')[:1000]
         if draft.get('condition_enum'): inv['condition']=draft['condition_enum']
         ir=_lot002_request('PUT',inv_url,headers=_current_headers(token,True),json=inv,timeout=60)
         if ir.status_code!=204:
@@ -12004,7 +12047,7 @@ def _p063_plan(token,draft,sku):
     if not draft or not draft.get('seller_reviewed') or not draft.get('price_confirmed'):
         raise RuntimeError('Спочатку відкрийте й погодьте збережену чернетку.')
     _p067_condition_note_in_body(draft)
-    ok,note=_p057_category_snapshot_check(draft)
+    ok,note=_p057_category_snapshot_check(draft, token=token)
     if not ok:raise RuntimeError(note+'; відкрийте Preflight без нового AI.')
     if _explicit_material_conflicts(draft) or _tested_status_public_content_violations(draft) or _untested_public_content_violations(draft):
         raise RuntimeError('Суперечливі публічні характеристики. Перевірте збережену чернетку.')
@@ -12029,13 +12072,11 @@ def _p063_plan(token,draft,sku):
         raise RuntimeError('Є каталожні ідентифікатори товару; потрібна окрема перевірка перед зміною.')
     # Rebuild public aspects from the reviewed draft; never from stale eBay claims.
     aspects=_current_aspects(draft)
-    aspects,missing=_fill_required_aspects(token,draft['category_id'],draft,aspects)
+    aspects,_=_fill_required_aspects(token,draft['category_id'],draft,aspects)
     aspects=_sanitize_identity_aspects(draft,_sanitize_country_aspects(draft,aspects))
     aspects=_sanitize_aspect_cardinality(token,draft['category_id'],aspects)
-    if missing or _p057_live_aspect_violations(draft,aspects):
+    if _p092_missing_required(token,draft['category_id'],aspects) or _p057_live_aspect_violations(draft,aspects):
         raise RuntimeError('Потрібні характеристики не заповнено або вони не підтверджені.')
-    if any(not aspects.get(meta['name']) for meta in _current_required_aspects(token,draft['category_id'])):
-        raise RuntimeError('Після перевірки походження бракує обов’язкових характеристик.')
     if offer.get('secondaryCategoryId'):
         raise RuntimeError('Лот має додаткову категорію: потрібна окрема перевірка її відповідності.')
     new_inventory={k:_p063_copy(v) for k,v in inventory.items() if k in _P063_INVENTORY_FIELDS}
@@ -12049,14 +12090,17 @@ def _p063_plan(token,draft,sku):
     if draft.get('seller_brand'):new_product['brand']=str(draft['seller_brand'])
     else:new_product.pop('brand',None)
     new_inventory['product']=new_product
-    new_inventory['conditionDescription']=str(draft.get('condition_note') or '')[:1000]
+    if draft.get('condition_enum') == 'NEW':
+        new_inventory.pop('conditionDescription', None)
+    else:
+        new_inventory['conditionDescription']=str(draft.get('condition_note') or '')[:1000]
     if inventory.get('conditionDescriptors') and (inventory.get('condition')!=draft.get('condition_enum') or str(offer.get('categoryId'))!=str(draft.get('category_id'))):
         raise RuntimeError('Зміна стану товару потребує перевірки його спеціальних дескрипторів.')
     if draft.get('condition_enum'):new_inventory['condition']=draft['condition_enum']
     else:new_inventory.pop('condition',None)
     new_offer={k:_p063_copy(v) for k,v in offer.items() if k in _P063_OFFER_FIELDS}
     new_offer.update(categoryId=str(draft['category_id']),listingDescription=desc,includeCatalogProductDetails=False)
-    public_issues=_p062_live_public_failures(draft,new_product,new_inventory['conditionDescription'])
+    public_issues=_p062_live_public_failures(draft,new_product,new_inventory.get('conditionDescription') or '')
     if public_issues:raise RuntimeError('Публічний текст суперечить фактам: '+'; '.join(public_issues))
     state={'sku':sku,'offer_id':oid,'before_offer':offer,'before_inventory':inventory,'inventory':new_inventory,'offer':new_offer}
     state['digest']=hashlib.sha256(json.dumps(state,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -12980,13 +13024,16 @@ def ebay_current_publish():
         checks.append(('Live public status/dimensions','; '.join(_public_failures) or 'MATCH','Seller status; measured public dimensions only',not _public_failures))
         checks.append(('Live country/maker/material', '; '.join(_live_failures) or 'MATCH',
                        'Only seller-confirmed identity/material facts', not _live_failures))
-        _path_ok,_path_note=_p057_category_snapshot_check(draft)
+        _path_ok,_path_note=_p057_category_snapshot_check(draft, token=token)
         checks.append(('Full category hierarchy', draft.get('category_path') or 'UNVERIFIED',
-                       'Material-compatible branch',_path_ok))
+                       'Material-compatible branch' if _path_ok else _path_note,_path_ok))
         checks.append(('Secondary category', offer.get('secondaryCategoryId') or 'NONE',
                        'NONE', not offer.get('secondaryCategoryId')))
         checks.append(('Required aspects', ', '.join(missing_aspects) or 'COMPLETE',
                        'COMPLETE', not missing_aspects))
+        invalid_aspects = _live_aspect_metadata_violations(token, draft['category_id'], live_aspects)
+        checks.append(('Aspect values and dependencies', ', '.join(invalid_aspects) or 'MATCH',
+                       'Allowed by eBay metadata', not invalid_aspects))
         rows=''.join('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>'%(('PASS' if ok else 'FAIL'),html.escape(str(n)),html.escape(str(a)),html.escape(str(e))) for n,a,e,ok in checks)
         if not all(x[3] for x in checks):
             return page(label+' not ready',f'<h2>{label} — NOT READY TO PUBLISH</h2><table border="1" cellpadding="5"><tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}</table><p>publishOffer was not called.</p>{_publish_recovery_buttons(label)}'),409

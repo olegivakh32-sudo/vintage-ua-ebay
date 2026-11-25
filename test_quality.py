@@ -122,6 +122,105 @@ class CategoryTests(unittest.TestCase):
                 self.assertEqual(m._current_aspect_metadata("token", "1"), aspects)
                 self.assertEqual(api.call_count, 4)
 
+    def test_same_category_id_keeps_marketplace_metadata_separate(self):
+        us = [{"localizedAspectName": "Color"}]
+        de = [{"localizedAspectName": "Farbe"}]
+        with m.app.test_request_context(), patch.object(m, "_lot002_request", side_effect=[
+            response(200, {"categoryTreeId": "0", "categoryTreeVersion": "101"}),
+            response(200, {"aspects": us}),
+            response(200, {"categoryTreeId": "77", "categoryTreeVersion": "102"}),
+            response(200, {"aspects": de}),
+        ]) as api:
+            self.assertEqual(m._current_aspect_metadata("token", "123"), us)
+            self.assertEqual(m._current_aspect_metadata("token", "123", marketplace_id="EBAY_DE"), de)
+            self.assertEqual(m._current_aspect_metadata("token", "123"), us)
+            self.assertEqual(m._load_category_tree("token", "EBAY_DE").version, "102")
+            self.assertEqual(api.call_count, 4)
+            self.assertEqual(api.call_args_list[2].kwargs["params"], {"marketplace_id": "EBAY_DE"})
+        with self.assertRaises(ValueError):
+            m._load_category_tree("token", "EBAY_US/../DE")
+
+    def test_product_directions_and_accessories_are_distinguished(self):
+        cases = (
+            ("Network Switch", "Computers > Networking", "Network Switches", "Network Switch Mounts"),
+            ("Running Shoe", "Clothing > Athletic Footwear", "Running Shoes", "Running Shoe Laces"),
+            ("Cabin Air Filter", "Motors > Car Parts", "Cabin Air Filters", "Cabin Air Filter Housings"),
+            ("Screen Protector", "Phones > Accessories", "Screen Protectors", "Phone Screens"),
+            ("Claw Hammer", "Tools > Hand Tools", "Claw Hammers", "Hammer Handles"),
+            ("Термостійка рукавичка", "Дім > Кухня", "Термостійка рукавичка", "Кухонний рушник"),
+            ("Kabellose Maus", "Computer > Eingabegeräte", "Kabellose Maus", "Maus Pads"),
+        )
+        for kind, hierarchy, right, wrong in cases:
+            with self.subTest(kind=kind):
+                self.assertTrue(m._category_semantic_match(kind, right, f"{hierarchy} > {right}")[0])
+                self.assertFalse(m._category_semantic_match(kind, wrong, f"{hierarchy} > {wrong}")[0])
+        previous = {
+            "title": "Network switch", "category_path": "Computers > Networking > Network Switches",
+            "category_id": "123", "category_path_category_id": "123", "category_guard_version": "P057",
+        }
+        self.assertTrue(m._p057_category_snapshot_check(previous)[0])
+        self.assertFalse(m._p057_category_snapshot_check(dict(previous, category_marketplace_id="EBAY_DE"))[0])
+
+    def test_saved_category_is_rechecked_against_current_tree(self):
+        saved = {
+            "title": "Network switch", "category_path": "Computers > Networking > Network Switches",
+            "category_id": "123", "category_path_category_id": "123", "category_guard_version": "P057",
+            "category_marketplace_id": "EBAY_US", "category_tree_id": "0", "category_tree_version": "101",
+        }
+        with m.app.test_request_context(), patch.object(m, "_lot002_request", side_effect=[
+            response(200, {"categoryTreeId": "0", "categoryTreeVersion": "102"}),
+        ]) as api:
+            self.assertEqual(m._p057_category_snapshot_check(saved, token="token"),
+                             (False, "The eBay category tree has changed. Run Preflight again."))
+            self.assertTrue(m._p057_category_snapshot_check(dict(saved, category_tree_version="102"), token="token")[0])
+            api.assert_called_once()
+
+    def test_taxonomy_values_and_dependency_follow_final_specifics(self):
+        fields = [
+            {"localizedAspectName": "Vehicle", "aspectConstraint": {
+                "aspectMode": "SELECTION_ONLY", "itemToAspectCardinality": "SINGLE", "aspectRequired": True,
+            }, "aspectValues": [{"localizedValue": "Sedan"}, {"localizedValue": "Wagon"}]},
+            {"localizedAspectName": "Model", "aspectConstraint": {
+                "aspectMode": "SELECTION_ONLY", "aspectRequired": True,
+            }, "aspectValues": [{"localizedValue": "Series X", "valueConstraints": [{
+                "applicableForLocalizedAspectName": "Vehicle", "applicableForLocalizedAspectValues": ["Wagon"],
+            }]}]},
+            {"localizedAspectName": "Material", "aspectConstraint": {
+                "aspectMode": "SELECTION_ONLY", "itemToAspectCardinality": "SINGLE",
+            }, "aspectValues": [{"localizedValue": "Aluminum"}]},
+        ]
+        with patch.object(m, "_current_aspect_metadata", return_value=fields):
+            valid = {"vehicle": [" wagon "], "model": ["Series X", "Unknown model"],
+                     "Material": ["Aluminum, Paper"], "Seller notes": ["Visible wear"]}
+            self.assertEqual(m._sanitize_aspect_cardinality("token", "123", valid), {
+                "Vehicle": ["Wagon"], "Model": ["Series X"], "Material": ["Aluminum"],
+                "Seller notes": ["Visible wear"],
+            })
+            inconsistent = dict(valid, vehicle=["Sedan", "Wagon"])
+            cleaned = m._sanitize_aspect_cardinality("token", "123", inconsistent)
+            self.assertEqual(cleaned["Vehicle"], ["Sedan"])
+            self.assertEqual(m._p092_missing_required("token", "123", cleaned), ["Model"])
+            self.assertEqual(m._p092_missing_required("token", "123", dict(valid, vehicle=["Convertible"])),
+                             ["Vehicle", "Model"])
+
+    def test_new_requires_seller_declaration_and_live_market_condition_policy(self):
+        def metadata(*ids):
+            return response(200, {"itemConditionPolicies": [{"categoryId": "123", "itemConditionRequired": True,
+                "itemConditions": [{"conditionId": code} for code in ids]}]})
+
+        with patch.object(m, "_lot002_request", return_value=metadata("1000", "3000")) as api:
+            self.assertEqual(m._current_condition("token", "123", {"title": "New cable"}), ("3000", "USED_EXCELLENT"))
+            declared = {"seller_declared_condition": "NEW", "condition_note": "No visible scratches. In original package."}
+            self.assertEqual(m._current_condition("token", "123", declared, marketplace_id="EBAY_GB"),
+                             ("1000", "NEW"))
+            self.assertIn("/EBAY_GB/", api.call_args.args[1])
+            for note in ("Visible scratches on connectors", "Open-box return"):
+                with self.subTest(note=note), self.assertRaisesRegex(RuntimeError, "conflicts"):
+                    m._current_condition("token", "123", dict(declared, condition_note=note))
+            api.return_value = metadata("3000")
+            with self.assertRaisesRegex(RuntimeError, "conflicts"):
+                m._current_condition("token", "123", declared)
+
 
 class WorkflowTests(unittest.TestCase):
     def setUp(self):
@@ -360,7 +459,11 @@ class WorkflowTests(unittest.TestCase):
             patch.object(m, "_p093_verified_eps", return_value=[image]),
             patch.object(m, "_current_get_offers", return_value=[offer]),
             patch.object(m, "get_ebay_access_token", return_value="mock"),
-            patch.object(m, "_current_required_aspects", return_value=[{"name": "Type"}]),
+            patch.object(m, "_current_aspect_metadata", return_value=[
+                {"localizedAspectName": "Type", "aspectConstraint": {"aspectRequired": True}},
+                {"localizedAspectName": "Color", "aspectConstraint": {"aspectMode": "SELECTION_ONLY"},
+                 "aspectValues": [{"localizedValue": "Silver"}]},
+            ]),
             patch.object(m, "_p058_capture_current"),
             patch.object(m, "_lot002_request") as read,
             patch.object(m.requests, "post", return_value=response(400)) as publish,
@@ -377,6 +480,12 @@ class WorkflowTests(unittest.TestCase):
             result = client.post("/ebay/current-publish", data=form)
             self.assertEqual(result.status_code, 409)
             self.assertIn(b"Required aspects", result.data)
+            publish.assert_not_called()
+            product["aspects"] = {"Type": ["Pocket Watch"], "Color": ["Mismatch"]}
+            read.side_effect = [response(200, {"product": product}), response(200, policy)]
+            result = client.post("/ebay/current-publish", data=form)
+            self.assertEqual(result.status_code, 409)
+            self.assertIn(b"Aspect values and dependencies", result.data)
             publish.assert_not_called()
             product["aspects"] = {"Type": ["Pocket Watch"]}
             read.side_effect = [response(200, {"product": product}), response(200, policy),
