@@ -13,7 +13,7 @@ from catalogue_labels import Catalogue, scan_labels
 from mobile_photos import MEASUREMENT_HINT_VERSION, measurement_hint
 from photo_assessment import VISUAL_VERSION, composition_and_tone, suggested_photo_role
 from product_codes import BARCODE_HINT_VERSION, catalogue_hints
-from product_evidence import barcode_evidence
+from product_evidence import RECOGNITION_ROUTE_VERSION, barcode_evidence, recognition_route
 from workspace_db import WorkspaceDB
 
 LEASE_SECONDS = 90
@@ -28,6 +28,7 @@ def queue_review(db, scope, now, catalogue=None):
     if not rows:
         return
     album_key = sha256(json.dumps([VISUAL_VERSION, MEASUREMENT_HINT_VERSION, BARCODE_HINT_VERSION,
+                                   RECOGNITION_ROUTE_VERSION,
                                    catalogue.digest if catalogue else None, [tuple(row) for row in rows]]).encode()).hexdigest()
     db.execute(
         'INSERT INTO photo_reviews (account_id, store_id, draft_id, album_key, queued_at) VALUES (?, ?, ?, ?, ?) '
@@ -87,7 +88,8 @@ def _review(rows, catalogue=None):
         labels = scan_labels([(row['slot'], row['preview']) for row in optional], catalogue)
         if labels:
             evidence['catalogue_matches'] = labels
-    return {'photos': photos, 'suggested_main': main['slot'] if main else None, 'product_evidence': evidence}
+    return {'photos': photos, 'suggested_main': main['slot'] if main else None, 'product_evidence': evidence,
+            'recognition_route': recognition_route(photos, codes, evidence.get('catalogue_matches', ()))}
 
 
 def run_one(store, clock=time.time, *, catalogue=None):

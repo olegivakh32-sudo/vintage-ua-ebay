@@ -120,7 +120,16 @@ async function showAlbum() {
         RUNNING: 'Триває локальна перевірка.', READY: 'Готовий попередній відбір фото.',
         FAILED: 'Перевірка зупинилася після кількох спроб. Оригінали збережені.',
     };
-    byId('photo-review-status').textContent = states[data.review.state];
+    const nextSteps = {
+        REVIEW_CONFLICT: 'Звірте маркування товару, пакування й аксесуарів.',
+        REVIEW_PHOTOS: 'Для ідентифікації допоможе загальний кадр і крупний план маркування.',
+        VERIFY_CATALOGUE: 'Звірте модель і варіант із джерелом.',
+        SEARCH_IDENTIFIER: 'Звірте штрихкод із каталогом виробника.',
+        VISUAL_REVIEW: 'Без точного маркування потрібне візуальне розпізнавання або фото етикетки.',
+    };
+    byId('photo-review-status').textContent = [
+        states[data.review.state], nextSteps[data.review.recognition_route],
+    ].filter(Boolean).join(' ');
     rows('catalogue-matches', data.review.product_evidence?.catalogue_matches || [], (item, match) => {
         item.textContent = (match.status === 'CONTESTED' ? 'Суперечливий збіг · ' : 'Каталожна підказка · ') +
             match.model + ' · фото ' + match.photos.join(', ') + ' ';

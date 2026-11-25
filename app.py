@@ -74,7 +74,9 @@ from photo_assessment import (
     composition_and_tone, edit_settings as normalize_photo_edits, mild_white_balance, suggested_photo_role,
 )
 from product_codes import BARCODE_HINT_VERSION, catalogue_hints, read_retail_codes, research_identifier
-from product_evidence import build_product_evidence, draft_from_evidence, photo_type, specific_violations
+from product_evidence import (
+    build_product_evidence, draft_from_evidence, photo_type, recognition_route, specific_violations,
+)
 
 from flask import (
     Flask,
@@ -14303,8 +14305,10 @@ def mobile_acceptance_check():
     best = max(candidates, key=lambda row: row['score'], default=None)
     main = best['photo'] if best is not None else None
     codes = _mobile_catalogue_hints(photos)
+    route = recognition_route(rows, codes)
     if request.accept_mimetypes.best == 'application/json':
-        return {'lot': _current_lot_label(), 'photos': rows, 'suggested_main': main, 'retail_codes': codes}
+        return {'lot': _current_lot_label(), 'photos': rows, 'suggested_main': main, 'retail_codes': codes,
+                'recognition_route': route}
     summary = f'Попередня обкладинка — кадр №{main}.' if main else 'Кадр для попередньої обкладинки не визначено.'
     observations = ''.join(f"<li>Фото №{row['photo']} — {row['note']}</li>" for row in rows)
     barcode_note = ''
@@ -14316,9 +14320,17 @@ def mobile_acceptance_check():
                         f"{', '.join(map(str, clue['photos']))} доступний як підказка для пошуку.</p>")
     apply = (_mobile_suggestions_form(_mobile_role_review_key(picker_id, photos))
              if candidates and not _photo_roles_ready(photos, picker_id) else '')
+    next_step = {
+        'REVIEW_PHOTOS': 'Для ідентифікації допоможе чіткий загальний кадр і крупний план маркування.',
+        'REVIEW_CONFLICT': 'Звірте маркування товару, пакування й аксесуарів перед пошуком моделі.',
+        'SEARCH_IDENTIFIER': 'Спочатку звірте штрихкод із каталогом виробника та варіантом на фото.',
+        'VISUAL_REVIEW': 'Без точного маркування потрібне візуальне розпізнавання або додаткове фото етикетки.',
+        'VERIFY_CATALOGUE': 'Звірте модель і варіант із каталогом виробника.',
+    }[route]
     return page('Локальна перевірка фото', '<h2>Локальна перевірка фото</h2>'
                 '<p>Попередній відбір за виглядом кадрів. Для остаточного відбору перевірте редактор.</p>'
-                f'<p>{summary}</p>{apply}<ul>{observations}</ul>{barcode_note}<p><a href="/mobile">До фото лота</a></p>')
+                f'<p>{summary}</p>{apply}<ul>{observations}</ul>{barcode_note}<p>{next_step}</p>'
+                '<p><a href="/mobile">До фото лота</a></p>')
 
 
 @app.route('/mobile/acceptance-package')

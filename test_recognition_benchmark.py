@@ -20,6 +20,12 @@ class RecognitionBenchmarkTests(unittest.TestCase):
         self.assertEqual(report["fields"]["identity"], {"correct": 45, "labelled": 50})
         self.assertEqual(report["admission_rate"], 0.9)
         self.assertEqual(report["missing_predictions"], ["45", "46", "47", "48", "49"])
+        self.assertEqual(report["identity_abstentions"], 5)
+        self.assertEqual(report["identity_abstention_rate"], .1)
+        self.predictions[44]["identity"] = " Unknown "
+        explicit = score(self.reference, self.predictions[:45], minimum_admission_rate=.8)
+        self.assertEqual(explicit["identity_abstentions"], 6)
+        self.assertFalse(explicit["passed"])
         self.assertFalse(score(self.reference, self.predictions[:44], minimum_admission_rate=.8)["passed"])
         self.assertFalse(score(self.reference[:49], self.predictions[:49], minimum_admission_rate=.8)["passed"])
 

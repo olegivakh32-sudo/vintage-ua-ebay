@@ -43,6 +43,7 @@ def evaluate(museum_dir, modern_dir):
     pending = {row['reference_id'] for row in models}
     outcomes = []
     for row in museum + available:
+        started = monotonic()
         label = row['reference_id']
         folder = modern_dir if row in available else museum_dir
         file = folder / row.get('file', f'{label}.jpg')
@@ -69,6 +70,8 @@ def evaluate(museum_dir, modern_dir):
         outcomes.append({
             'reference_id': label, 'result': status, 'measurement_hint': report['photos'][0]['hint'],
             'photo_role': report['photos'][0]['role'], 'suggested_main': report['suggested_main'],
+            'recognition_route': report['recognition_route'],
+            'elapsed_ms': round((monotonic() - started) * 1000),
             'catalogue_matches': [match['reference_id'] for match in matches],
             'barcode_status': (
                 evidence['barcode'][0]['status'] if evidence.get('barcode') else None),
@@ -76,12 +79,14 @@ def evaluate(museum_dir, modern_dir):
             'admitted': False,
         })
     counts = Counter(row['result'] for row in outcomes)
+    routes = Counter(row['recognition_route'] for row in outcomes)
     return {'mode': 'local_photo_worker', 'documented_objects': len(museum) + len(models),
             'tested_objects': len(outcomes), 'unavailable_photo_reference_ids': sorted(pending),
             'museum_objects': len(museum), 'modern_objects': len(available),
             'exact_modern_references': sum(row.get('model_scope') == 'exact' for row in available),
             'unresolved_fraction': counts['UNRESOLVED'] / len(outcomes),
-            'counts': dict(counts), 'admitted': 0, 'critical_category_errors': None, 'outcomes': outcomes}
+            'counts': dict(counts), 'recognition_routes': dict(routes), 'admitted': 0,
+            'critical_category_errors': None, 'outcomes': outcomes}
 
 
 def main():

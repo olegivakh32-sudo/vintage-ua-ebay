@@ -16,6 +16,7 @@ import os
 import re
 from pathlib import Path
 import tempfile
+from time import monotonic
 from unittest.mock import patch
 
 from PIL import Image, ImageOps
@@ -45,6 +46,7 @@ class PilotLimits:
     sent_research: bool = False
     on_reserve: Callable[[], None] | None = None
     vision_only: bool = False
+    response_metrics: dict | None = None
 
     @property
     def attempt_limit(self):
@@ -171,6 +173,27 @@ def inspect_photos(photos):
     return results
 
 
+def visual_usage(response_data, expected_model):
+    """Price only a matching Responses result with explicit token usage."""
+    if (not isinstance(response_data, dict) or response_data.get('model') != expected_model
+            or response_data.get('service_tier') not in {None, 'default'}
+            or any(isinstance(item, dict) and item.get('type') == 'web_search_call'
+                   for item in (response_data.get('output') or []))):
+        return {}
+    usage = response_data.get('usage')
+    if not isinstance(usage, dict):
+        return {}
+    input_tokens = usage.get('input_tokens')
+    output_tokens = usage.get('output_tokens')
+    context, input_rate, output_rate = PILOT_MODELS[expected_model]
+    if (type(input_tokens) is not int or not 1 <= input_tokens <= context
+            or type(output_tokens) is not int or not 0 <= output_tokens <= 2000):
+        return {}
+    # Apply the undiscounted tariff. An invoice can apply cache discounts.
+    cost = (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000
+    return {'model': expected_model, 'input_tokens': input_tokens, 'output_tokens': output_tokens,
+            'standard_cost_usd': str(cost)}
+
 
 def run(data, photos, limits):
     import app as vintage
@@ -183,7 +206,28 @@ def run(data, photos, limits):
         if method.upper() != 'POST' or url != vintage.OPENAI_URL:
             raise RuntimeError('Зовнішній запит поза межами пілота.')
         kwargs['allow_redirects'] = False
-        return actual_request(session, method, url, *args, **kwargs)
+        if not limits.vision_only:
+            return actual_request(session, method, url, *args, **kwargs)
+        if limits.response_metrics is not None:
+            raise RuntimeError('Єдиний візуальний запит уже відправлено.')
+        limits.response_metrics = {'sent': True}
+        if limits.on_reserve:
+            limits.on_reserve()
+        started = monotonic()
+        try:
+            response = actual_request(session, method, url, *args, **kwargs)
+            limits.response_metrics['http_status'] = response.status_code
+            if response.ok:
+                try:
+                    result = response.json()
+                except ValueError:
+                    result = None
+                limits.response_metrics.update(visual_usage(result, kwargs['json']['model']))
+            return response
+        finally:
+            limits.response_metrics['elapsed_ms'] = round((monotonic() - started) * 1000)
+            if limits.on_reserve:
+                limits.on_reserve()
 
     def bounded_api(payload, timeout, usage_picker_id, final_draft_slot):
         picker, _ = vintage._current_usage_record(usage_picker_id)
@@ -306,6 +350,7 @@ def run(data, photos, limits):
         }
         if limits.vision_only:
             report['product_evidence'] = visual_facts
+            report['request_metrics'] = limits.response_metrics
             for field in ('brand', 'model', 'country', 'material', 'period'):
                 options = {row['value'] for row in visual_facts.get(field, [])}
                 report[field] = next(iter(options)) if len(options) == 1 else None
@@ -411,6 +456,38 @@ def claim_run(manifest, report, data):
         raise
 
 
+def execute_pilot(manifest, report, data, photos, limits):
+    if os.environ.get('APPROVE_AI_PILOT') != '1' or not os.environ.get('OPENAI_API_KEY', '').strip():
+        raise ValueError('Для запуску потрібні APPROVE_AI_PILOT=1 і окремий ключ OpenAI.')
+    if datetime.now(timezone.utc).date() >= date(2026, 12, 11):
+        raise ValueError('Моделі пілота потребують повторної перевірки тарифів і доступності.')
+    gaps = acceptance_gaps(data, photos, limits.vision_only)
+    if gaps:
+        raise ValueError(' '.join(gaps))
+    inspect_photos(photos)
+    claim_run(manifest, report, data)
+
+    def reserve_report(status='running'):
+        write_report(report, {
+            'lot': data['lot'], 'status': status, 'attempts': limits.attempts,
+            'budget_usd': str(limits.budget_usd), 'reserved_usd': str(limits.reserved_total),
+            'stage': 'VISION_ONLY' if limits.vision_only else 'FULL',
+            'request_metrics': limits.response_metrics,
+            'reservations': [dict(row, reserved_usd=str(row['reserved_usd'])) for row in limits.reservations],
+        })
+
+    limits.on_reserve = reserve_report
+    reserve_report()
+    try:
+        result = run(data, photos, limits)
+    except Exception:
+        reserve_report('interrupted')
+        raise
+    result['mode'] = 'APPROVED_VISION_ONLY' if limits.vision_only else 'APPROVED_PILOT'
+    write_report(report, result)
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('manifest', type=Path)
@@ -435,33 +512,9 @@ def main():
                 'missing_acceptance_inputs': gaps, 'ready_for_separate_approval': not gaps,
             }, ensure_ascii=False, indent=2))
             return 0
-        if not args.report or os.environ.get('APPROVE_AI_PILOT') != '1' or not os.environ.get('OPENAI_API_KEY'):
-            raise ValueError('Для запуску потрібні погодження, APPROVE_AI_PILOT=1, окремий ключ і новий --report.')
-        # The research snapshot is scheduled to shut down first.
-        if datetime.now(timezone.utc).date() >= date(2026, 12, 11):
-            raise ValueError('Моделі пілота потребують повторної перевірки тарифів і доступності.')
-        if gaps:
-            raise ValueError(' '.join(gaps))
-        inspect_photos(photos)
-        claim_run(args.manifest, args.report, data)
-
-        def reserve_report(status='running'):
-            write_report(args.report, {
-                'lot': data['lot'], 'status': status, 'attempts': limits.attempts,
-                'budget_usd': str(limits.budget_usd), 'reserved_usd': str(limits.reserved_total),
-                'stage': 'VISION_ONLY' if limits.vision_only else 'FULL',
-                'reservations': [dict(row, reserved_usd=str(row['reserved_usd'])) for row in limits.reservations],
-            })
-
-        limits.on_reserve = reserve_report
-        reserve_report()
-        try:
-            result = run(data, photos, limits)
-        except Exception:
-            reserve_report('interrupted')
-            raise
-        result['mode'] = 'APPROVED_VISION_ONLY' if limits.vision_only else 'APPROVED_PILOT'
-        write_report(args.report, result)
+        if not args.report:
+            raise ValueError('Для запуску потрібен новий --report.')
+        execute_pilot(args.manifest, args.report, data, photos, limits)
         print(f'Звіт: {args.report}. Спроб API: {limits.attempts}.')
         return 0
     except (OSError, ValueError, KeyError, TypeError) as exc:

@@ -94,6 +94,23 @@ def barcode_evidence(hints):
             for record in hints['candidates']]
 
 
+RECOGNITION_ROUTE_VERSION = 1
+
+
+def recognition_route(photos, codes, catalogue_matches=()):
+    """Choose the next evidence step without changing roles, facts or permissions."""
+    if (codes['status'] == 'CONFLICT' or len(catalogue_matches) > 1
+            or any(row['status'] == 'CONTESTED' for row in catalogue_matches)):
+        return 'REVIEW_CONFLICT'
+    if not any(row['role'] == 'EBAY_PRODUCT' for row in photos):
+        return 'REVIEW_PHOTOS'
+    if any(row['status'] == 'CATALOGUE_CANDIDATE' for row in catalogue_matches):
+        return 'VERIFY_CATALOGUE'
+    if codes['status'] == 'UNIQUE':
+        return 'SEARCH_IDENTIFIER'
+    return 'VISUAL_REVIEW'
+
+
 def draft_from_evidence(evidence, *, count, material, brand, country, test_status):
     """Write an English draft from directly anchored facts for the US storefront."""
     kind = photo_type(evidence)

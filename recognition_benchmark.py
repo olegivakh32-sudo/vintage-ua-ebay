@@ -15,6 +15,7 @@ FIELDS = ("identity", "brand", "model", "ocr", "period", "material", "country",
 MEASUREMENTS = ("weight_kg", "length_cm", "width_cm", "height_cm")
 PHOTO_FIELDS = ("product_photos", "evidence_photos")
 MINIMUM_OBJECTS = 50
+UNRESOLVED_IDENTITIES = {"", "unknown", "unresolved", "невідомо", "не визначено"}
 
 
 def normalize(value, field):
@@ -107,10 +108,12 @@ def score(reference, predictions, *, minimum_admission_rate=None):
     fields = (*FIELDS, *MEASUREMENTS, *PHOTO_FIELDS, "main_photo", "title_terms", "seo_passed")
     metrics = {field: {"correct": 0, "labelled": 0} for field in fields}
     admitted = 0
+    abstained = 0
     critical_categories = []
     mismatches = {}
     for lot, label in labels.items():
         result = results.get(lot, {})
+        abstained += int(normalize(result.get("identity") or "", "identity") in UNRESOLVED_IDENTITIES)
         checks = {}
         for field in FIELDS:
             if field not in label:
@@ -160,6 +163,8 @@ def score(reference, predictions, *, minimum_admission_rate=None):
         "minimum_admission_rate": minimum_admission_rate,
         "missing_predictions": sorted(labels.keys() - results.keys()),
         "fields": metrics,
+        "identity_abstentions": abstained,
+        "identity_abstention_rate": abstained / total,
         "critical_categories": critical_categories,
         "mismatches": mismatches,
         "operations": operations,
