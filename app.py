@@ -48,6 +48,7 @@ from PIL import Image, ImageEnhance, ImageOps, ImageStat, ImageFilter
 
 from catalog_policy import (
     LEGACY_MARKETPLACE,
+    PARTS_CONDITION_CLAIM,
     CategoryAmbiguityError,
     TaxonomyTree,
     catalog_key,
@@ -3085,7 +3086,7 @@ def _p062_live_public_failures(draft,product,condition_note=''):
     live={'seller_tested_status':draft.get('seller_tested_status'),'title':product.get('title') or '',
           'condition_note':condition_note,'description':product.get('description') or '',
           'item_specifics':product.get('aspects') or {}}
-    failures=_tested_status_public_content_violations(live)
+    failures=_tested_status_public_content_violations(live)+_untested_public_content_violations(live)
     meta=draft.get('measurement_source') or {}
     if meta.get('reference_dimensions_shipping_only') or meta.get('estimated_dimensions_shipping_only'):
         claim=re.compile(r'(?i)\b[0-9]+(?:[.,][0-9]+)?\s*(?:cm|mm|inches|inch)\b')
@@ -6936,10 +6937,9 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
     if not _confirmed_broken:
         # Deterministic public-content boundary: AI/research may suggest these terms,
         # but they cannot reach eBay from an untested-only item.
-        _bad_title = re.compile(r"(?i)\b(?:for\s+parts(?:\s*(?:/|or|&|and)\s*repair)?|parts\s*(?:/|or|&|and)\s*repair|parts\s+repair|repair\s*(?:/|or|&|and)\s*parts|repair|parts)\b")
-        title = _bad_title.sub("", title)
+        title = PARTS_CONDITION_CLAIM.sub("", title)
         title = re.sub(r"\s{2,}", " ", title).strip(" -,:;/")[:80]
-        condition_note = re.sub(r"(?i)\b(?:for\s+parts(?:\s*(?:/|or|&|and)\s*repair)?|parts\s*(?:/|or|&|and)\s*repair|repair\s*(?:/|or|&|and)\s*parts|repair|parts)\b", "", condition_note)
+        condition_note = PARTS_CONDITION_CLAIM.sub("", condition_note)
         condition_note = re.sub(r"\s{2,}", " ", condition_note).strip(" -,:;/")[:1000]
 
     specifics=data.get("item_specifics") if isinstance(data.get("item_specifics"),dict) else {}
@@ -7180,8 +7180,7 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
 
     if not _confirmed_broken:
         # Remove unsupported sales-purpose claims while preserving truthful "untested" wording.
-        description = re.sub(r"(?i)\b(?:for\s+parts(?:\s*(?:/|or|&|and)\s*repair)?|parts\s*(?:/|or|&|and)\s*repair|repair\s*(?:/|or|&|and)\s*parts|repair|parts)\b", "", description)
-        description = re.sub(r"(?i)(?:,?\s*(?:restoration|repair)\s*,?\s*(?:or|and)?\s*){1,2}(?=(?:\.|,|;|\s))", " ", description)
+        description = PARTS_CONDITION_CLAIM.sub("", description)
         description = re.sub(r"\s{2,}", " ", description).strip()
     seo=data.get("seo_keywords") if isinstance(data.get("seo_keywords"),list) else []
     checks=data.get("seller_check") if isinstance(data.get("seller_check"),list) else []
@@ -10844,6 +10843,13 @@ def _visual_category_conflict(draft, path):
     return ''
 
 
+def _parts_category_unconfirmed(draft, path):
+    if catalog_key((draft or {}).get('seller_tested_status') or '') == 'tested not working':
+        return False
+    leaf = catalog_key(path.rsplit(' > ', 1)[-1])
+    return leaf in {'part', 'parts', 'repair'} or bool(PARTS_CONDITION_CLAIM.search(path))
+
+
 def _p057_category_snapshot_check(draft, *, token=None):
     draft=draft or {}
     if draft.get('category_marketplace_id', LEGACY_MARKETPLACE) != LEGACY_MARKETPLACE:
@@ -10852,6 +10858,8 @@ def _p057_category_snapshot_check(draft, *, token=None):
     if (draft.get('category_guard_version')!='P057' or not path or
         str(draft.get('category_path_category_id') or '')!=str(draft.get('category_id') or '')):
         return False,'Full category hierarchy has not been checked; run Preflight again'
+    if _parts_category_unconfirmed(draft, path):
+        return False, 'A for-parts or repair condition requires the seller to confirm that the item does not work'
     # Recheck stored P057 snapshots too: an older PASS may be a modifier-only match.
     primary=_draft_primary_type(draft,str(draft.get('title') or ''))
     leaf=path.rsplit(' > ',1)[-1].strip()
@@ -11001,8 +11009,6 @@ def _current_category(token,title,draft=None):
     if not suggestions:
         raise RuntimeError('eBay returned no category suggestion for the primary item type/title.')
 
-    status=str((draft or {}).get('seller_tested_status') or 'Untested').strip().casefold()
-    explicit_parts=(status == 'tested not working')
     candidates=[]; rejected=[]
     primary_cf=str(primary or "").casefold()
     core=_category_core_tokens(primary)
@@ -11029,7 +11035,7 @@ def _current_category(token,title,draft=None):
             rejected.append(f'{cid} — {path} ({period_note})')
             continue
         n=cname.casefold()
-        if re.search(r'\b(?:parts?|repair)\b',n) and not explicit_parts:
+        if _parts_category_unconfirmed(draft, path):
             rejected.append(f'{cid} — {cname} (Parts/Repair)')
             continue
         semantic_ok, semantic_note=_category_semantic_match(primary,cname,path)
@@ -11706,12 +11712,7 @@ def _untested_public_content_violations(draft):
     }
     # For an untested item, these are public sales-condition claims, not neutral facts.
     # Keep the rule deterministic and conservative.
-    bad=re.compile(r'(?iu)\b(?:repair|parts)\b')
-    out=[]
-    for name,value in fields.items():
-        if bad.search(value):
-            out.append(name)
-    return out
+    return [name for name, value in fields.items() if PARTS_CONDITION_CLAIM.search(value)]
 
 
 def _sales_readiness_score(draft, photo_count):
@@ -11790,10 +11791,8 @@ def ebay_current_preflight():
         )
         content_violations=_untested_public_content_violations(draft)
         status_violations=_tested_status_public_content_violations(draft)
-        parts_category=bool(re.search(r'(?iu)\b(?:parts?|repair)\b', str(cat_name or '')))
-        parts_category_violation=(parts_category and str(draft.get('seller_tested_status') or 'Untested').strip().casefold() != 'tested not working')
         snapshots_ok=_p056_approved_photo_snapshot_ok(picker_id,order)
-        all_ok=(snapshots_ok and 1<=len(items)<=32 and 1<=len(order)<=24 and bool(session.get('photo_editor_approved')) and 1<=main<=len(items) and bool(order) and order[0]==main and not evidence_leak and not offers and _price_safe and bool(draft.get('seller_reviewed')) and not content_violations and not status_violations and not parts_category_violation and category_ok and not missing_required)
+        all_ok=(snapshots_ok and 1<=len(items)<=32 and 1<=len(order)<=24 and bool(session.get('photo_editor_approved')) and 1<=main<=len(items) and bool(order) and order[0]==main and not evidence_leak and not offers and _price_safe and bool(draft.get('seller_reviewed')) and not content_violations and not status_violations and category_ok and not missing_required)
         order_text=', '.join(str(x) for x in order)
         sales_score, sales_notes=_sales_readiness_score(draft,len(order))
         if not snapshots_ok:
@@ -11822,7 +11821,6 @@ def ebay_current_preflight():
         if not snapshots_ok: _blocks.append('approved photo files missing or selection changed; open photo editor and approve again without AI')
         if content_violations: _blocks.append('unsupported Repair/Parts wording in '+', '.join(content_violations))
         if status_violations: _blocks.append('tested-status contradiction in '+', '.join(status_violations))
-        if parts_category_violation: _blocks.append('Parts/Repair category is forbidden unless seller explicitly selected Tested not working')
         if not category_ok: _blocks.append('category mismatch: '+category_note)
         if evidence_leak: _blocks.append('evidence-only photo is present in eBay photo order')
         if missing_required: _blocks.append('required eBay specifics missing: '+', '.join(missing_required))
@@ -11887,13 +11885,10 @@ def ebay_current_setup():
         return page(label+' setup stop','<h2>PREFLIGHT SAFETY STOP</h2><p><b>'+html.escape('; '.join(_why))+'</b></p><p>No Inventory Item or Offer was created.</p><p><a href="/ebay/current-preflight">Return to Preflight</a></p>'),409
     _content_violations=_untested_public_content_violations(draft or {})
     _status_violations=_tested_status_public_content_violations(draft or {})
-    _parts_cat=bool(re.search(r'(?iu)\b(?:parts?|repair)\b', str((draft or {}).get('category_name') or '')))
-    _parts_cat_violation=_parts_cat and str((draft or {}).get('seller_tested_status') or 'Untested').strip().casefold()!='tested not working'
-    if _content_violations or _status_violations or _parts_cat_violation:
+    if _content_violations or _status_violations:
         _why=[]
         if _content_violations: _why.append('unsupported Repair/Parts wording: '+', '.join(_content_violations))
         if _status_violations: _why.append('tested-status contradiction: '+', '.join(_status_violations))
-        if _parts_cat_violation: _why.append('Parts/Repair category without seller-confirmed Tested not working')
         return page(label+' content stop', '<h2>CONTENT SAFETY STOP</h2><p><b>'+html.escape('; '.join(_why))+'.</b></p><p>No inventory/offer was created and publishOffer was not called.</p><p><a href="/picker/review-final-draft">Return to Final Draft</a></p>'),409
     # P021: no duplicate shipping checkbox. Shipping must exist, while price and final draft
     # still require seller review. Publish remains a separate explicit action.
@@ -12076,9 +12071,6 @@ def _p063_plan(token,draft,sku):
     if not ok:raise RuntimeError(note+'; відкрийте Preflight без нового AI.')
     if _explicit_material_conflicts(draft) or _tested_status_public_content_violations(draft) or _untested_public_content_violations(draft):
         raise RuntimeError('Суперечливі публічні характеристики. Перевірте збережену чернетку.')
-    if (re.search(r'(?i)\b(?:parts?|repair)\b',str(draft.get('category_name') or ''))
-        and str(draft.get('seller_tested_status') or '').casefold()!='tested not working'):
-        raise RuntimeError('Parts/Repair не підтверджено продавцем.')
     title=str(draft.get('title') or '').strip();desc=str(draft.get('description') or '').strip()
     if not title or len(title)>80 or not desc:raise RuntimeError('Назва або опис чернетки відсутні чи некоректні.')
     oid,offer,inventory=_p063_read_unpublished(token,sku)
@@ -13004,13 +12996,10 @@ def ebay_current_publish():
         return page(label+' category stop','<h2>CATEGORY SAFETY STOP</h2><p><b>'+html.escape(_cat_note)+'</b></p><p>publishOffer was NOT called.</p><p><a href="/ebay/current-preflight">Return to Preflight</a></p>'),409
     _content_violations=_untested_public_content_violations(draft or {})
     _status_violations=_tested_status_public_content_violations(draft or {})
-    _parts_cat=bool(re.search(r'(?iu)\b(?:parts?|repair)\b', str((draft or {}).get('category_name') or '')))
-    _parts_cat_violation=_parts_cat and str((draft or {}).get('seller_tested_status') or 'Untested').strip().casefold()!='tested not working'
-    if _content_violations or _status_violations or _parts_cat_violation:
+    if _content_violations or _status_violations:
         _why=[]
         if _content_violations: _why.append('unsupported Repair/Parts wording: '+', '.join(_content_violations))
         if _status_violations: _why.append('tested-status contradiction: '+', '.join(_status_violations))
-        if _parts_cat_violation: _why.append('Parts/Repair category without seller-confirmed Tested not working')
         return page(label+' publish content stop', '<h2>'+html.escape(label)+' — CONTENT BLOCK</h2><p><b>Final Publish is blocked:</b> '+html.escape('; '.join(_why))+'.</p><p>publishOffer was NOT called.</p><p><a href="/picker/review-final-draft">Return to Final Draft</a></p>'),409
     try:
         token=get_ebay_access_token(); offers=_current_get_offers(token)
@@ -13622,6 +13611,16 @@ def mobile_home():
     <script src="/static/mobile-upload.js" defer></script>
     <script src="/static/mobile-prepare.js" defer></script>
     <script>let deferredInstall;window.addEventListener('beforeinstallprompt',e=>{{e.preventDefault();deferredInstall=e;}});async function installVintage(){{if(deferredInstall){{await deferredInstall.prompt();deferredInstall=null;}}else{{document.getElementById('install-help').textContent='У Chrome відкрийте меню ⋮ і виберіть «Додати на головний екран». Потрібне підключення HTTPS.';}}}}</script>''')
+
+
+@app.route('/mobile/android.apk')
+def mobile_android_download():
+    if not _acceptance_service():
+        return '', 404
+    filename = 'Vintage-UA-Android-5-test.apk'
+    return send_file(os.path.join(app.root_path, 'test_artifacts', 'android', filename),
+                     mimetype='application/vnd.android.package-archive',
+                     as_attachment=True, download_name=filename)
 
 
 @app.route('/mobile/prepare-stage', methods=['POST'])

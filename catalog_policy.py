@@ -7,6 +7,18 @@ import unicodedata
 
 LEGACY_MARKETPLACE = 'EBAY_US'
 
+# A sales condition describes the item's state. Category names such as
+# "Sewing Machine Parts" and "Watch Repair Kits" describe the item itself.
+PARTS_CONDITION_CLAIM = re.compile(
+    r'\b(?:for\s+parts(?:\s*(?:[/&]|or\b|and\b)\s*(?:repair|restoration|not working))?'
+    r'|for\s+(?:repair|restoration)(?=\s*(?:[,.;:)/-]|$)|\s+(?:only|or|and)\b)'
+    r'|(?:needs?|requires?)\s+(?:repair|restoration)'
+    r'|(?:parts?|repair)\s+only'
+    r'|parts?\s*(?:[/&]|or\b|and\b)\s*repair'
+    r'|repair\s*(?:[/&]|or\b|and\b)\s*parts?)\b',
+    re.IGNORECASE,
+)
+
 
 class CategoryAmbiguityError(RuntimeError):
     """More than one distinct category path fits the available item facts."""

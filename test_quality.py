@@ -67,6 +67,39 @@ def response(code, body=None):
 
 
 class CategoryTests(unittest.TestCase):
+    def test_replacement_items_keep_their_category_and_listing_words(self):
+        cases = (
+            ("Sewing Machine Parts", "Crafts > Sewing"),
+            ("Watch Repair Kit", "Jewelry & Watches > Watch Accessories"),
+        )
+        for name, parent in cases:
+            with self.subTest(name=name):
+                leaf = "Watch Repair Kits" if name == "Watch Repair Kit" else name
+                draft = {
+                    "title": name, "item_specifics": {"Type": name}, "seller_tested_status": "Untested",
+                    "category_id": "1", "category_path_category_id": "1", "category_guard_version": "P057",
+                    "category_path": f"{parent} > {leaf}",
+                    "description": "Replacement parts are pictured. Missing parts, if any, are listed.",
+                }
+                self.assertTrue(m._p057_category_snapshot_check(draft)[0])
+                self.assertEqual(m._untested_public_content_violations(draft), [])
+                self.assertEqual(m.PARTS_CONDITION_CLAIM.sub("", name), name)
+
+    def test_unverified_parts_only_sale_is_rejected_at_category_and_live_read(self):
+        draft = {
+            "title": "Pocket Watch", "item_specifics": {"Type": "Pocket Watch"},
+            "seller_tested_status": "Untested",
+            "category_id": "1", "category_path_category_id": "1", "category_guard_version": "P057",
+            "category_path": "Watches > For Parts or Repair > Pocket Watches",
+        }
+        self.assertFalse(m._p057_category_snapshot_check(draft)[0])
+        status_confirmed = dict(draft, seller_tested_status="Tested not working")
+        self.assertTrue(m._p057_category_snapshot_check(status_confirmed)[0])
+        for text in ("Sold for parts or repair.", "Needs repair.", "Parts only.", "Sold for restoration."):
+            with self.subTest(text=text):
+                self.assertEqual(m._p062_live_public_failures(draft, {"description": text}), ["Description"])
+                self.assertEqual(m._p062_live_public_failures(status_confirmed, {"description": text}), [])
+
     def test_fifty_object_scenarios(self):
         self.assertGreaterEqual(len({row[0] for row in OBJECT_FIXTURES}), 50)
         for primary, hierarchy, correct, wrong in OBJECT_FIXTURES:

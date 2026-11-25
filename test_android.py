@@ -1,5 +1,6 @@
 from decimal import Decimal
 from io import BytesIO
+import hashlib
 import re
 import unittest
 from unittest.mock import patch
@@ -30,6 +31,17 @@ class AndroidTests(unittest.TestCase):
         self.fixture_images()[0].save(result, 'JPEG')
         result.seek(0)
         return result
+
+    def test_direct_apk_download_is_limited_to_the_acceptance_service(self):
+        with patch.dict(m.os.environ, {'VINTAGE_ACCEPTANCE_SERVER': '0', 'RENDER': ''}):
+            self.assertEqual(self.client.get('/mobile/android.apk').status_code, 404)
+        with patch.dict(m.os.environ, {'VINTAGE_ACCEPTANCE_SERVER': '1'}):
+            with self.client.get('/mobile/android.apk') as apk:
+                self.assertEqual(apk.status_code, 200)
+                self.assertEqual(apk.mimetype, 'application/vnd.android.package-archive')
+                self.assertIn('attachment; filename=Vintage-UA-Android-5-test.apk', apk.headers['Content-Disposition'])
+                self.assertEqual(hashlib.sha256(apk.data).hexdigest(),
+                                 '6b8ac2eca9a7b188423255a46adb32634ea96738efd69ba3e1bdd575b1513b45')
 
     @staticmethod
     def fixture_images():
