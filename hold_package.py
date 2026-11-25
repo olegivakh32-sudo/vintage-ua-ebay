@@ -1,9 +1,12 @@
 """A signed archive of one held mobile lot and its exact local assets."""
-from hashlib import sha256
+from hashlib import scrypt, sha256
 import json
+from os import urandom
 from pathlib import Path
 import re
 from zipfile import ZIP_STORED, ZipFile
+
+from itsdangerous import URLSafeSerializer
 
 
 FILE_LIMIT = 10 * 1024 * 1024
@@ -56,7 +59,14 @@ def _read(stream, limit):
     return raw
 
 
-def export_package(stream, asset_root, record, signer):
+def _code_signer(code, salt):
+    if not isinstance(code, str) or not 12 <= len(code) <= 128 or len(salt) != 16:
+        raise ValueError('Invalid recovery code or salt')
+    key = scrypt(code.encode(), salt=salt, n=2**14, r=8, p=1, dklen=32)
+    return URLSafeSerializer(key, salt='vintage-hold-recovery-code-v1')
+
+
+def export_package(stream, asset_root, record, signer, recovery_code=''):
     folder, names = lot_photo_names(record)
     root = Path(asset_root) / folder
     if record['snapshot'].get('photo_editor_approved'):
@@ -65,6 +75,10 @@ def export_package(stream, asset_root, record, signer):
     total = 0
     manifest = {}
     with ZipFile(stream, 'w', compression=ZIP_STORED) as archive:
+        if recovery_code:
+            salt = urandom(16)
+            signer = _code_signer(recovery_code, salt)
+            archive.writestr('recovery.salt', salt)
         for name, expected in names.items():
             with (root / name).open('rb') as source:
                 raw = _read(source, FILE_LIMIT)
@@ -80,13 +94,18 @@ def export_package(stream, asset_root, record, signer):
         archive.writestr('hold.json', signed)
 
 
-def staged_import(stream, staging, signer):
+def staged_import(stream, staging, signer, recovery_code=''):
     """Validate the envelope before copying individual allowed ZIP entries."""
     with ZipFile(stream) as archive:
         entries = archive.infolist()
-        if not 3 <= len(entries) <= 74 or len({entry.filename for entry in entries}) != len(entries):
+        if not 3 <= len(entries) <= 75 or len({entry.filename for entry in entries}) != len(entries):
             raise ValueError('Unexpected number of archive entries')
-        total = sum(entry.file_size for entry in entries if entry.filename != 'hold.json')
+        envelope_files = {'hold.json'}
+        if any(entry.filename == 'recovery.salt' for entry in entries):
+            with archive.open('recovery.salt') as source:
+                signer = _code_signer(recovery_code, _read(source, 16))
+            envelope_files.add('recovery.salt')
+        total = sum(entry.file_size for entry in entries if entry.filename not in envelope_files)
         if total > PACKAGE_LIMIT:
             raise ValueError('Archive exceeds size limit')
         with archive.open('hold.json') as source:
@@ -97,7 +116,7 @@ def staged_import(stream, staging, signer):
         if record['snapshot'].get('photo_editor_approved'):
             with archive.open('approved.json') as source:
                 names.update(_approval_names(_read(source, FILE_LIMIT)))
-        if set(names) != set(assets) or {entry.filename for entry in entries} != set(names) | {'hold.json'}:
+        if set(names) != set(assets) or {entry.filename for entry in entries} != set(names) | envelope_files:
             raise ValueError('Archive entries do not match the held lot')
         for name, expected in names.items():
             with archive.open(name) as source:

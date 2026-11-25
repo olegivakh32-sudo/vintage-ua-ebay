@@ -91,6 +91,11 @@ class MobileHoldPackageTests(unittest.TestCase):
                     self.assertEqual(result.status_code, 200, result.get_data(as_text=True) if result.status_code != 200 else '')
                     self.assertIn('no-store', result.headers['Cache-Control'])
                     backup = result.data
+                recovery_code = 'one-local-test-passphrase'
+                with client.post(f'/hold/package/{rid}', base_url=origin, auth=owner,
+                                 data={'hold_csrf': csrf, 'hold_code': recovery_code}) as result:
+                    self.assertEqual(result.status_code, 200)
+                    portable = result.data
 
             for cache in (m.PHOTO_CACHE, m.APPROVED_PHOTO_CACHE, m.PHOTO_ROLE_CACHE, m.ANALYSIS_CACHE,
                           m.LOT002_DRAFT_CACHE):
@@ -130,3 +135,20 @@ class MobileHoldPackageTests(unittest.TestCase):
                 for cache in (m.PHOTO_CACHE, m.APPROVED_PHOTO_CACHE, m.PHOTO_ROLE_CACHE, m.ANALYSIS_CACHE,
                               m.LOT002_DRAFT_CACHE):
                     cache.pop(pid, None)
+
+            with (patch.object(m, 'ACTIVE_LOT_CHECKPOINT_DIR', str(Path(tmp) / 'portable')),
+                  patch.dict(os.environ, {'HOLD_QUEUE_DIR': str(Path(tmp) / 'portable'),
+                                          'VINTAGE_HOLD_BACKUP_KEY': 'another-server-signing-key'}),
+                  patch.dict(m.app.config, {'SECRET_KEY': 'third-web-session-key'})):
+                independent = m.app.test_client()
+                csrf, _ = login(independent)
+                def send(code, verify=''):
+                    return independent.post('/hold/package', base_url=origin, auth=owner, data={
+                        'package': (BytesIO(portable), 'test.zip'), 'hold_csrf': csrf,
+                        'hold_code': code, 'verify_only': verify,
+                    })
+                self.assertEqual(send('bad-local-test-passphrase').status_code, 400)
+                self.assertEqual(send(recovery_code, '1').json, {'verified': True})
+                self.assertTrue(independent.get('/hold/state', base_url=origin, auth=owner).json['fresh'])
+                self.assertEqual(send(recovery_code).status_code, 303)
+                self.assertFalse(independent.get('/hold/state', base_url=origin, auth=owner).json['fresh'])

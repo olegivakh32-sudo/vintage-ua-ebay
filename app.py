@@ -13011,10 +13011,19 @@ def _mobile_hold_signer():
     return URLSafeSerializer(_hold_backup_key(), salt='vintage-mobile-hold-package-v1')
 
 
-@app.get('/hold/package/<record_id>')
+@app.route('/hold/package/<record_id>', methods=['GET', 'POST'])
 def download_hold_package(record_id):
-    if not (_owner_https() and getattr(g, 'owner_authenticated', False) and _hold_backup_configured()):
-        return 'Потрібен HTTPS-доступ власника та постійний ключ резервних копій.', 403
+    if not (_owner_https() and getattr(g, 'owner_authenticated', False)):
+        return 'Потрібен HTTPS-доступ власника.', 403
+    code = ''
+    if request.method == 'POST':
+        if not _p058_csrf_valid():
+            return 'Оновіть форму резервної копії.', 403
+        code = request.form.get('hold_code', '')
+        if not 12 <= len(code) <= 128:
+            return 'Введіть код відновлення довжиною від 12 до 128 символів.', 400
+    elif not _hold_backup_configured():
+        return 'Для цього способу потрібен постійний ключ резервних копій.', 403
     row = _p058_row(record_id)
     if not row or row['status'] != 'active':
         return 'Активний запис HOLD відсутній.', 404
@@ -13023,7 +13032,7 @@ def download_hold_package(record_id):
         record = json.loads(row['data'])
         record['package_record_id'] = row['id']
         export_package(archive, os.path.join(ACTIVE_LOT_CHECKPOINT_DIR, 'mobile_photos'),
-                       record, _mobile_hold_signer())
+                       record, _mobile_hold_signer(), code)
         archive.seek(0)
         response = send_file(archive, mimetype='application/zip', as_attachment=True,
                              download_name=f"{row['sku']}-HOLD.zip", max_age=0)
@@ -13036,20 +13045,23 @@ def download_hold_package(record_id):
 
 @app.post('/hold/package')
 def restore_hold_package():
-    if not (_owner_https() and getattr(g, 'owner_authenticated', False) and _hold_backup_configured()):
-        return 'Потрібен HTTPS-доступ власника та постійний ключ резервних копій.', 403
+    if not (_owner_https() and getattr(g, 'owner_authenticated', False)):
+        return 'Потрібен HTTPS-доступ власника.', 403
     if not _p058_csrf_valid():
         return 'Оновіть форму відновлення HOLD.', 403
     file = request.files.get('package')
     if not file:
         return 'Виберіть ZIP-копію лота.', 400
     root = os.path.join(ACTIVE_LOT_CHECKPOINT_DIR, 'mobile_photos')
+    code = request.form.get('hold_code', '')
+    if not code and not _hold_backup_configured():
+        return 'Введіть код відновлення цієї копії.', 400
     try:
         os.makedirs(root, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='.hold-import-', dir=root) as temporary:
             staging = os.path.join(temporary, 'assets')
             os.mkdir(staging)
-            folder, record = staged_import(file.stream, staging, _mobile_hold_signer())
+            folder, record = staged_import(file.stream, staging, _mobile_hold_signer(), code)
             rid = record.pop('package_record_id')
             pid = record['snapshot']['picker_session_id']
             lot = record['lot_number']
@@ -13057,6 +13069,8 @@ def restore_hold_package():
                     or record['sku'] != f'LOT-{lot:03d}' or record['picker_id'] != pid
                     or record['snapshot']['current_lot_number'] != lot):
                 raise ValueError('Invalid held lot')
+            if request.form.get('verify_only') == '1':
+                return {'verified': True}
             original_snapshot = json.dumps(record['snapshot'], sort_keys=True)
             record['offer_id'] = ''
             record['photo_url'] = ''
@@ -13201,9 +13215,12 @@ def ebay_hold_queue():
                 actions=f'<form action="/ebay/hold-queue/archive" method="post">{hidden}<input type="hidden" name="restore" value="yes"><button>Повернути в HOLD</button></form>'
             else:
                 actions=f'<form action="/ebay/hold-queue/publish" method="post" onsubmit="this.querySelector(&quot;button&quot;).disabled=true;this.querySelector(&quot;button&quot;).textContent=&quot;Готую до фінального підтвердження…&quot;;this.setAttribute(&quot;aria-busy&quot;,&quot;true&quot;)">{hidden}<button>Підготувати оголошення на eBay</button></form><form action="/ebay/hold-queue/open" method="post">{hidden}<button>Відкрити / продовжити без нового AI</button></form><form action="/ebay/hold-queue/archive" method="post">{hidden}<button style="background:#667085">Прибрати в архів</button></form>'
-                if (getattr(g, 'owner_authenticated', False) and _hold_backup_configured()
-                        and str(row['picker_id']).startswith('mobile-')):
-                    actions += f'<a href="/hold/package/{rid}">Зберегти лот із фото</a>'
+                if getattr(g, 'owner_authenticated', False) and str(row['picker_id']).startswith('mobile-'):
+                    actions += (f'<details><summary>Зберегти лот із фото</summary>'
+                                f'<form method="post" action="/hold/package/{rid}">{hidden}'
+                                '<label>Код відновлення <input type="password" name="hold_code" minlength="12" '
+                                'maxlength="128" autocomplete="new-password" required></label>'
+                                '<button>Завантажити ZIP</button></form></details>')
             price=('$'+str(data.get('price'))) if data.get('price') else 'Ціну ще не визначено'
             reason=reason_names.get(data.get('reason'),data.get('reason') or 'HOLD')
             when=time.strftime('%d.%m.%Y %H:%M UTC',time.gmtime(float(row['updated'])))
@@ -13218,8 +13235,10 @@ def ebay_hold_queue():
         portable = (f'<details><summary>Відновити лот із фото</summary><form method="post" action="/hold/package" '
                     f'enctype="multipart/form-data">{hidden_field("hold_csrf", token)}'
                     '<label>ZIP-копія лота <input type="file" name="package" accept=".zip,application/zip" required></label>'
+                    '<label>Код відновлення <input type="password" name="hold_code" minlength="12" maxlength="128" '
+                    'autocomplete="current-password"></label>'
                     '<button>Відновити до HOLD</button></form></details>'
-                    if getattr(g, 'owner_authenticated', False) and _hold_backup_configured() else '')
+                    if getattr(g, 'owner_authenticated', False) else '')
         body=f'''<h2>HOLD — {'архів' if archive else 'відкладені лоти'}</h2>
 <p><a href="/ebay/hold-queue">Активний HOLD</a> · <a href="/ebay/hold-queue?archive=1">Архів / опубліковані</a></p>
 <p><b>Записів: {total}.</b> Назва, фото й підготовлені дані зберігаються разом. Відкриття черги не запускає AI та не шукає всі товари на eBay.</p>
