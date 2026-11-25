@@ -32,3 +32,10 @@
 25.11.2026 — 81 тест пройшов з `VINTAGE_RUN_PREVIEW_HTTP_TESTS=1 VINTAGE_RUN_LOAD_TESTS=1 python -m unittest discover -q`. Синтаксис Python і JS та `git diff --check` пройшли. HTTPS-перевірки Chromium виконані окремо. [GitHub Actions для коду `1fbbc93`](https://github.com/olegivakh32-sudo/vintage-ua-ebay/actions/runs/45506752903). Платних викликів, Sandbox і реальної публікації в цьому прогоні не було.
 
 Повний набір після E02.2 — 55 тестів. Команда `VINTAGE_RUN_PREVIEW_HTTP_TESTS=1 python -m unittest discover -v` включає справжні локальні HTTP-запити. Окремо пройшли `python -m py_compile *.py`, `node --check static/mobile-upload.js` і `git diff --check`.
+
+## Комплексне приймання Android 5
+
+- E03-T04. Перевірено відбір кадру з лінійкою та пропозицію №2 як головного без зміни затвердження. Експорт звіряє вихідні байти, сесію та SHA-256.
+- E04–E11. Пройдено автоматичний сценарій із фото, ринковою та таксономічною заглушками. Вага, розміри, матеріал та ціна отримані з потоку. Еталони використано після прогону. [Контрольний звіт](ACCEPTANCE_REPORT.md)
+- E12-T02. У CI пройшли Android lint і збірки APK/AAB для API 36. Перевірено завантажений архів та обидва пакети. Фізичний Android і підпис релізного AAB відкриті. [Android CI](https://github.com/olegivakh32-sudo/vintage-ua-ebay/actions/runs/45558289774)
+- Для `dcb9763` пройшли 84 локальні тести та CI якості. Поточний Render через HTTPS віддає Android 2. [Гілка якості](https://github.com/olegivakh32-sudo/vintage-ua-ebay/actions/runs/45558289724)
