@@ -18,7 +18,6 @@ jobs:
     timeout-minutes: 12
     environment: p094-vision-pilot
     env:
-      PILOT_ROOT: ${{ runner.temp }}/vintage-approved-pilot
       ALLOW_PAID_AI: '0'
       ENABLE_LIVE_PUBLISH: '0'
     steps:
@@ -27,6 +26,8 @@ jobs:
           persist-credentials: false
       - name: Prepare approved public originals
         run: |
+          PILOT_ROOT="$RUNNER_TEMP/vintage-approved-pilot"
+          printf 'PILOT_ROOT=%s\n' "$PILOT_ROOT" >> "$GITHUB_ENV"
           python3 -m venv .pilot-venv
           .pilot-venv/bin/pip -q install -r requirements.txt
           timeout 90s .pilot-venv/bin/python visual_acceptance.py "$PILOT_ROOT" --prepare > /dev/null
