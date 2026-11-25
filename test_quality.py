@@ -410,6 +410,12 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(compliance['scope'], 'LOCAL_SCREENING')
         self.assertEqual(compliance['customs_code_status'], 'UNVERIFIED')
 
+    def test_estimated_package_rounds_up_before_the_postage_band(self):
+        _, dimensions, weight, rate = m._shipping_quote(0.131, 5.01, 4.0, 3.0)
+        self.assertEqual((weight, dimensions), (0.26, (9.1, 8.0, 7.0)))
+        self.assertEqual(rate['maximum_band_g'], 500)
+        self.assertEqual(rate['base_usd'], 12)
+
     def test_live_reference_weight_detected(self):
         draft = {"measurement_source": {"reference_weight_shipping_only": True}}
         product = {"description": "The watch weighs 200 g.", "aspects": {"Item Weight": ["200 g"]}}
@@ -458,6 +464,30 @@ class WorkflowTests(unittest.TestCase):
         for unusable in (comp, dict(dated, sold_date='9999-01-01'), dict(dated, currency='PLN')):
             self.assertEqual(comparables(unusable), {'ACTIVE': 0, 'SOLD': 0})
         self.assertEqual(comparables(dated, dict(dated, status='ACTIVE')), {'ACTIVE': 0, 'SOLD': 0})
+
+    def test_market_price_checks_anchor_and_deduplicates_ebay_item_links(self):
+        product = 'https://www.ebay.com/itm/Replacement-part/123456789012?utm_source=test'
+        mirror = 'https://www.ebay.de/itm/123456789012?mkcid=23'
+        row = {'url': product, 'status': 'SOLD', 'currency': 'USD', 'price_usd': 25,
+               'match_evidence': 'Same model and package', 'sale_evidence': 'Completed',
+               'sold_date': '2026-09-10'}
+
+        def quality(proposed, other):
+            return m._market_price_quality(
+                'PRICE_JSON ' + json.dumps({'normal': proposed}) + '\nMARKET_COMPS_JSON '
+                + json.dumps({'comparables': [row, other]}) + '\nWEB_TOOL_SOURCES_JSON '
+                + json.dumps({'urls': [product, mirror]}),
+            )
+
+        duplicate = dict(row, url=mirror)
+        normal = quality(49, duplicate)
+        self.assertTrue(normal['ok'])
+        self.assertEqual(normal['comparables'], {'ACTIVE': 0, 'SOLD': 1})
+        self.assertEqual(normal['anchor'], {'type': 'SOLD', 'median_usd': 25.0})
+        inflated = quality(100, duplicate)
+        self.assertFalse(inflated['ok'])
+        self.assertIn('Normal price is far outside the observed comparable prices', inflated['reasons'])
+        self.assertEqual(quality(49, dict(duplicate, price_usd=99))['comparables']['SOLD'], 0)
 
     def test_market_break_even_accounts_for_shipping_fees_and_currency(self):
         values = {'fx_uah_per_usd': 40, 'cost_uah': 125, 'us_price_usd': 25,

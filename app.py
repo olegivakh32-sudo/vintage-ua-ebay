@@ -57,6 +57,7 @@ from catalog_policy import (
     selectable_aspects,
 )
 from identity_evidence import corroborated_value, identity_claims
+from market_evidence import comparable_reference
 from measurement_units import metric_value
 from mobile_photos import duplicate_photo_indices, image_sharpness, measurement_hint
 from owner_access import AUDIENCE, load_verifier, valid_pass
@@ -2911,8 +2912,9 @@ def _market_price_quality(market_text):
         reasons.append("Price tiers contain an extreme spread/outlier")
     source_urls = _reported_web_source_urls(market_text)
     comparables = None
+    anchor = None
     if source_urls is not None:
-        comparables = {"ACTIVE": 0, "SOLD": 0}
+        observed = {"ACTIVE": [], "SOLD": []}
         comps = _research_machine_json(market_text, 'MARKET_COMPS_JSON').get('comparables')
         accepted = {}
         conflicting = set()
@@ -2937,15 +2939,24 @@ def _market_price_quality(market_text):
                     continue
                 if sold_date > date.today():
                     continue
-            if url in accepted and accepted[url] != (status, price):
-                conflicting.add(url)
-            accepted[url] = (status, price)
-        for url, (status, _) in accepted.items():
-            if url not in conflicting:
-                comparables[status] += 1
+            reference = comparable_reference(url)
+            if reference in accepted and accepted[reference] != (status, price):
+                conflicting.add(reference)
+            accepted[reference] = (status, price)
+        for reference, (status, price) in accepted.items():
+            if reference not in conflicting:
+                observed[status].append(price)
+        comparables = {status: len(prices) for status, prices in observed.items()}
         if not any(comparables.values()):
             reasons.append('No usable price comparable linked to web search evidence')
-    return {"ok": not reasons, "reasons": reasons, "tiers": tiers, "comparables": comparables}
+        basis = observed["SOLD"] or (observed["ACTIVE"] if len(observed["ACTIVE"]) >= 2 else [])
+        if basis:
+            median = statistics.median(basis)
+            anchor = {"type": "SOLD" if observed["SOLD"] else "ACTIVE", "median_usd": median}
+            normal = vals.get("normal")
+            if normal and not median / 3 <= normal <= median * 3:
+                reasons.append('Normal price is far outside the observed comparable prices')
+    return {"ok": not reasons, "reasons": reasons, "tiers": tiers, "comparables": comparables, "anchor": anchor}
 
 
 def _reference_specs_from_research(identification, market):
@@ -6677,10 +6688,15 @@ def _shipping_quote(item_weight, L, W, H):
     elif item_weight<=5: allowance=0.90
     elif item_weight<=10: allowance=1.40
     else: allowance=max(1.8,item_weight*0.15)
-    packed=round(item_weight+allowance,2)
+    estimated_weight = Decimal(str(item_weight)) + Decimal(str(allowance))
+    packed = float(estimated_weight.quantize(Decimal("0.01"), rounding=ROUND_CEILING))
     max_dim=max(L,W,H)
     package_pad = 4.0 if max_dim<=15 else 6.0 if max_dim<=30 else 8.0 if max_dim<=60 else 10.0
-    pL,pW,pH=round(L+package_pad,1),round(W+package_pad,1),round(H+package_pad,1)
+    padding = Decimal(str(package_pad))
+    pL, pW, pH = (
+        float((Decimal(str(axis)) + padding).quantize(Decimal("0.1"), rounding=ROUND_CEILING))
+        for axis in (L, W, H)
+    )
     quote = _ukrposhta_prime_us_shipping(packed, pL, pW, pH)
     return (L, W, H), (pL, pW, pH), packed, quote
 
