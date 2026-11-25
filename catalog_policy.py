@@ -8,6 +8,10 @@ import unicodedata
 LEGACY_MARKETPLACE = 'EBAY_US'
 
 
+class CategoryAmbiguityError(RuntimeError):
+    """More than one distinct category path fits the available item facts."""
+
+
 def marketplace_code(value):
     if not isinstance(value, str) or not re.fullmatch(r'EBAY_[A-Z0-9]{2,16}(?:_[A-Z0-9]{2,16})?', value):
         raise ValueError('Invalid eBay marketplace ID')

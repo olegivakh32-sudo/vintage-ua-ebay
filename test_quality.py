@@ -175,6 +175,46 @@ class CategoryTests(unittest.TestCase):
             self.assertTrue(m._p057_category_snapshot_check(dict(saved, category_tree_version="102"), token="token")[0])
             api.assert_called_once()
 
+    def test_matching_leaf_in_two_branches_requires_distinguishing_facts(self):
+        def suggestion(category_id, ancestor):
+            return {
+                "category": {"categoryId": category_id, "categoryName": "Power Adapters"},
+                "categoryTreeNodeLevel": 2,
+                "categoryTreeNodeAncestors": [{"categoryName": ancestor, "categoryTreeNodeLevel": 1}],
+            }
+
+        def lookup(method, url, **kwargs):
+            if url.endswith("/get_default_category_tree_id"):
+                return response(200, {"categoryTreeId": "0", "categoryTreeVersion": "101"})
+            if url.endswith("/get_category_suggestions"):
+                return response(200, {"categorySuggestions": [
+                    suggestion("1", "Consumer Electronics"),
+                    suggestion("2", "Computers and Tablets"),
+                ]})
+            field = "Audio Equipment Type" if kwargs["params"]["category_id"] == "1" else "Connector Type"
+            return response(200, {"aspects": [{"localizedAspectName": field,
+                "aspectConstraint": {"aspectRequired": True}}]})
+
+        facts = {"Type": "Power Adapter", "Connector Type": "USB-C"}
+        with m.app.test_request_context(), patch.object(m, "_lot002_request", side_effect=lookup):
+            draft = {"item_specifics": facts}
+            self.assertEqual(m._current_category("token", "Power Adapter", draft), ("2", "Power Adapters"))
+            self.assertEqual(draft["category_path"], "Computers and Tablets > Power Adapters")
+            disputed = {"item_specifics": dict(facts, **{"Audio Equipment Type": "Mixer"})}
+            with self.assertRaisesRegex(m.CategoryAmbiguityError, "same category name in different eBay branches"):
+                m._current_category("token", "Power Adapter", disputed)
+            self.assertNotIn("category_path", disputed)
+            stale = dict(draft, title="Power Adapter", price="10", shipping_usd="5", **disputed)
+            with (
+                patch.object(m, "_current_draft", return_value=stale),
+                patch.object(m, "get_ebay_access_token", return_value="token"),
+                patch.object(m, "_save_active_lot_checkpoint") as checkpoint,
+            ):
+                _, status = m.ebay_current_preflight()
+                self.assertEqual(status, 409)
+                self.assertFalse(m._p057_category_snapshot_check(stale)[0])
+                checkpoint.assert_called_once()
+
     def test_taxonomy_values_and_dependency_follow_final_specifics(self):
         fields = [
             {"localizedAspectName": "Vehicle", "aspectConstraint": {

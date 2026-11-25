@@ -46,7 +46,15 @@ from zipfile import ZIP_STORED, ZipFile
 from itsdangerous import BadSignature, URLSafeSerializer
 from PIL import Image, ImageEnhance, ImageOps, ImageStat, ImageFilter
 
-from catalog_policy import LEGACY_MARKETPLACE, TaxonomyTree, catalog_key, marketplace_code, object_words, selectable_aspects
+from catalog_policy import (
+    LEGACY_MARKETPLACE,
+    CategoryAmbiguityError,
+    TaxonomyTree,
+    catalog_key,
+    marketplace_code,
+    object_words,
+    selectable_aspects,
+)
 from identity_evidence import corroborated_value, identity_claims
 from measurement_units import metric_value
 from mobile_photos import duplicate_photo_indices, image_sharpness, measurement_hint
@@ -10924,9 +10932,13 @@ def _live_aspect_metadata_violations(token, category_id, aspects):
 
 def _p092_choose_complete_category(token,draft,candidates):
     rejected=[]
+    selected = None
+    base = _current_aspects(draft)
     for candidate in candidates:
-        _,cid,name,_,_=candidate
-        base=_current_aspects(draft)
+        _,cid,name,_,path=candidate
+        if selected and (object_words(name) != object_words(selected[2]) or
+                         catalog_key(path) == catalog_key(selected[4])):
+            continue
         enriched=_enrich_recommended_aspects(token,cid,draft,base)
         resolved,_=_fill_required_aspects(token,cid,draft,enriched)
         resolved=_sanitize_country_aspects(draft,resolved)
@@ -10934,8 +10946,14 @@ def _p092_choose_complete_category(token,draft,candidates):
         resolved=_sanitize_aspect_cardinality(token,cid,resolved)
         missing=_p092_missing_required(token,cid,resolved)
         if not missing:
-            return candidate
+            if selected:
+                raise CategoryAmbiguityError('CATEGORY SAFETY STOP — item evidence fits the same category name in different '
+                                             f'eBay branches: {selected[4]} | {path}. Confirm the item purpose before Preflight.')
+            selected = candidate
+            continue
         rejected.append(name+': '+', '.join(missing))
+    if selected:
+        return selected
     raise RuntimeError('CATEGORY SAFETY STOP — no compatible category with complete required facts. '+ '; '.join(rejected[:10]))
 
 
@@ -11745,7 +11763,14 @@ def ebay_current_preflight():
             raise RuntimeError('Seller-fact conflict: explicit material claim(s) not confirmed: '+', '.join(conflicts)+'.')
         if not title or not price or not ship:
             raise RuntimeError('Draft title, price or shipping is missing. No fallback values will be invented.')
-        token=get_ebay_access_token(); cat_id,cat_name=_current_category(token,title,draft); cond_id,cond_enum=_current_condition(token,cat_id,draft)
+        token=get_ebay_access_token()
+        try:
+            cat_id,cat_name=_current_category(token,title,draft)
+        except CategoryAmbiguityError:
+            if draft.pop('category_guard_version', None):
+                _save_active_lot_checkpoint()
+            raise
+        cond_id,cond_enum=_current_condition(token,cat_id,draft)
         best_offer_supported=_current_best_offer_supported(token,cat_id)
         base_aspects=_current_aspects(draft); enriched_aspects=_enrich_recommended_aspects(token,cat_id,draft,base_aspects); resolved_aspects, missing_required=_fill_required_aspects(token,cat_id,draft,enriched_aspects)
         resolved_aspects=_sanitize_country_aspects(draft,resolved_aspects)
