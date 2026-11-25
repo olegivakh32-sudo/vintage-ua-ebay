@@ -45,6 +45,16 @@ class RecognitionBenchmarkTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "admission rate"):
             score(self.reference, self.predictions, minimum_admission_rate=0)
 
+    def test_catalogue_and_item_specific_attributes_keep_separate_scores(self):
+        self.reference[0].update(brand=['Brand'], model=['Model 2'], condition=['USED'],
+                                 country=['Japan'], completeness=['Incomplete'], defects=['Cracked cap'])
+        self.predictions[0].update(brand='brand', model='Model 2 W', condition='NEW',
+                                   country='Japan', defects='Cracked cap')
+        report = score(self.reference, self.predictions, minimum_admission_rate=.8)
+        self.assertEqual(report['mismatches']['0'], ['model', 'condition', 'completeness'])
+        self.assertEqual(report['fields']['brand'], {'correct': 1, 'labelled': 1})
+        self.assertEqual(report['fields']['defects'], {'correct': 1, 'labelled': 1})
+
     def test_scores_measurement_photo_roles_title_and_operation_coverage(self):
         self.reference[0].update(
             measurement={"weight_kg": {"value": .25, "tolerance": .01},

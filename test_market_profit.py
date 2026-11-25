@@ -45,6 +45,19 @@ class MarketProfitTests(unittest.TestCase):
         self.assertNotIn('ai', result['missing'])
         self.assertIsNone(result['roi'])
 
+    def test_a_single_asking_price_still_rejects_an_inflated_listing_tier(self):
+        text = (
+            'PRICE_JSON {"normal":30,"patient":200}\n'
+            'MARKET_COMPS_JSON {"comparables":[{"url":"https://www.ebay.com/itm/123456789",'
+            '"currency":"USD","price_usd":25,"status":"ACTIVE","match_evidence":"same model"}]}\n'
+            'WEB_TOOL_SOURCES_JSON {"urls":["https://www.ebay.com/itm/123456789"]}'
+        )
+        bad = m._market_price_quality(text)
+        self.assertEqual(bad['anchor'], {'type': 'ACTIVE', 'median_usd': 25.0})
+        self.assertFalse(bad['ok'])
+        self.assertEqual(m._market_bin_price(text), '')
+        self.assertTrue(m._market_price_quality(text.replace('200', '40'))['ok'])
+
     def test_market_page_accepts_partial_inputs_and_clears_legacy_overrides(self):
         client = m.app.test_client()
         with client.session_transaction() as session:

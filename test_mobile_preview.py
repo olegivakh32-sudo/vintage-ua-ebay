@@ -117,6 +117,7 @@ class PreviewRestartTests(unittest.TestCase):
         from contextlib import contextmanager
         from io import BytesIO
         import re
+        import shutil
         import socket
         import subprocess
         import sys
@@ -132,12 +133,12 @@ class PreviewRestartTests(unittest.TestCase):
         project = Path(__file__).resolve().parent
 
         @contextmanager
-        def launched(data_dir):
+        def launched(data_dir, code_dir=project):
             log = data_dir.parent / 'gunicorn.log'
             with log.open('ab') as capture:
                 process = subprocess.Popen(
                     [sys.executable, 'mobile_preview.py', '--port', str(port), '--data-dir', str(data_dir)],
-                    cwd=project, stdout=capture, stderr=capture, env={
+                    cwd=code_dir, stdout=capture, stderr=capture, env={
                         **os.environ, 'ALLOW_PAID_AI': '1', 'ENABLE_LIVE_PUBLISH': '1',
                         'OPENAI_API_KEY': 'integration-fixture', 'EBAY_REFRESH_TOKEN': 'integration-fixture',
                         'VINTAGE_OPERATOR_PASSWORD': 'integration-password',
@@ -180,6 +181,10 @@ class PreviewRestartTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, requests.Session() as client:
             client.trust_env = False
             root = Path(tmp) / 'data'
+            relocated = Path(tmp) / 'replacement-release'
+            relocated.mkdir()
+            for module in project.glob('*.py'):
+                shutil.copy2(module, relocated / module.name)
             with launched(root):
                 request('GET', '/hold/state', 401)
                 client.auth = ('vintage', 'integration-password')
@@ -204,7 +209,7 @@ class PreviewRestartTests(unittest.TestCase):
                 request('POST', '/ebay/hold-queue/add', 303, data={'hold_csrf': csrf})
                 record = field(request('GET', '/ebay/hold-queue', 200).text, 'record_id')
                 request('POST', '/picker/analyze', 503)
-            with launched(root):
+            with launched(root, relocated):
                 with requests.Session() as retry:
                     retry.trust_env = False
                     retry.auth = client.auth
@@ -221,3 +226,6 @@ class PreviewRestartTests(unittest.TestCase):
                 self.assertRegex(editor, r"name='main_photo' value='11' [^>]*checked")
                 self.assertIn('7 для eBay · 5 поза оголошенням', editor)
                 request('POST', '/ebay/current-publish', 409, data={'hold_csrf': csrf})
+            with launched(Path(tmp) / 'empty-volume', relocated):
+                queue = request('GET', '/ebay/hold-queue', 200).text
+                self.assertNotIn(f'name="record_id" value="{record}"', queue)

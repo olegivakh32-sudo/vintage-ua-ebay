@@ -19,6 +19,55 @@ PARTS_CONDITION_CLAIM = re.compile(
     re.IGNORECASE,
 )
 
+# A leaf can have the same name under unrelated branches. These object families
+# need positive context in the ancestors, even when the wording of the leaf matches.
+PURPOSE_BRANCHES = (
+    (r'usb(?: c)? (?:charging |data )?cables?|ethernet cables?|network switch(?:es)?',
+     r'computers tablets (?:and )?networking|computer (?:cables|accessories)|networking|'
+     r'consumer electronics|cell phones (?:and )?accessories|mobile phone (?:cables|accessories)'),
+    (r'(?:engine |automotive )?oil filters?|cabin air filters?|spark plugs?|(?:vehicle )?brake pads?',
+     r'ebay motors|motors|(?:car|truck|automotive|vehicle|motorcycle) (?:parts|accessories)'),
+    (r'(?:running|hiking|basketball) shoes?|hiking boots?|t shirts?',
+     r'clothing shoes (?:and )?accessories|(?:men s|women s|mens|womens|unisex|kids) (?:shoes|clothing)|'
+     r'athletic (?:shoes|footwear)|fan apparel'),
+    (r'film cameras?|(?:dslr|digital(?: single lens reflex)?) cameras?|camera lens(?:es)?|lens caps?|photographic enlargers?',
+     r'cameras (?:and )?photo|cameras|darkroom|camera accessories|lenses (?:and )?filters'),
+    (r'(?:wireless |computer )?mouse',
+     r'computers tablets (?:and )?networking|computer (?:peripherals|accessories)|keyboards mice (?:and )?pointers'),
+    (r'wall clocks?|desk lamps?|lamp shades?|coffee grinders?|serving trays?|serving bowls?',
+     r'home (?:and )?garden|clocks|lighting|small appliances|serveware|pottery (?:and )?glass'),
+    (r'pocket watches?|watch repair kits?',
+     r'jewelry (?:and )?watches|watches|watch accessories|watch parts'),
+    (r'bench vise(?:s)?|cordless drills?|torque wrench(?:es)?',
+     r'home (?:and )?garden|tools|power tools|hand tools|ebay motors|automotive tools'),
+    (r'(?:dog|cat|pet) collars?',
+     r'pet supplies|(?:dog|cat) supplies|(?:dog|cat) collars (?:and )?leashes'),
+)
+
+
+def _purpose_words(text):
+    return ' '.join(re.findall(r'[a-z0-9]+', catalog_key(text).replace('&', ' and ')))
+
+
+def category_purpose_supported(primary, segments):
+    """Validate the known item's intended use against the ancestor context."""
+    words = _purpose_words(primary)
+    ancestors = [_purpose_words(segment) for segment in segments]
+    for objects, branches in PURPOSE_BRANCHES:
+        if re.fullmatch(objects, words):
+            return any(re.fullmatch(branches, ancestor) for ancestor in ancestors)
+    return True
+
+
+def compatible_category_leaf(primary, leaf):
+    names = (
+        (r'(?:dslr|digital single lens reflex) cameras?', r'digital cameras?'),
+        (r'(?:wireless |computer )?mouse', r'mice (?:and )?trackballs|mice trackballs (?:and )?touchpads'),
+        (r'usb(?: c)? (?:(?:charging|data) )?cables?', r'(?:usb )?cables (?:and )?adapters'),
+    )
+    return any(re.fullmatch(types, _purpose_words(primary)) and re.fullmatch(aliases, _purpose_words(leaf))
+               for types, aliases in names)
+
 
 class CategoryAmbiguityError(RuntimeError):
     """More than one distinct category path fits the available item facts."""

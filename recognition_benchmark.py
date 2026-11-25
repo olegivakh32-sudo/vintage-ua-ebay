@@ -10,7 +10,8 @@ from statistics import median
 import unicodedata
 
 
-FIELDS = ("identity", "ocr", "period", "material", "category_id")
+FIELDS = ("identity", "brand", "model", "ocr", "period", "material", "country",
+          "condition", "completeness", "defects", "category_id")
 MEASUREMENTS = ("weight_kg", "length_cm", "width_cm", "height_cm")
 PHOTO_FIELDS = ("product_photos", "evidence_photos")
 MINIMUM_OBJECTS = 50

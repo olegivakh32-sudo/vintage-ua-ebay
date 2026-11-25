@@ -52,6 +52,8 @@ from catalog_policy import (
     CategoryAmbiguityError,
     TaxonomyTree,
     catalog_key,
+    category_purpose_supported,
+    compatible_category_leaf,
     marketplace_code,
     object_words,
     selectable_aspects,
@@ -67,6 +69,7 @@ from photo_assessment import (
     composition_and_tone, edit_settings as normalize_photo_edits, mild_white_balance, suggested_photo_role,
 )
 from product_codes import BARCODE_HINT_VERSION, catalogue_hints, read_retail_codes, research_identifier
+from product_evidence import build_product_evidence, draft_from_evidence, photo_type, specific_violations
 
 from flask import (
     Flask,
@@ -3004,13 +3007,16 @@ def _market_price_quality(market_text):
         comparables = {status: len(prices) for status, prices in observed.items()}
         if not any(comparables.values()):
             reasons.append('No usable price comparable linked to web search evidence')
-        basis = observed["SOLD"] or (observed["ACTIVE"] if len(observed["ACTIVE"]) >= 2 else [])
+        basis = observed["SOLD"] or observed["ACTIVE"]
         if basis:
             median = statistics.median(basis)
             anchor = {"type": "SOLD" if observed["SOLD"] else "ACTIVE", "median_usd": median}
             normal = vals.get("normal")
             if normal and not median / 3 <= normal <= median * 3:
                 reasons.append('Normal price is far outside the observed comparable prices')
+            if any(vals.get(tier) and not median / 3 <= vals[tier] <= median * 3
+                   for tier in ('quick', 'patient')):
+                reasons.append('A secondary price tier is far outside the observed comparable prices')
     return {"ok": not reasons, "reasons": reasons, "tiers": tiers, "comparables": comparables, "anchor": anchor}
 
 
@@ -3070,6 +3076,32 @@ def _identity_claims_html(claims):
     return '<details><summary>Докази ідентифікації</summary><ul>' + ''.join(rows) + '</ul></details>'
 
 
+def _product_evidence_html(evidence):
+    labels = {'type':'Тип', 'brand':'Виробник', 'model':'Модель', 'material':'Матеріал',
+              'country':'Країна', 'period':'Період', 'condition':'Стан', 'defect':'Дефект',
+              'completeness':'Комплектність', 'marking':'Напис', 'symbol':'Символ',
+              'weight_kg':'Вага', 'length_cm':'Довжина', 'width_cm':'Ширина', 'height_cm':'Висота'}
+    statuses = {'SELLER_VERIFIED':'Підтверджено продавцем', 'PHOTO_OBSERVATION':'Спостереження з фото',
+                'PHOTO_MEASUREMENT':'Показ із фото', 'SHIPPING_ESTIMATE':'Оцінка для доставки',
+                'CORROBORATED_REFERENCE':'Джерела узгоджуються', 'HYPOTHESIS':'Припущення',
+                'CONTESTED':'Суперечність'}
+    rows = []
+    for field, label in labels.items():
+        for record in evidence.get(field, []):
+            value = f"{record['value']} {record.get('unit', '')}".strip()
+            photos = ', '.join(f'№{number}' for number in record.get('photos', []))
+            summary = f"{label} · {value} · {statuses[record['status']]}"
+            if photos:
+                summary += f' · Фото {photos}'
+            links = ' '.join(f'<a href="{html.escape(reference["url"], quote=True)}">Джерело {index}</a>'
+                             for index, reference in enumerate(record.get('references', []), 1))
+            notes = [record.get('basis')] + list(record.get('contradictions', []))
+            notes += [reference.get('excerpt') for reference in record.get('references', [])]
+            detail = ' · '.join(html.escape(note) for note in notes if note)
+            rows.append(f'<li>{html.escape(summary)} {detail} {links}</li>')
+    return '<details><summary>Докази щодо характеристик</summary><ul>' + ''.join(rows) + '</ul></details>' if rows else ''
+
+
 def _consensus_specs_from_research(identification, market, photo_count=0):
     """P023: parse structured multi-source Auto Specs from the existing research response.
 
@@ -3082,9 +3114,7 @@ def _consensus_specs_from_research(identification, market, photo_count=0):
     if not data or not isinstance(data, dict):
         return {}
     out = {"raw": data, "source": "REFERENCE_ANALOG_CONSENSUS"}
-    claim_data = _research_machine_json(text, 'IDENTITY_CLAIMS_JSON')
-    known_urls = set(_reported_web_source_urls(identification) or []) | set(_reported_web_source_urls(market) or [])
-    out['identity_claims'] = identity_claims(claim_data.get('claims'), known_urls, photo_count, _p054_source_host)
+    out['identity_claims'] = _structured_identity_claims(identification, market, photo_count)
     try:
         out["match_count"] = max(0, int(data.get("match_count") or 0))
     except Exception:
@@ -3120,6 +3150,12 @@ def _consensus_specs_from_research(identification, market, photo_count=0):
         for key in ("brand", "model", "country", "period", "type"):
             out.pop(key, None)
     return out
+
+
+def _structured_identity_claims(identification, market, photo_count):
+    claim_data = _research_machine_json(identification, 'IDENTITY_CLAIMS_JSON')
+    known_urls = set(_reported_web_source_urls(identification) or []) | set(_reported_web_source_urls(market) or [])
+    return identity_claims(claim_data.get('claims'), known_urls, photo_count, _p054_source_host)
 
 
 def _reference_measurements_from_consensus(specs):
@@ -4626,11 +4662,13 @@ MANDATORY EVIDENCE PROCEDURE:
 14. UNKNOWN is preferable to a fabricated fact. Confidence must reflect evidence and must never be inflated to satisfy listing readiness.
 15. PHOTO ROLE SPLIT: classify EVERY supplied photo by its source photo number. Use EBAY_PRODUCT for normal buyer-facing item photos; EVIDENCE_ONLY for scale/weight, ruler/tape/caliper/measurement, packing-only or internal workflow photos that should never be published; EBAY_EVIDENCE for buyer-useful close-ups such as maker marks, serials, defects or construction details that are both evidence and useful listing photos. An external ruler, tape, caliper or scale photo is always EVIDENCE_ONLY even if the item occupies most of the image. Look around the entire frame, including cropped scale displays, measurement ticks at steep angles, and measuring tools at the margins. If unsure whether a measuring tool is visible, use NEEDS_REVIEW. A scale or ruler that is itself the product may be EBAY_PRODUCT when shown on its own; an external device measuring that product is evidence only.
 
-OUTPUT ORDER IS CRITICAL. Before any prose, output these FOUR machine-readable lines, with one role and one scene for EVERY source photo number:
+OUTPUT ORDER IS CRITICAL. Before any prose, output these machine-readable lines, with one role and one scene for EVERY source photo number:
 PHOTO_ROLES_JSON: {{"roles":{{"1":"EBAY_PRODUCT","2":"EVIDENCE_ONLY"}}}}
 PHOTO_SCENES_JSON: {{"1":["FULL_SET",95],"2":["SCALE",90]}}
 AUTO_FACTS_JSON: {{"materials":[],"materials_confidence":0,"material_evidence":"","tested_status":"Untested","completeness":"Unknown","brand":"","origin":"","marking_present":false,"brand_evidence":"","confidence":0,"object_type":"UNKNOWN","markings":[{{"photo":1,"literal":"","language":"","kind":"MAKER|MODEL_NUMBER|SERIAL|QUALITY_MARK|INSCRIPTION|UNKNOWN"}}],"symbols":[{{"photo":1,"description":""}}]}}
 SCOPE_JSON: {{"scope":"ONE_PHYSICAL_ITEM","physical_item_count":1,"confidence":0,"note":""}}
+PRODUCT_OBSERVATIONS_JSON: {{"fields":[{{"field":"type","value":"","photos":[1],"basis":"","confidence":0}}]}}
+For PRODUCT_OBSERVATIONS_JSON, use field names type, brand, model, material, country, period, condition, defect, completeness. Give type as a short generic English description of the object's intended use, without maker, model, marketing words or age. Record only directly visible clues with exact photo numbers and a concise basis describing what is visible. Write visible defects in English, without guessing functionality or hidden damage. A country/period/model requires the literal corresponding physical marking. Sealed-looking packaging alone is not proof of new, authentic or complete. For unknown fields omit the row. Measurements, symbols and transcriptions already have separate fields.
 For SCOPE_JSON, front/back/detail/scale views of one object are ONE_PHYSICAL_ITEM. Count separate cards, stickers, inserts and other loose pieces in the clearest complete overview, not across repeated photos. A collection sold as one lot is still MULTIPLE_PHYSICAL_ITEMS. If exact count is unclear use UNCERTAIN, never report one physical item merely because it is one sale lot. Use MULTIPLE_PHYSICAL_ITEMS only for truly separate physical objects.
 Use PHOTO_SCENES_JSON values [type, confidence (integer 0–100)]. Types: GENERAL_PRODUCT, FULL_SET, DETAIL, MARKINGS, DEFECT, SCALE, RULER, BARCODE, PACKAGE, OTHER, UNCERTAIN.
 FULL_SET requires that all parts of the offered lot are visible in this source photo. Compare against the other angles to distinguish a part or cropped view. A digital screen or numbers alone do not establish a weighing device. Read the unit and look for the weighing platform, controls and the item on it. Zoom mentally on graduation marks and edges to distinguish rulers from repeated patterns. A ruler/tape/caliper/scale used to measure the item, or a packing-only photo, MUST be EVIDENCE_ONLY. A measuring device sold as the item can be GENERAL_PRODUCT. Do not omit any source photo number.
@@ -4729,7 +4767,7 @@ Use only tested_status: Untested, Tested working, Tested not working, Not applic
     else:
         next_step = f"<form action='/picker/fast-research' method='post' style='margin-top:25px'>{hidden_field('analysis',analysis)}<button type='submit' style='font-size:20px;padding:14px 20px'>Продовжити до розпізнавання, ціни й вимірів</button></form>"
     # P024.7: machine-readable control lines are internal protocol, not seller-facing report text.
-    display_analysis=re.sub(r'(?m)^\s*(?:PHOTO_ROLES_JSON|PHOTO_SCENES_JSON|AUTO_FACTS_JSON|SCOPE_JSON):.*(?:\n|$)', '', str(analysis or '')).strip()
+    display_analysis=re.sub(r'(?m)^\s*(?:PHOTO_ROLES_JSON|PHOTO_SCENES_JSON|AUTO_FACTS_JSON|SCOPE_JSON|PRODUCT_OBSERVATIONS_JSON):.*(?:\n|$)', '', str(analysis or '')).strip()
     body=f"""<h2>{label} — Аналіз ШІ</h2><p style='color:green'><b>✓ Візуальний аналіз завершено</b></p>{compact}{_usage_summary_html(picker_id)}
     <details><summary><b>Переглянути звіт ШІ</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:10px'>{text_to_html(display_analysis)}</div></details>
     {next_step}"""
@@ -6945,6 +6983,23 @@ def final_listing(automatic_revision=None):
         ), 409
     seller_brand=brand_candidate if brand_confirmed else ""
     seller_origin = form.get('seller_origin', '').strip()
+    product_observations = _research_machine_json(analysis, 'PRODUCT_OBSERVATIONS_JSON')
+    product_evidence = None
+    if 'fields' in product_observations:
+        photo_count = len(PHOTO_CACHE.get(picker_id) or [])
+        facts = _auto_facts_from_analysis(analysis)
+        observed = list(product_observations['fields'][:24]) if isinstance(product_observations['fields'], list) else []
+        for field, key, value_key in (('marking', 'markings', 'literal'), ('symbol', 'symbols', 'description')):
+            observed.extend({'field':field, 'value':record[value_key], 'photos':[record['photo']],
+                             'basis':'Visible transcription from the visual report', 'confidence':90}
+                            for record in facts.get(key, []) if '[?]' not in record[value_key])
+        product_evidence = build_product_evidence(
+            observed, _structured_identity_claims(identification, market, photo_count),
+            {'brand':seller_brand, 'country':seller_origin, 'marking':seller_verified_marking,
+             'material':confirmed_material if not automatic else '', 'condition':seller_declared_condition,
+             'completeness':seller_completeness},
+            _p062_measurement_public_meta(accepted), photo_count,
+        )
     label=_current_lot_label()
     _draft_sig_payload={
         "analysis":analysis,"identification":identification,"market":market,
@@ -6956,6 +7011,8 @@ def final_listing(automatic_revision=None):
     }
     if automatic:
         _draft_sig_payload['automatic_material_source'] = material_source
+    if product_evidence is not None:
+        _draft_sig_payload['product_evidence'] = product_evidence
     if seller_declared_condition:
         _draft_sig_payload['seller_declared_condition'] = seller_declared_condition
     _draft_sig=hashlib.sha256(json.dumps(_draft_sig_payload,ensure_ascii=False,sort_keys=True).encode("utf-8")).hexdigest()
@@ -7013,8 +7070,14 @@ Rules: seller/automatic facts above override conflicting web guesses. ANALOG QUA
 JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_specifics":{{}},"description":"","seo_keywords":[],"seller_check":[]}}"""
     # P086: deterministic draft for already researched paper inserts, no extra AI.
     identity = _research_machine_json(identification, 'IDENTITY_JSON')
+    structured_draft = draft_from_evidence(
+        product_evidence or {}, count=physical_count if sale_mode == 'ONE_LOT' else 1,
+        material=confirmed_material, brand=seller_brand, country=seller_origin, test_status=seller_tested_status,
+    ) if automatic else None
     if re.search(r'(?i)\b(?:paper|gum|collectible)\b', kind) and re.search(r'(?i)\binserts?\b', kind):
         data = _p086_paper_draft(identity, analysis, physical_count, sale_mode, confirmed_material)
+    elif structured_draft:
+        data = structured_draft
     else:
         try:
             raw=call_openai({"model":"gpt-5.6-luna","input":prompt,"reasoning":{"effort":"low"},"max_output_tokens":1400,"store":False},timeout=120,final_draft_slot=True)
@@ -7081,6 +7144,8 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
         condition_note = re.sub(r"\s{2,}", " ", condition_note).strip(" -,:;/")[:1000]
 
     specifics=data.get("item_specifics") if isinstance(data.get("item_specifics"),dict) else {}
+    for field in specific_violations(product_evidence, specifics):
+        specifics.pop(field, None)
     # P026 deterministic specifics cleanup: unknown/default placeholders are not facts.
     for _k in list(specifics):
         _v=str(specifics.get(_k) or "").strip()
@@ -7283,7 +7348,8 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
         _brand_keys = [k for k in list(specifics) if str(k).casefold() in {"brand", "maker", "manufacturer"}]
         for _k in _brand_keys:
             specifics.pop(_k, None)
-        specifics["Brand"] = "Unbranded"
+        if product_evidence is None:
+            specifics["Brand"] = "Unbranded"
 
         # Remove unsupported brand/maker assertions from prose, while preserving
         # the fact that a visible marking exists.
@@ -7353,6 +7419,10 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
     draft={"listing_text":listing_text,"title":title,"price":price,"condition_note":condition_note,"description":description,"item_specifics":specifics,"shipping_usd":shipping_usd,"confirmed_material":confirmed_material,"seller_tested_status":seller_tested_status,"seller_completeness":seller_completeness,"seller_verified_marking":seller_verified_marking,"seller_brand":seller_brand,"seller_origin":seller_origin,"seller_confirmed_country":seller_origin,"marking_present":bool((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("marking_present") or brand_candidate),"brand_evidence":str((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("brand_evidence") or brand_candidate or ""),"physical_item_count":physical_count,"sale_mode":sale_mode,"ebay_quantity":(physical_count if sale_mode=="INDIVIDUAL" else 1),"item_weight":item_weight,"packed_weight":packed_weight,"dimensions":dimensions,"package_dimensions":package_dimensions,"shipping_quote":quote,"draft_input_signature":_draft_sig,"handling_time_business_days":int(os.environ.get("EBAY_HANDLING_DAYS","3")),"measurement_source":dict(SELLER_MEASUREMENT_CACHE.get(session.get("picker_session_id")) or MEASUREMENT_CACHE.get(session.get("picker_session_id")) or {}),"seo_keywords":seo,"seller_check":checks,"price_research_ok":bool(price_quality.get("ok")),"price_research_reasons":list(price_quality.get("reasons") or []),"price_source":("RESEARCH" if price_quality.get("ok") else "MANUAL_REQUIRED"),"listing_readiness":listing_readiness,"readiness_failures":readiness_failures}
     draft['automatic_draft'] = automatic
     draft['material_evidence_source'] = material_source
+    if product_evidence is not None:
+        draft['product_evidence'] = product_evidence
+        if structured_draft and data is structured_draft:
+            draft['listing_text_source'] = 'STRUCTURED_PRODUCT_EVIDENCE'
     if seller_declared_condition:
         draft['seller_declared_condition'] = seller_declared_condition
     with _p054_lot_lock('measurements:' + str(picker_id)):
@@ -7442,7 +7512,7 @@ def review_final_draft():
     price=str(draft.get('price') or '')
     material=str(draft.get('confirmed_material') or '')
     digest = _draft_confirmation_digest(draft, _current_lot_sku())
-    return page(label+" Final eBay Listing",f"""<h2>{label} — Final eBay Listing Draft</h2><p style='color:#176b2c'><b>Draft ready — saved result, no repeated AI request.</b></p><p><b>Seller-verified visible marking:</b> {html.escape(str(draft.get('seller_verified_marking') or 'none'))}</p><p><b>Draft evidence readiness:</b> {html.escape(str(draft.get('listing_readiness') or 'not scored'))}% — category/condition/photo checks are performed in Preflight.</p>{_usage_summary_html(session.get('picker_session_id'))}<pre style='white-space:pre-wrap'>{html.escape(listing_text)}</pre><hr><form action='/picker/confirm-final-draft' method='post'><input type="hidden" name="hold_csrf" value="{_p058_csrf()}"><input type="hidden" name="draft_digest" value="{digest}"><p><label><b>Final Buy It Now price, USD:</b><br><input name='confirmed_price' type='number' min='0.01' step='0.01' value='{html.escape(price,quote=True)}' required style='font-size:20px;padding:10px;width:180px'></label></p><p><label><b>Material(s), editable override:</b><br><input name='confirmed_material' value='{html.escape(material,quote=True)}' placeholder='leave blank if unknown' style='font-size:18px;padding:10px;width:min(520px,90%)'></label></p><button type='submit' style='font-size:18px;padding:14px 18px;font-weight:bold'>Continue → eBay Preflight</button></form>""")
+    return page(label+" Final eBay Listing",f"""<h2>{label} — Final eBay Listing Draft</h2><p style='color:#176b2c'><b>Draft ready — saved result, no repeated AI request.</b></p><p><b>Seller-verified visible marking:</b> {html.escape(str(draft.get('seller_verified_marking') or 'none'))}</p><p><b>Draft evidence readiness:</b> {html.escape(str(draft.get('listing_readiness') or 'not scored'))}% — category/condition/photo checks are performed in Preflight.</p>{_usage_summary_html(session.get('picker_session_id'))}{_product_evidence_html(draft.get('product_evidence') or {})}<pre style='white-space:pre-wrap'>{html.escape(listing_text)}</pre><hr><form action='/picker/confirm-final-draft' method='post'><input type="hidden" name="hold_csrf" value="{_p058_csrf()}"><input type="hidden" name="draft_digest" value="{digest}"><p><label><b>Final Buy It Now price, USD:</b><br><input name='confirmed_price' type='number' min='0.01' step='0.01' value='{html.escape(price,quote=True)}' required style='font-size:20px;padding:10px;width:180px'></label></p><p><label><b>Material(s), editable override:</b><br><input name='confirmed_material' value='{html.escape(material,quote=True)}' placeholder='leave blank if unknown' style='font-size:18px;padding:10px;width:min(520px,90%)'></label></p><button type='submit' style='font-size:18px;padding:14px 18px;font-weight:bold'>Continue → eBay Preflight</button></form>""")
 
 # =========================================================
 # EBAY MEDIA API — SAFE ONE-PHOTO TEST FOR LOT 001
@@ -10766,6 +10836,9 @@ def _p073_auto_cards(draft, title=""):
 
 def _draft_primary_type(draft, title=""):
     """Use structured Item Type before SEO/title features when choosing an eBay category."""
+    observed_type = photo_type((draft or {}).get('product_evidence') or {})
+    if observed_type:
+        return observed_type
     if _p073_auto_cards(draft,title): return "Automobile Picture Cards"
     if _p084_insert_lot(draft): return "Collectible Paper Insert Lot"
     raw=(draft or {}).get("item_specifics") if isinstance((draft or {}).get("item_specifics"),dict) else {}
@@ -10827,6 +10900,8 @@ def _category_semantic_match(primary_type, category_name, path_text=""):
     segments=[x.strip() for x in path.split(' > ')]
     if len(segments)<2 or segments[-1]!=leaf:
         return False,'Complete consistent category hierarchy required'
+    if not category_purpose_supported(primary, segments[:-1]):
+        return False, 'The category ancestors do not support the intended use of this object'
     paper_card=bool(re.search(r'\b(?:printed (?:display )?cards?|display cards?|decorative cards?|picture cards?|collectible (?:paper )?cards?|paper inserts?|chewing gum collectible paper inserts?)\b',primary))
     non_sport=bool(re.search(r'\bnon[- ]sports?\b',path))
     sport_branch=bool(re.search(r'\b(?:sports mem|fan apparel|basketball|wnba|nba|football|baseball|hockey|soccer)\b',path))
@@ -10883,6 +10958,8 @@ def _category_semantic_match(primary_type, category_name, path_text=""):
         return True, 'Fishing reels within the Fishing hierarchy'
     if len(primary_words) >= 2 and primary_words == leaf_words:
         return True, 'Full object type matches the category leaf'
+    if compatible_category_leaf(primary, leaf):
+        return True, 'Compatible product type and category hierarchy'
     return False, 'Category leaf has a different purpose or object type'
 
 
@@ -10968,6 +11045,9 @@ def _category_period_check(draft, path):
 
 
 def _visual_category_conflict(draft, path):
+    type_rows = ((draft or {}).get('product_evidence') or {}).get('type') or []
+    if any(row['status'] == 'PHOTO_OBSERVATION' for row in type_rows) and not photo_type({'type': type_rows}):
+        return 'Підказки з фото суперечать одна одній щодо типу товару.'
     visual = str((draft or {}).get('visual_object_type') or '')
     segments = [name.strip().casefold() for name in path.split(' > ')]
     pet = re.search(r'\b(?:dog|cat|pet) collars?\b', visual, re.I)
@@ -11027,7 +11107,8 @@ def _p057_origin_key(key):
 
 def _p057_live_aspect_violations(draft, aspects):
     """Check what eBay actually returned, not only the payload we intended to send."""
-    failures=[]
+    failures = [f'{name} (доказ для значення відсутній)'
+                for name in specific_violations((draft or {}).get('product_evidence'), aspects or {})]
     expected=str((draft or {}).get('seller_confirmed_country') or '').strip().casefold()
     placeholders={'','unknown','not specified','unbranded','does not apply','n/a','not applicable'}
     aliases={'russian federation':'russia','ru':'russia','uk':'united kingdom','usa':'united states','us':'united states'}
@@ -11235,6 +11316,12 @@ def _current_condition(token, category_id, draft, *, marketplace_id=LEGACY_MARKE
     allowed=[str(x.get('conditionId') or '') for x in ((target or {}).get('itemConditions') or [])]
     required=bool((target or {}).get('itemConditionRequired'))
     declared_new = draft.get('seller_declared_condition') == 'NEW'
+    if declared_new:
+        condition_evidence = (draft.get('product_evidence') or {}).get('condition', [])
+        if any(row['status'] == 'PHOTO_OBSERVATION' and re.search(
+            r'\b(?:pre[- ]owned|used|open[- ]box|refurbished)\b', row['value'], re.I,
+        ) for row in condition_evidence):
+            raise RuntimeError('The declared new condition conflicts with the recorded photo observations.')
     # eBay explicitly allows categories (notably some Antiques/Collectibles) with no ConditionID.
     if not allowed:
         if required or declared_new: raise RuntimeError(f'No supported condition metadata for category {category_id}. Category must be reviewed.')
@@ -11444,6 +11531,8 @@ def _sanitize_identity_aspects(draft, aspects):
         # Keep official Brand key if category uses it; do not invent Manufacturer separately.
         for key in list(out):
             if re.sub(r'[^a-z0-9]+','',key.casefold()) == 'brand': out[key]=[seller_brand]
+    for name in specific_violations(draft.get('product_evidence'), out):
+        out.pop(name, None)
     return _p054_filter_reference_aspects(draft,out)
 
 def _sanitize_aspect_cardinality(token, category_id, aspects):

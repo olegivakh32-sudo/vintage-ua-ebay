@@ -194,6 +194,19 @@ class CategoryTests(unittest.TestCase):
         self.assertTrue(m._p057_category_snapshot_check(previous)[0])
         self.assertFalse(m._p057_category_snapshot_check(dict(previous, category_marketplace_id="EBAY_DE"))[0])
 
+    def test_same_leaf_needs_a_compatible_purpose_branch(self):
+        for kind, leaf, right, wrong in (
+            ('Brake Pad', 'Brake Pads', 'eBay Motors > Car Parts', 'Sporting Goods > Cycling'),
+            ('Network Switch', 'Network Switches', 'Computers/Tablets & Networking > Networking',
+             'Business & Industrial > Automation Controls'),
+            ('Wall Clock', 'Wall Clocks', 'Home & Garden > Clocks', 'Watches > Accessories'),
+            ('Running Shoe', 'Running Shoes', "Clothing, Shoes & Accessories > Women's Shoes",
+             'Dolls & Bears > Doll Accessories'),
+        ):
+            with self.subTest(kind=kind):
+                self.assertTrue(m._category_semantic_match(kind, leaf, f'{right} > {leaf}')[0])
+                self.assertFalse(m._category_semantic_match(kind, leaf, f'{wrong} > {leaf}')[0])
+
     def test_saved_category_is_rechecked_against_current_tree(self):
         saved = {
             "title": "Network switch", "category_path": "Computers > Networking > Network Switches",
@@ -353,8 +366,9 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual((usage['input_tokens'], usage['output_tokens']), (40, 10))
 
     def test_eps_retry_preserves_all_unchanged_approved_photos(self):
+        # LOT058 failure pattern, reconstructed with synthetic approved bytes.
         picker = "eps-24-test"
-        sku = "LOT-500"
+        sku = "LOT-058"
         items = [{"mediaFile": {"filename": f"{i}.jpg"}} for i in range(1, 26)]
         approved = {i: {"bytes": f"approved-jpeg-{i}".encode()} for i in range(1, 25)}
         def upload(url, **kwargs):

@@ -16,6 +16,7 @@ from flask import Flask, Response, g, jsonify, redirect, request, send_file, url
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import sandbox_billing as billing
+from catalogue_labels import Catalogue
 from catalog_policy import marketplace_code
 from workspace_db import WorkspaceDB, WorkspaceError, audit, replay, save_response
 from workspace_ebay import SandboxEBay
@@ -143,6 +144,7 @@ def create_app(config=None):
         WORKSPACE_DB=os.environ.get('VINTAGE_WORKSPACE_DB'),
         WORKSPACE_ERASURES=os.environ.get('VINTAGE_WORKSPACE_ERASURES'),
         WORKSPACE_INVITE=os.environ.get('VINTAGE_WORKSPACE_INVITE'),
+        WORKSPACE_CATALOGUE=os.environ.get('VINTAGE_WORKSPACE_CATALOGUE'),
         WORKSPACE_CLOCK=time.time,
         EBAY_SANDBOX_CLIENT_ID=os.environ.get('VINTAGE_SANDBOX_CLIENT_ID'),
         EBAY_SANDBOX_CLIENT_SECRET=os.environ.get('VINTAGE_SANDBOX_CLIENT_SECRET'),
@@ -154,6 +156,8 @@ def create_app(config=None):
     if not isinstance(invite, str) or len(invite) < 32 or not app.config['WORKSPACE_DB']:
         raise ValueError('Set a dedicated VINTAGE_WORKSPACE_DB and a random VINTAGE_WORKSPACE_INVITE of at least 32 characters')
     store = WorkspaceDB(app.config['WORKSPACE_DB'], app.config['WORKSPACE_ERASURES'])
+    filename = app.config['WORKSPACE_CATALOGUE']
+    catalogue = Catalogue.read(filename) if filename else None
     app.extensions['vintage_workspace'] = store
     dummy_password = generate_password_hash(secrets.token_hex(32))
     options = [app.config[name] for name in (
@@ -467,7 +471,7 @@ def create_app(config=None):
         with store.connect(write=True) as db:
             _draft(db, *scope)
             slot, created = store_photo(db, scope, photo)
-            queue_review(db, scope, g.now)
+            queue_review(db, scope, g.now, catalogue)
             if created:
                 audit(db, g.account, 'draft.photo', lot_id, g.now)
             return {'slot': slot, **album(db, scope)}, 201 if created else 200
@@ -478,7 +482,7 @@ def create_app(config=None):
         scope = (g.account, store_id, lot_id)
         with store.connect(write=True) as db:
             _draft(db, *scope)
-            queue_review(db, scope, g.now)
+            queue_review(db, scope, g.now, catalogue)
             result = album(db, scope)
         return result, 202 if result['review']['state'] in ('PENDING', 'RUNNING') else 200
 

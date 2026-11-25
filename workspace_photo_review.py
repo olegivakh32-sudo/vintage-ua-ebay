@@ -9,23 +9,26 @@ from uuid import uuid4
 
 from PIL import Image
 
+from catalogue_labels import Catalogue, scan_labels
 from mobile_photos import MEASUREMENT_HINT_VERSION, measurement_hint
 from photo_assessment import VISUAL_VERSION, composition_and_tone, suggested_photo_role
+from product_codes import BARCODE_HINT_VERSION, catalogue_hints
+from product_evidence import barcode_evidence
 from workspace_db import WorkspaceDB
 
 LEASE_SECONDS = 90
 MAX_ATTEMPTS = 3
 
 
-def queue_review(db, scope, now):
+def queue_review(db, scope, now, catalogue=None):
     rows = db.execute(
         'SELECT slot, digest FROM media WHERE account_id=? AND store_id=? AND draft_id=? ORDER BY slot',
         scope,
     ).fetchall()
     if not rows:
         return
-    album_key = sha256(json.dumps([VISUAL_VERSION, MEASUREMENT_HINT_VERSION,
-                                   [tuple(row) for row in rows]]).encode()).hexdigest()
+    album_key = sha256(json.dumps([VISUAL_VERSION, MEASUREMENT_HINT_VERSION, BARCODE_HINT_VERSION,
+                                   catalogue.digest if catalogue else None, [tuple(row) for row in rows]]).encode()).hexdigest()
     db.execute(
         'INSERT INTO photo_reviews (account_id, store_id, draft_id, album_key, queued_at) VALUES (?, ?, ?, ?, ?) '
         'ON CONFLICT(account_id, store_id, draft_id) DO UPDATE SET album_key=excluded.album_key, '
@@ -66,7 +69,7 @@ def _claim(store, now):
         return scope, token, job['attempts'] + 1
 
 
-def _review(rows):
+def _review(rows, catalogue=None):
     photos = []
     for row in rows:
         with Image.open(BytesIO(row['preview'])) as image:
@@ -76,10 +79,18 @@ def _review(rows):
         photos.append({'slot': row['slot'], **visual, 'hint': hint, 'role': role})
     candidates = [photo for photo in photos if photo['role'] == 'EBAY_PRODUCT']
     main = max(candidates, key=lambda photo: photo['score'], default=None)
-    return {'photos': photos, 'suggested_main': main['slot'] if main else None}
+    codes = catalogue_hints((row['slot'], json.loads(row['codes'])) for row in rows)
+    evidence = {'barcode': barcode_evidence(codes)} if codes['candidates'] else {}
+    if catalogue:
+        optional = sorted((row for row in rows if row['hint'] not in {'scale', 'ruler'}),
+                          key=lambda row: -row['sharpness'])
+        labels = scan_labels([(row['slot'], row['preview']) for row in optional], catalogue)
+        if labels:
+            evidence['catalogue_matches'] = labels
+    return {'photos': photos, 'suggested_main': main['slot'] if main else None, 'product_evidence': evidence}
 
 
-def run_one(store, clock=time.time):
+def run_one(store, clock=time.time, *, catalogue=None):
     """Process one attempt and commit only if its lease still owns the current album."""
     claim = _claim(store, int(clock()))
     if claim is None:
@@ -87,12 +98,12 @@ def run_one(store, clock=time.time):
     scope, token, attempt = claim
     with store.connect() as db:
         rows = db.execute(
-            'SELECT slot, preview, hint, sharpness FROM media WHERE account_id=? AND store_id=? AND draft_id=? '
+            'SELECT slot, preview, hint, sharpness, codes FROM media WHERE account_id=? AND store_id=? AND draft_id=? '
             'ORDER BY slot', scope,
         ).fetchall()
     result = None
     try:
-        result = json.dumps(_review(rows), ensure_ascii=False, allow_nan=False)
+        result = json.dumps(_review(rows, catalogue), ensure_ascii=False, allow_nan=False)
         state = 'READY'
     except (OSError, ValueError, RuntimeError, Image.DecompressionBombError):
         state = 'FAILED' if attempt >= MAX_ATTEMPTS else 'PENDING'
@@ -116,9 +127,11 @@ def main():
     if not path:
         parser.error('VINTAGE_WORKSPACE_DB is required')
     store = WorkspaceDB(path, os.environ.get('VINTAGE_WORKSPACE_ERASURES'))
+    filename = os.environ.get('VINTAGE_WORKSPACE_CATALOGUE')
+    catalogue = Catalogue.read(filename) if filename else None
     counts = dict.fromkeys(('READY', 'PENDING', 'FAILED', 'SUPERSEDED'), 0)
     for _ in range(args.limit):
-        result = run_one(store)
+        result = run_one(store, catalogue=catalogue)
         if result is None:
             break
         counts[result] += 1

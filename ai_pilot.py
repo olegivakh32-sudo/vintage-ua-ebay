@@ -258,9 +258,18 @@ def run(data, photos, limits):
                     category_note = str(exc)
         with client.session_transaction() as session:
             order = session.get('photo_order', [])
+        evidence = draft.get('product_evidence') or {}
+        observed = {
+            field: list(dict.fromkeys(row['value'] for row in evidence.get(field, [])
+                                      if row['status'] in {'PHOTO_OBSERVATION', 'SELLER_VERIFIED'}))
+            for field in ('condition', 'completeness', 'defect')
+        }
         report = {
             'lot': data['lot'], 'identity': kind, 'period': identity.get('period'),
-            'material': identity.get('material'),
+            **{field: identity.get(field) for field in ('brand', 'model', 'country', 'material')},
+            **{field: values[0] if len(values) == 1 else None
+               for field, values in observed.items() if field in {'condition', 'completeness'}},
+            'defects': '\n'.join(observed['defect']) or None,
             'ocr': '\n'.join(dict.fromkeys(mark['literal'] for mark in facts.get('markings', []))),
             'category_id': category_id, 'admitted': False,
             'category_source': 'recorded_taxonomy', 'category_note': category_note,
@@ -286,10 +295,12 @@ def run(data, photos, limits):
 
 def compare_reference(reference, report):
     """Keep factual comparisons separate from the required human review of the listing."""
-    from recognition_benchmark import normalize
+    from recognition_benchmark import FIELDS, normalize
 
     checks = {}
-    for field_name in ('identity', 'ocr', 'period', 'material', 'category_id'):
+    for field_name in FIELDS:
+        if field_name not in reference and field_name not in {'identity', 'ocr', 'period', 'material', 'category_id'}:
+            continue
         accepted = reference.get(field_name) or []
         actual = str(report.get(field_name) or '')
         checks[field_name] = (

@@ -121,6 +121,14 @@ async function showAlbum() {
         FAILED: 'Перевірка зупинилася після кількох спроб. Оригінали збережені.',
     };
     byId('photo-review-status').textContent = states[data.review.state];
+    rows('catalogue-matches', data.review.product_evidence?.catalogue_matches || [], (item, match) => {
+        item.textContent = (match.status === 'CONTESTED' ? 'Суперечливий збіг · ' : 'Каталожна підказка · ') +
+            match.model + ' · фото ' + match.photos.join(', ') + ' ';
+        const source = document.createElement('a');
+        source.textContent = 'Джерело';
+        source.href = match.url;
+        item.append(source);
+    });
     const reviewButton = byId('photo-review');
     reviewButton.hidden = !data.photos.length || !['UNREQUESTED', 'PENDING', 'RUNNING'].includes(data.review.state);
     reviewButton.textContent = data.review.state === 'UNREQUESTED' ? 'Перевірити фото' : 'Оновити стан';
