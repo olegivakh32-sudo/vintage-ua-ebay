@@ -99,6 +99,18 @@ class MobileTests(unittest.TestCase):
  def test_paid_ai_disabled(self):
   with m.app.test_request_context('/'):
    with self.assertRaisesRegex(RuntimeError,'AI'):m.call_openai({'input':'test'})
+ def test_acceptance_host_cannot_enable_paid_ai_or_live_publication(self):
+  self.assertEqual(self.upload().status_code, 303)
+  csrf = self.csrf()
+  with patch.dict(os.environ, {'VINTAGE_ACCEPTANCE_SERVER': '1', 'ENABLE_LIVE_PUBLISH': '1', 'ALLOW_PAID_AI': '1'}), patch.object(m, 'OPENAI_API_KEY', 'fixture'):
+   health = self.client.get('/health').json
+   self.assertFalse(health['paid_ai_enabled'])
+   self.assertFalse(health['live_publish_enabled'])
+   paused = self.client.post('/mobile/prepare-stage', data={'stage': 'photos', 'hold_csrf': csrf})
+   self.assertEqual(paused.status_code, 503)
+   self.assertIn('окремого погодження', paused.json['error'])
+   self.assertEqual(self.client.post('/ebay/current-publish').status_code, 409)
+   self.assertEqual(self.client.get('/picker/thumb/1').status_code, 200)
  def test_existing_photo_order(self):self.assertEqual(m._build_logical_photo_order([{}, {}, {}],2),[2,1,3])
 
 

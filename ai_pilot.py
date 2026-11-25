@@ -10,10 +10,9 @@ import math
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from decimal import Decimal
-from html.parser import HTMLParser
+from hashlib import sha256
 import json
 import os
-import re
 from pathlib import Path
 import tempfile
 from unittest.mock import patch
@@ -130,6 +129,11 @@ def inputs(filename):
         raise ValueError('Кожне фото має бути локальним файлом до 10 МБ.')
     if not isinstance(data['lot'], str) or not data['lot'].strip():
         raise ValueError('Потрібен ідентифікатор лота.')
+    if 'originals' in data:
+        expected = [{'photo': index, 'sha256': sha256(path.read_bytes()).hexdigest()}
+                    for index, path in enumerate(photos, 1)]
+        if data['originals'] != expected:
+            raise ValueError('Оригінали не збігаються з контрольними сумами пакета.')
     return data, photos
 
 
@@ -145,40 +149,6 @@ def inspect_photos(photos):
             hint = measurement_hint(ImageOps.exif_transpose(image), photo.name)
             results.append({'photo': number, 'measurement_hint': hint or 'NEEDS_REVIEW'})
     return results
-
-
-class DraftForm(HTMLParser):
-    def __init__(self, document):
-        super().__init__()
-        self.active = False
-        self.values = {}
-        self.textarea = None
-        self.feed(document)
-
-    def handle_starttag(self, tag, attrs):
-        data = dict(attrs)
-        if tag == 'form':
-            self.active = data.get('action') == '/picker/final-listing'
-        if not self.active:
-            return
-        if tag == 'textarea' and data.get('name'):
-            self.textarea = data['name']
-            self.values[self.textarea] = ''
-        if tag == 'input' and data.get('name'):
-            if data.get('type') == 'hidden':
-                self.values[data['name']] = data.get('value', '')
-            if data.get('name') == 'material_choice' and 'checked' in data:
-                self.values.setdefault('material_choice', []).append(data.get('value', ''))
-
-    def handle_data(self, data):
-        if self.textarea:
-            self.values[self.textarea] += data
-
-    def handle_endtag(self, tag):
-        if tag == 'textarea':
-            self.textarea = None
-        if tag == 'form':
-            self.active = False
 
 
 
@@ -221,6 +191,7 @@ def run(data, photos, limits):
 
     with tempfile.TemporaryDirectory(prefix='vintage-ai-pilot-') as tmp, patch.dict(os.environ, {
         'ALLOW_PAID_AI': '1', 'ENABLE_LIVE_PUBLISH': '0', 'ENABLE_BRAND_RESCAN': '0', 'HOLD_QUEUE_DIR': tmp,
+        'VINTAGE_OPERATOR_PASSWORD': '', 'VINTAGE_ACCEPTANCE_SERVER': '0', 'RENDER': '',
     }), patch.object(vintage, 'ACTIVE_LOT_CHECKPOINT_DIR', tmp), patch.object(
         vintage, '_p054_openai_request', bounded_api
     ), patch.object(requests.Session, 'request', request_guard), patch.dict(vintage._MODEL_PRICING_PER_M, {
@@ -238,14 +209,12 @@ def run(data, photos, limits):
             raise ValueError(f'Завантаження фото зупинено, HTTP {upload.status_code}.')
         with client.session_transaction() as session:
             picker = session['picker_session_id']
-        stage_a = client.post('/picker/analyze')
+        def prepare(stage):
+            return client.post('/mobile/prepare-stage', data={'stage': stage, 'hold_csrf': csrf})
+
+        stage_a = prepare('photos')
         analysis = vintage.ANALYSIS_CACHE.get(picker, '')
-        approval = None
-        if stage_a.status_code == 200:
-            approval = client.post('/picker/editor/approve', data={'main_photo': 0})
-        stage_bc = client.post('/picker/fast-research', data={'analysis': analysis}) if (
-            approval is not None and approval.status_code == 302
-        ) else None
+        stage_bc = prepare('research') if stage_a.status_code == 200 else None
         identification = vintage.IDENTIFICATION_CACHE.get(picker, '')
         market = vintage.MARKET_CACHE.get(picker, '')
         if market:
@@ -258,23 +227,8 @@ def run(data, photos, limits):
         facts = vintage.AUTO_FACT_CACHE.get(picker, {})
         draft = {}
         stage_d = None
-        if analysis and identification and market and data.get('seller_measurements'):
-            fields = data['seller_measurements']
-            with vintage.app.test_request_context():
-                vintage.session.update(picker_session_id=picker, current_lot_number=4)
-                measurement_revision = vintage._measurement_revision(picker)
-            stage_d = client.post('/picker/shipping-submit', data={
-                'analysis': analysis, 'identification': identification, 'market': market,
-                'item_weight': fields['weight_kg'], 'dim_l': fields['length_cm'],
-                'dim_w': fields['width_cm'], 'dim_h': fields['height_cm'],
-                'seller_verified_measurements': 'yes', 'hold_csrf': csrf,
-                'measurement_revision': measurement_revision,
-            })
-            if stage_d.status_code == 303:
-                shipping = client.get('/picker/resume-shipping')
-                fields = DraftForm(shipping.get_data(as_text=True)).values
-                if fields:
-                    stage_d = client.post('/picker/final-listing', data=fields)
+        if analysis and identification and market:
+            stage_d = prepare('draft')
             draft = vintage.LOT002_DRAFT_CACHE.get(picker, {})
         kind = str(identity.get('type') or '')
         category_draft = dict(draft) if draft else {'title': kind, 'item_specifics': {'Type': kind}}
@@ -300,10 +254,10 @@ def run(data, photos, limits):
             'category_source': 'recorded_taxonomy', 'category_note': category_note,
             'stage_http': {'visual': stage_a.status_code, 'research': stage_bc.status_code if stage_bc else None,
                            'draft': stage_d.status_code if stage_d else None},
-            'stage_messages': [match[1] for stage in (stage_a, approval, stage_bc, stage_d)
-                               if stage is not None and stage.status_code >= 400
-                               and (match := re.search(r'<h2>([^<]+)</h2>', stage.get_data(as_text=True)))],
+            'stage_messages': [stage.json['error'] for stage in (stage_a, stage_bc, stage_d)
+                               if stage is not None and stage.status_code >= 400 and stage.is_json],
             'photo_roles': vintage.PHOTO_ROLE_CACHE.get(picker, {}), 'ebay_photo_order': order,
+            'main_photo': order[0] if order else None,
             'symbols': facts.get('symbols', []), 'measurement': measurement,
             'analysis': analysis, 'identification': identification, 'market': market, 'draft': draft,
             'usage': vintage.AI_USAGE_CACHE.get(picker, {}), 'actual_attempts': limits.attempts,
@@ -313,7 +267,8 @@ def run(data, photos, limits):
                 for row in limits.reservations
             ],
         }
-        report['comparison'] = compare_reference(data.get('reference', {}), report)
+        report['reference'] = data.get('reference', {})
+        report['comparison'] = compare_reference(report['reference'], report)
         return report
 
 
@@ -324,7 +279,7 @@ def compare_reference(reference, report):
     checks = {}
     for field_name in ('identity', 'ocr', 'period', 'material', 'category_id'):
         accepted = reference.get(field_name) or []
-        actual = report.get(field_name) or ''
+        actual = str(report.get(field_name) or '')
         checks[field_name] = (
             normalize(actual, field_name) in {normalize(value, field_name) for value in accepted}
             if accepted else None
@@ -334,9 +289,13 @@ def compare_reference(reference, report):
         {normalize(value, 'symbols') for value in actual_symbols}
         == {normalize(value, 'symbols') for value in reference['symbols']}
     ) if 'symbols' in reference else None
-    for name in ('weight_kg', 'length_cm', 'width_cm', 'height_cm'):
-        expected = (reference.get('measurement') or {}).get(name)
-        raw = report['measurement'].get(name)
+    numeric_fields = {name: ((reference.get('measurement') or {}).get(name), report['measurement'].get(name))
+                      for name in ('weight_kg', 'length_cm', 'width_cm', 'height_cm')}
+    numeric_fields.update({
+        'price_usd': (reference.get('price_usd'), report['draft'].get('price')),
+        'shipping_usd': (reference.get('shipping_usd'), report['draft'].get('shipping_usd')),
+    })
+    for name, (expected, raw) in numeric_fields.items():
         try:
             actual = float(raw)
         except (TypeError, ValueError):
@@ -353,8 +312,10 @@ def compare_reference(reference, report):
     if expected_excluded is not None:
         roles = report['photo_roles']
         checks['evidence_photos'] = all(
-            roles.get(i) == 'EVIDENCE_ONLY' and i not in order for i in expected_excluded
+            roles.get(i, roles.get(str(i))) == 'EVIDENCE_ONLY' and i not in order for i in expected_excluded
         )
+    if 'main_photo' in reference:
+        checks['main_photo'] = report.get('main_photo') == reference['main_photo']
     title = str(report['draft'].get('title') or '')
     description = str(report['draft'].get('description') or '')
     terms = reference.get('title_terms')
@@ -400,8 +361,8 @@ def main():
         # The research snapshot is scheduled to shut down first.
         if datetime.now(timezone.utc).date() >= date(2026, 12, 11):
             raise ValueError('Моделі пілота потребують повторної перевірки тарифів і доступності.')
-        if not data.get('reference') or not data.get('seller_measurements'):
-            raise ValueError('Для реального пілота потрібні незалежні еталони та підтверджені виміри.')
+        if not isinstance(data.get('reference'), dict) or not data['reference']:
+            raise ValueError('Для реального пілота потрібні незалежні еталони.')
         taxonomy = data.get('taxonomy') or {}
         if (not isinstance(taxonomy, dict) or not taxonomy.get('tree_id') or not taxonomy.get('suggestions')
                 or not isinstance(taxonomy.get('aspects_by_category'), dict)):
@@ -423,6 +384,7 @@ def main():
         except Exception:
             reserve_report('interrupted')
             raise
+        result['mode'] = 'APPROVED_PILOT'
         write_report(args.report, result)
         print(f'Звіт: {args.report}. Спроб API: {limits.attempts}.')
         return 0

@@ -1,0 +1,33 @@
+plugins {
+    id 'com.android.application' version '8.13.2'
+}
+
+def origin = providers.gradleProperty('vintageOrigin').orElse('https://acceptance.invalid').get()
+if (!(origin ==~ /https:\/\/[a-z0-9.-]+/)) {
+    throw new GradleException('Set vintageOrigin to the HTTPS origin of the separate test service')
+}
+
+android {
+    namespace 'ua.vintage.acceptance'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'ua.vintage.acceptance'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName 'P094-acceptance'
+        buildConfigField 'String', 'TEST_ORIGIN', '"' + origin + '"'
+    }
+    buildFeatures {
+        buildConfig true
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.15.0'
+}

@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Android build products and signing credentials
+android/.gradle/
+android/**/build/
+android/local.properties
+*.jks
+*.keystore

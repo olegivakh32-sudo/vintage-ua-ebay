@@ -42,6 +42,7 @@ import threading
 from datetime import date
 from decimal import Decimal, DecimalException, InvalidOperation, ROUND_CEILING, ROUND_HALF_UP
 from io import BytesIO
+from zipfile import ZIP_STORED, ZipFile
 from itsdangerous import BadSignature, URLSafeSerializer
 from PIL import Image, ImageEnhance, ImageOps, ImageStat, ImageFilter
 
@@ -54,16 +55,30 @@ from flask import (
     g,
     redirect,
     request,
+    send_file,
     session,
     Response,
     url_for,
 )
 
-APP_RELEASE = "P094 · Android 4"
+APP_RELEASE = "P094 · Android 5"
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 250 * 1024 * 1024
 if os.environ.get('VINTAGE_SECURE_COOKIES') == '1':
     app.config.update(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_SAMESITE='Lax')
+
+def _acceptance_service():
+    return (os.environ.get('VINTAGE_ACCEPTANCE_SERVER') == '1'
+            or bool(os.environ.get('RENDER') and os.environ.get('RENDER_GIT_BRANCH') == 'p094-quality-validation'))
+
+
+def _paid_ai_enabled():
+    return not _acceptance_service() and os.environ.get('ALLOW_PAID_AI') == '1' and bool(OPENAI_API_KEY)
+
+
+def _live_publish_enabled():
+    return not _acceptance_service() and os.environ.get('ENABLE_LIVE_PUBLISH') == '1'
+
 
 @app.before_request
 def require_operator_access():
@@ -600,7 +615,7 @@ def picker_editor():
                 f'<small>{status}</small></label>'
             )
         automatic = ''
-        if OPENAI_API_KEY and os.environ.get('ALLOW_PAID_AI') == '1' and not ANALYSIS_CACHE.get(picker_id):
+        if _paid_ai_enabled() and not ANALYSIS_CACHE.get(picker_id):
             automatic = '<form method="post" action="/picker/analyze"><button>Розпізнати й розподілити фото за допомогою ШІ</button></form>'
         key = _mobile_role_review_key(picker_id, items)
         return page('Вибір фото товару', '<h2>Які фото показати на eBay?</h2>'
@@ -755,13 +770,13 @@ def _preferred_main_photo(approved, candidates, roles):
 
 
 @app.route("/picker/editor/approve", methods=["POST"])
-def picker_editor_approve():
+def picker_editor_approve(automatic=False):
     picker_id = session.get("picker_session_id")
     items = PHOTO_CACHE.get(picker_id, [])
     if not (1 <= len(items) <= 32):
         return page("Редактор фото", "<h2>Додайте від 1 до 32 фото</h2><p><a href='/mobile'>До фото з телефона</a></p>"), 400
     try:
-        main_index = int(request.form.get("main_photo") or 0)
+        main_index = 0 if automatic else int(request.form.get("main_photo") or 0)
     except Exception:
         main_index = 0
     eligible = _ebay_photo_indices(items, picker_id)
@@ -778,7 +793,10 @@ def picker_editor_approve():
         last_exc=None
         for attempt in range(2):
             try:
-                settings={"brightness":request.form.get(f"b_{i}",1.0,type=float),"contrast":request.form.get(f"c_{i}",1.0,type=float),"color":request.form.get(f"s_{i}",1.0,type=float),"sharpness":request.form.get(f"h_{i}",1.0,type=float)}
+                settings = {} if automatic else {
+                    name: request.form.get(f"{prefix}_{i}", 1.0, type=float)
+                    for name, prefix in (('brightness', 'b'), ('contrast', 'c'), ('color', 's'), ('sharpness', 'h'))
+                }
                 data = _download_picker_photo(i, edited=True, max_side=1600, edit_settings=settings)
                 if not data:
                     raise ValueError("empty edited JPEG")
@@ -1955,7 +1973,7 @@ def call_openai(payload, timeout=180, usage_picker_id=None, final_draft_slot=Fal
             usage['cache_hits']=int(usage.get('cache_hits') or 0)+1
             _p054_checkpoint_if_context()
             return previous['text']
-        if os.environ.get('ALLOW_PAID_AI', '0') != '1' or not OPENAI_API_KEY:
+        if not _paid_ai_enabled():
             raise RuntimeError('Тестовий режим: платний AI вимкнений. Доступні збережені відповіді AI.')
         if previous.get('status') in {'UNCERTAIN','IN_FLIGHT'}:
             raise RuntimeError('HOLD — AI RESPONSE UNCERTAIN: the previous identical request may have been processed. Automatic rebilling is blocked; completed LOT stages remain saved.')
@@ -3747,6 +3765,9 @@ def health():
     return {
         "status": "ok",
         "release": APP_RELEASE,
+        "commit": os.environ.get('RENDER_GIT_COMMIT'),
+        "paid_ai_enabled": _paid_ai_enabled(),
+        "live_publish_enabled": _live_publish_enabled(),
         "google_configured": bool(
             GOOGLE_CLIENT_ID
             and GOOGLE_CLIENT_SECRET
@@ -4444,7 +4465,7 @@ def picker_analyze():
     label = _current_lot_label()
     count = len(items)
     analysis = ANALYSIS_CACHE.get(picker_id)
-    if not analysis and (not OPENAI_API_KEY or os.environ.get('ALLOW_PAID_AI', '0') != '1'):
+    if not analysis and not _paid_ai_enabled():
         return page('Аналіз ШІ недоступний', '<h2>Аналіз ШІ зараз недоступний</h2>'
                     '<p>Фото та лот збережені. Ви можете продовжити редагування або відкласти лот.</p>'
                     '<div class="mobile-actions"><a href="/picker/editor">Редактор фото</a>'
@@ -4556,7 +4577,7 @@ Use only tested_status: Untested, Tested working, Tested not working, Not applic
     facts=AUTO_FACT_CACHE.get(picker_id) or _auto_facts_from_analysis(analysis)
     # P034 quality-first: focused brand re-scan is enabled by default when visible marking exists.
     # Seller confirmation remains authoritative.
-    if OPENAI_API_KEY and os.environ.get("ALLOW_PAID_AI") == "1" and os.environ.get("ENABLE_BRAND_RESCAN","1") == "1" and facts.get('marking_present') and not str(facts.get('brand') or '').strip():
+    if _paid_ai_enabled() and os.environ.get("ENABLE_BRAND_RESCAN","1") == "1" and facts.get('marking_present') and not str(facts.get('brand') or '').strip():
         resolved=_resolve_visible_brand_from_photos(items, used_indices)
         if resolved.get('brand'):
             facts=dict(facts)
@@ -4913,8 +4934,8 @@ def _rerun_measurement_only(picker_id):
 
 @app.route("/picker/resume-measurements", methods=["GET"])
 @app.route("/picker/fast-research", methods=["POST"])
-def fast_research():
-    analysis = request.form.get("analysis", "")
+def fast_research(known_analysis=None):
+    analysis = known_analysis if known_analysis is not None else request.form.get("analysis", "")
     if request.path == "/picker/resume-measurements":
         pid = session.get("picker_session_id")
         analysis = ANALYSIS_CACHE.get(pid) or ""
@@ -5151,7 +5172,13 @@ def fast_research():
     <details><summary><b>Show identification</b></summary><div style='border:1px solid #ddd;padding:12px;border-radius:8px;margin-top:8px'>{text_to_html(identification)}</div></details>
     <details><summary><b>Show market research</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:8px'>{text_to_html(market)}</div></details>
     {claims_html}
-    <hr><h3>Weight & Shipping</h3>{measurement_warning}{measurement_suggestion}{_p054_evidence_html(visual_estimate)}<p>Measurement pass attempted to check selected photos. Weight source: <b>{html.escape(str(visual_estimate.get('weight_source') or 'UNKNOWN'))}</b>. Dimensions source: <b>{html.escape(str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}</b>. Confidence: <b>{est_conf}%</b>.</p><p><b>Scale transcription (may include existing packaging; see source above):</b> {html.escape(str(visual_estimate.get('mass_digits_text') or '—'))} {html.escape(str(visual_estimate.get('mass_unit_text') or ''))}</p><p><small>Measurement diagnostics: {html.escape(str(visual_estimate.get('measurement_note') or '—'))}</small></p><p><b>Rule:</b> P038 keeps literal scale/ruler evidence first and uses transactional retries: <b>NO SUCCESS = NO OVERWRITE</b>. Explicit ruler start/end arithmetic and face-axis summaries override inconsistent structured half-dimensions. If one or two axes are readable but a third is missing, additional paid vision passes run only when explicitly enabled in server settings.</p>
+    <hr><h3>Вага й доставка</h3>{measurement_warning}{measurement_suggestion}{_p054_evidence_html(visual_estimate)}
+    <form action='/picker/final-listing' method='post'>{measurement_form}
+      <input type='hidden' name='automatic' value='yes'>
+      <button type='submit'>Створити чернетку за результатами аналізу</button>
+    </form>
+    <p>Джерело ваги <b>{html.escape(str(visual_estimate.get('weight_source') or 'UNKNOWN'))}</b>. Джерело розмірів <b>{html.escape(str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}</b>. Впевненість <b>{est_conf}%</b>.</p>
+    <p>Показ ваг <b>{html.escape(str(visual_estimate.get('mass_digits_text') or '—'))} {html.escape(str(visual_estimate.get('mass_unit_text') or ''))}</b>.</p><p><small>{html.escape(str(visual_estimate.get('measurement_note') or '—'))}</small></p>
     <form action='/picker/shipping-submit' method='post'>{measurement_form}{hidden_field('analysis',analysis)}{hidden_field('identification',identification)}{hidden_field('market',market)}{hidden_field('weight_source',str(visual_estimate.get('weight_source') or 'UNKNOWN'))}{hidden_field('dimensions_source',str(visual_estimate.get('dimensions_source') or 'UNKNOWN'))}{hidden_field('original_item_weight',str(est_weight))}{hidden_field('original_dim_l',str(est_l))}{hidden_field('original_dim_w',str(est_w))}{hidden_field('original_dim_h',str(est_h))}{_measurement_unit_choices()}
     <p><label><b>Вага товару (пакування враховується окремо)</b><br><input type='text' inputmode='decimal' name='item_weight' value='{est_weight}' required style='font-size:20px;padding:10px;width:180px'></label></p>
     <p><label><b>Довжина</b><br><input type='text' inputmode='decimal' name='dim_l' value='{est_l}' required style='font-size:20px;padding:10px;width:180px'></label></p>
@@ -6525,11 +6552,12 @@ def _measurement_form_fields(picker_id):
             + hidden_field('measurement_revision', _measurement_revision(picker_id)))
 
 
-def _measurement_form_error(picker_id):
+def _measurement_form_error(picker_id, revision=None):
     link = '<p><a href="/picker/resume-measurements">Відкрити актуальні виміри</a></p>'
     if not _p058_csrf_valid():
         return page('Підтвердження вимірів', '<h2>Оновіть форму вимірів</h2>' + link), 403
-    if not picker_id or request.form.get('measurement_revision') != _measurement_revision(picker_id):
+    submitted = request.form.get('measurement_revision') if revision is None else revision
+    if not picker_id or submitted != _measurement_revision(picker_id):
         return page('Виміри змінилися', '<h2>Цю форму відкрито для попередніх вимірів</h2>' + link), 409
     return None
 
@@ -6698,19 +6726,22 @@ def _shipping_page(picker_id):
     return page(label+" Вага й доставка",body)
 
 @app.route("/picker/final-listing", methods=["POST"])
-def final_listing():
+def final_listing(automatic_revision=None):
     picker_id = session.get('picker_session_id')
-    error = _measurement_form_error(picker_id)
+    error = _measurement_form_error(picker_id, automatic_revision)
     if error:
         return error
     analysis = ANALYSIS_CACHE.get(picker_id) or ''
     identification = IDENTIFICATION_CACHE.get(picker_id) or ''
     market = MARKET_CACHE.get(picker_id) or ''
-    accepted = SELLER_MEASUREMENT_CACHE.get(picker_id) or {}
+    automatic = automatic_revision is not None or request.form.get('automatic') == 'yes'
+    accepted = SELLER_MEASUREMENT_CACHE.get(picker_id) or (MEASUREMENT_CACHE.get(picker_id) if automatic else {}) or {}
     measurements = [_p054_positive(accepted.get(key), limit)
                     for key, limit in zip(_MEASUREMENT_FIELDS, (101, 1001, 1001, 1001))]
     if not all(measurements):
-        return page('Дані доставки', '<h2>Підтвердьте виміри перед створенням чернетки</h2>'
+        detail = ('Доказів для розрахунку доставки бракує. Потрібен чіткий кадр ваг або потрібної осі.'
+                  if automatic else 'Підтвердьте виміри перед створенням чернетки')
+        return page('Дані доставки', '<h2>' + detail + '</h2>'
                     '<a href="/picker/resume-measurements">Відкрити виміри</a>'), 409
     size, package_size, packed, quote = _shipping_quote(*measurements)
     if quote.get('recommended_usd') is None:
@@ -6720,8 +6751,16 @@ def final_listing():
     dimensions = ' x '.join(f'{axis:g}' for axis in size) + ' cm'
     package_dimensions = ' x '.join(f'{axis:g}' for axis in package_size) + ' cm'
     shipping_usd = f"{quote['recommended_usd']:.2f}"
-    materials=[x.strip() for x in request.form.getlist("material_choice") if x.strip()]
-    other=request.form.get("material_other","").strip()
+    form = {} if automatic else request.form
+    material_source = 'SELLER_FORM'
+    if automatic:
+        facts = _merge_research_facts(AUTO_FACT_CACHE.get(picker_id) or _auto_facts_from_analysis(analysis),
+                                      identification, market)
+        materials, _ = _canonical_auto_materials(facts.get('materials') or []) if facts.get('materials_confidence', 0) >= 90 else ([], [])
+        material_source = facts['material_source'] if materials else 'UNKNOWN'
+    else:
+        materials = [x.strip() for x in request.form.getlist('material_choice') if x.strip()]
+    other = form.get('material_other', '').strip()
     # P016 FIX: "AI-detected detail" is hypothesis text, not a canonical material.
     # Never publish generic uncertainty phrases such as "plastic or polymer",
     # "likely ...", "possibly ...", etc. Seller-confirmed canonical checkboxes win.
@@ -6729,14 +6768,17 @@ def final_listing():
         r"(?i)\b(?:likely|possibly|possible|probably|appears?|looks?|may|might|unknown|uncertain|or\s+(?:other\s+)?(?:polymer|plastic|metal|wood|glass))\b",
         other
     ))
-    if other and request.form.get("confirm_material_other") == "yes" and not _uncertain_material:
+    if other and form.get("confirm_material_other") == "yes" and not _uncertain_material:
         materials.append(other)
     materials=list(dict.fromkeys(materials))
     confirmed_material=", ".join(materials)
-    seller_tested_status=request.form.get("seller_tested_status","Untested").strip() or "Untested"; seller_completeness=request.form.get("seller_completeness","Unknown").strip() or "Unknown"
-    seller_verified_marking=request.form.get("seller_verified_marking","").strip()
-    brand_candidate=request.form.get("seller_brand","").strip()
-    brand_confirmed = request.form.get("confirm_seller_brand") == "yes"
+    kind = str(_research_machine_json(identification, 'IDENTITY_JSON').get('type') or '')
+    default_test_status = 'Not applicable' if automatic and _p081_passive(kind) else 'Untested'
+    seller_tested_status = form.get('seller_tested_status', default_test_status).strip() or default_test_status
+    seller_completeness = form.get('seller_completeness', 'Unknown').strip() or 'Unknown'
+    seller_verified_marking = form.get('seller_verified_marking', '').strip()
+    brand_candidate = form.get('seller_brand', '').strip()
+    brand_confirmed = form.get('confirm_seller_brand') == 'yes'
     # P013 Brand Confirmation Guard: if a visible brand candidate is present, do not
     # silently discard it and let the lot reach Preflight as an unresolved marking.
     # The seller must either confirm the exact spelling or clear the candidate field.
@@ -6752,7 +6794,7 @@ def final_listing():
             "<p><button type='button' onclick='history.back()'>BACK — CONFIRM / CORRECT BRAND</button></p>",
         ), 409
     seller_brand=brand_candidate if brand_confirmed else ""
-    seller_origin=request.form.get("seller_origin","").strip()
+    seller_origin = form.get('seller_origin', '').strip()
     label=_current_lot_label()
     _draft_sig_payload={
         "analysis":analysis,"identification":identification,"market":market,
@@ -6762,6 +6804,8 @@ def final_listing():
         "marking":seller_verified_marking,"brand":seller_brand,"origin":seller_origin,
         "measurement_provenance":_p054_measurement_provenance(session.get("picker_session_id")),
     }
+    if automatic:
+        _draft_sig_payload['automatic_material_source'] = material_source
     _draft_sig=hashlib.sha256(json.dumps(_draft_sig_payload,ensure_ascii=False,sort_keys=True).encode("utf-8")).hexdigest()
     _existing_draft=LOT002_DRAFT_CACHE.get(session.get("picker_session_id")) or {}
     if (_existing_draft.get("draft_input_signature")==_draft_sig
@@ -6797,7 +6841,7 @@ def final_listing():
             "before continuing. No AI request was made and nothing was sent to eBay.</p>"), 409
     prompt=f"""Create one complete eBay.com listing draft for {label}. Return ONLY a JSON object, no markdown.
 PHYSICAL STRUCTURE: {physical_scope}; separate physical items={physical_count}; sale_mode={sale_mode}. If sale_mode=ONE_LOT, the buyer receives all {physical_count} physical item(s) in one purchase and eBay inventory quantity is 1. If sale_mode=INDIVIDUAL, one purchase receives ONE item and eBay inventory quantity is {physical_count}. Never call separate items connected unless evidence proves it. Make title, description, Number in Pack/set wording consistent with this structure.
-MATERIAL SAFETY: the only affirmative material claims allowed are seller-confirmed materials: {confirmed_material or 'Unknown'}. Do not infer fabric/textile/glass/wood/etc. from appearance when not confirmed.
+MATERIAL SAFETY: only these material labels have listing evidence: {confirmed_material or 'Unknown'}. Material source: {material_source}. Never infer other materials.
 Source evidence:
 VISUAL ANALYSIS:
 {analysis}
@@ -6816,7 +6860,6 @@ Rules: seller/automatic facts above override conflicting web guesses. ANALOG QUA
 JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_specifics":{{}},"description":"","seo_keywords":[],"seller_check":[]}}"""
     # P086: deterministic draft for already researched paper inserts, no extra AI.
     identity = _research_machine_json(identification, 'IDENTITY_JSON')
-    kind = str(identity.get('type') or '')
     if re.search(r'(?i)\b(?:paper|gum|collectible)\b', kind) and re.search(r'(?i)\binserts?\b', kind):
         data = _p086_paper_draft(identity, analysis, physical_count, sale_mode, confirmed_material)
     else:
@@ -7157,8 +7200,10 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
     title,description,specifics = _type_draft['title'],_type_draft['description'],_type_draft['item_specifics']
     listing_text=(f"1 TITLE\n{title}\n\n2 PRICE USD\n${price if price else 'Not set'}\n\n3 CONDITION\n{condition_note}\n\n4 ITEM SPECIFICS\n"+"\n".join(f"{k}: {v}" for k,v in specifics.items())+f"\n\n5 DESCRIPTION\n{description}")
     draft={"listing_text":listing_text,"title":title,"price":price,"condition_note":condition_note,"description":description,"item_specifics":specifics,"shipping_usd":shipping_usd,"confirmed_material":confirmed_material,"seller_tested_status":seller_tested_status,"seller_completeness":seller_completeness,"seller_verified_marking":seller_verified_marking,"seller_brand":seller_brand,"seller_origin":seller_origin,"seller_confirmed_country":seller_origin,"marking_present":bool((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("marking_present") or brand_candidate),"brand_evidence":str((AUTO_FACT_CACHE.get(session.get("picker_session_id")) or {}).get("brand_evidence") or brand_candidate or ""),"physical_item_count":physical_count,"sale_mode":sale_mode,"ebay_quantity":(physical_count if sale_mode=="INDIVIDUAL" else 1),"item_weight":item_weight,"packed_weight":packed_weight,"dimensions":dimensions,"package_dimensions":package_dimensions,"shipping_quote":quote,"draft_input_signature":_draft_sig,"handling_time_business_days":int(os.environ.get("EBAY_HANDLING_DAYS","3")),"measurement_source":dict(SELLER_MEASUREMENT_CACHE.get(session.get("picker_session_id")) or MEASUREMENT_CACHE.get(session.get("picker_session_id")) or {}),"seo_keywords":seo,"seller_check":checks,"price_research_ok":bool(price_quality.get("ok")),"price_research_reasons":list(price_quality.get("reasons") or []),"price_source":("RESEARCH" if price_quality.get("ok") else "MANUAL_REQUIRED"),"listing_readiness":listing_readiness,"readiness_failures":readiness_failures}
+    draft['automatic_draft'] = automatic
+    draft['material_evidence_source'] = material_source
     with _p054_lot_lock('measurements:' + str(picker_id)):
-        error = _measurement_form_error(picker_id)
+        error = _measurement_form_error(picker_id, automatic_revision)
         if error:
             return error
         previous = LOT002_DRAFT_CACHE.get(picker_id)
@@ -12875,7 +12920,7 @@ def ebay_current_publish():
     if (_p087_quality_block(draft) or _p088_sales_block(draft,len(session.get("photo_order") or []))): return page(label+' quality stop', '<h2>'+html.escape(_p087_quality_block(draft) or _p088_sales_block(draft,len(session.get("photo_order") or [])))+'</h2><a href="/picker/review-final-draft">Відкрити чернетку</a>'),409
     if not draft.get('seller_reviewed') or not draft.get('price_confirmed'):
         return page('Потрібне підтвердження','<h2>Спочатку підтвердіть чернетку та ціну.</h2>'),409
-    if request.method == 'POST' and os.environ.get('ENABLE_LIVE_PUBLISH','0') != '1':
+    if request.method == 'POST' and not _live_publish_enabled():
         return page('Тестовий режим','<h2>Реальна публікація вимкнена.</h2><p>Лот збережено. Для тесту публікації власник сервера має встановити ENABLE_LIVE_PUBLISH=1.</p>'),409
     if request.method == 'POST':
         expected = _final_publish_digest(draft, sku)
@@ -12950,7 +12995,7 @@ def ebay_current_publish():
                 f'<form method="post"><input type="hidden" name="hold_csrf" value="{_p058_csrf()}">'
                 f'<input type="hidden" name="review_digest" value="{_final_publish_digest(draft, sku)}">'
                 f'<button type="submit">Опублікувати {label} на eBay</button></form>'
-                if os.environ.get('ENABLE_LIVE_PUBLISH') == '1'
+                if _live_publish_enabled()
                 else '<p>Реальна публікація вимкнена.</p>'
             )
             return page(label+' final confirmation',f'<h2>{label} — FINAL PUBLISH CONFIRMATION</h2><p><b>Technical checks passed, including MAIN PHOTO and photo order. Condition enum USED_EXCELLENT (3000) may represent generic Used under the category policy; it is not an independent condition appraisal. Customs/export/carrier compliance is not independently verified.</b></p><table border="1" cellpadding="5"><tr><th>Result</th><th>Check</th><th>Actual</th><th>Expected</th></tr>{rows}</table>{confirmation}{_p059_hold_next_button()}')
@@ -13447,7 +13492,7 @@ def _mobile_resized(raw,size):
 def _mobile_test_guards():
     endpoint=request.endpoint or ''
     if request.path.startswith('/ebay/') and ('publish' in endpoint or 'republish' in endpoint):
-        if os.environ.get('ENABLE_LIVE_PUBLISH','0')!='1':
+        if not _live_publish_enabled():
             if request.path!='/ebay/current-publish' or request.method!='GET':
                 return page('Тестовий режим','<h2>Реальна публікація вимкнена</h2><p>Підготовка та Hold доступні. Для публікації налаштуйте ENABLE_LIVE_PUBLISH=1 на сервері.</p>'),409
 
@@ -13464,16 +13509,23 @@ def mobile_home():
     batch_token = _mobile_batch_signer().dumps({
         'checkpoint': session.get('active_lot_checkpoint_id'), 'picker': pid, 'batch': secrets.token_hex(16),
     })
-    csrf=_p058_csrf();live=os.environ.get('ENABLE_LIVE_PUBLISH','0')=='1';paid=os.environ.get('ALLOW_PAID_AI','0')=='1'
+    csrf = _p058_csrf()
+    live, paid = _live_publish_enabled(), _paid_ai_enabled()
     images = ''.join(
         f'<img src="/picker/thumb/{i}?size=200" loading="lazy" decoding="async" alt="Фото {i}">'
         for i in range(1, len(photos) + 1)
     )
+    export = ('<a href="/mobile/acceptance-package">Завантажити пакет для перевірки</a>'
+              if str(pid or '').startswith('mobile-') and os.environ.get('VINTAGE_OPERATOR_PASSWORD') else '')
     controls = ('<div class="mobile-actions"><a href="/picker/editor">Редактор фото</a>'
-                '<a href="/picker/items">Поточний лот</a></div>'
-                '<form method="post" action="/picker/analyze"><button>Визначити предмет за допомогою ШІ</button></form>'
+                '<a href="/picker/items">Поточний лот</a>' + export + '</div>'
+                f'<form id="mobile-prepare" method="post" action="/mobile/prepare-stage">'
+                f'<input type="hidden" name="hold_csrf" value="{csrf}">'
+                '<input type="hidden" name="stage" value="photos">'
+                '<button type="submit">Підготувати оголошення автоматично</button>'
+                '<p id="mobile-prepare-status" role="status"></p></form>'
                 if photos else '')
-    ai_label = 'доступний' if paid and OPENAI_API_KEY else 'недоступний у цьому середовищі'
+    ai_label = 'доступний' if paid else 'недоступний у цьому середовищі'
     return page('Vintage UA — фото з телефона', f'''<h1>Фото з телефона</h1>
     <p>Публікація на eBay: {'увімкнена' if live else 'вимкнена'} · Аналіз ШІ: {ai_label}</p>
     <form id="mobile-upload" action="/mobile/upload" method="post" enctype="multipart/form-data" data-remaining="{24-len(photos)}">
@@ -13483,6 +13535,7 @@ def mobile_home():
         <input id="mobile-photos" type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp">
         <label for="mobile-camera">Зробити фото камерою</label>
         <input id="mobile-camera" type="file" name="camera_photo" accept="image/jpeg,image/png,image/webp" capture="environment">
+        <small>Застосунок зберігає вихідні файли. До 10 МБ на фото.</small>
         <p><button type="submit">Завантажити фото</button></p>
         <progress id="upload-progress" max="100" aria-label="Перебіг завантаження" hidden></progress>
         <p id="upload-status" role="status"></p>
@@ -13494,7 +13547,86 @@ def mobile_home():
     <button id="install-mobile" type="button" onclick="installVintage()">Встановити на телефон</button></div>
     <p id="install-help" role="status"></p>
     <script src="/static/mobile-upload.js" defer></script>
+    <script src="/static/mobile-prepare.js" defer></script>
     <script>let deferredInstall;window.addEventListener('beforeinstallprompt',e=>{{e.preventDefault();deferredInstall=e;}});async function installVintage(){{if(deferredInstall){{await deferredInstall.prompt();deferredInstall=null;}}else{{document.getElementById('install-help').textContent='У Chrome відкрийте меню ⋮ і виберіть «Додати на головний екран». Потрібне підключення HTTPS.';}}}}</script>''')
+
+
+@app.route('/mobile/prepare-stage', methods=['POST'])
+def mobile_prepare_stage():
+    if not _p058_csrf_valid():
+        return {'error': 'Оновіть сторінку та повторіть підготовку.'}, 403
+    picker_id = session.get('picker_session_id')
+    items = PHOTO_CACHE.get(picker_id) or []
+    if not str(picker_id or '').startswith('mobile-') or not 1 <= len(items) <= 24:
+        return {'error': 'Відкрийте лот із завантаженими фото.'}, 409
+    if LOT002_DRAFT_CACHE.get(picker_id):
+        return {'open': '/picker/review-final-draft'}
+
+    stage = request.form.get('stage')
+    analysis = ANALYSIS_CACHE.get(picker_id) or ''
+    if stage == 'photos':
+        if not analysis and not _paid_ai_enabled():
+            return {'error': 'Контрольний запуск ШІ очікує окремого погодження. Оригінали збережено.'}, 503
+        response = app.make_response(picker_analyze())
+        if response.status_code != 200:
+            return {'error': 'Не вдалося завершити аналіз фото. Оригінали збережено.',
+                    'open': '/picker/items'}, response.status_code
+        current_order = _ebay_photo_indices(items, picker_id)
+        if not current_order:
+            return {'error': 'Перевірте розподіл кадрів у редакторі.', 'open': '/picker/editor'}, 409
+        if not (session.get('photo_editor_approved') and _p056_approved_photo_snapshot_ok(picker_id, current_order)):
+            approval = app.make_response(picker_editor_approve(automatic=True))
+            if approval.status_code != 302:
+                return {'error': 'Підготовка фото зупинилася.', 'open': '/picker/editor'}, approval.status_code
+        return {'next': 'research'}
+    if stage == 'research' and analysis and session.get('photo_editor_approved'):
+        response = app.make_response(fast_research(known_analysis=analysis))
+        if response.status_code != 303:
+            return {'error': 'Дослідження зупинилося. Доступні фото й попередні результати.',
+                    'open': '/picker/items'}, response.status_code
+        return {'next': 'draft'}
+    if stage == 'draft' and analysis and IDENTIFICATION_CACHE.get(picker_id) and MARKET_CACHE.get(picker_id):
+        response = app.make_response(final_listing(automatic_revision=_measurement_revision(picker_id)))
+        if response.status_code != 303:
+            return {'error': 'Даних для чернетки бракує. Перегляньте результати аналізу.',
+                    'open': '/picker/resume-measurements'}, response.status_code
+        return {'open': '/picker/review-final-draft'}
+    return {'error': 'Почніть підготовку з фото лота.'}, 409
+
+
+@app.route('/mobile/acceptance-package')
+def mobile_acceptance_package():
+    if not request.is_secure or not os.environ.get('VINTAGE_OPERATOR_PASSWORD'):
+        return page('Контрольний пакет', '<h2>Пакет доступний власнику через HTTPS</h2>'), 403
+    picker_id = session.get('picker_session_id')
+    photos = PHOTO_CACHE.get(picker_id) or []
+    if not str(picker_id or '').startswith('mobile-') or not 1 <= len(photos) <= 24:
+        return page('Контрольний пакет', '<h2>Відкрийте лот із фото з телефона</h2>'), 409
+    archive = tempfile.SpooledTemporaryFile(max_size=4 * 1024 * 1024)
+    files, evidence = [], []
+    try:
+        with ZipFile(archive, 'w', compression=ZIP_STORED) as package:
+            for index, item in enumerate(photos, 1):
+                raw = _mobile_original_bytes(item)
+                if raw is None:
+                    archive.close()
+                    return page('Контрольний пакет', f'<h2>Оригінал кадру №{index} недоступний</h2>'), 409
+                with Image.open(BytesIO(raw)) as image:
+                    extension = {'JPEG': 'jpg', 'PNG': 'png', 'WEBP': 'webp'}[image.format]
+                name = f'photos/{index:02d}.{extension}'
+                package.writestr(name, raw)
+                files.append(name)
+                evidence.append({'photo': index, 'sha256': item['mobile_original_sha256']})
+            manifest = {'lot': _current_lot_label(), 'photos': files, 'originals': evidence}
+            package.writestr('lot.json', json.dumps(manifest, ensure_ascii=False, indent=2))
+        archive.seek(0)
+        response = send_file(archive, mimetype='application/zip', as_attachment=True,
+                             download_name=f'{_current_lot_sku()}-acceptance.zip', max_age=0)
+    except (OSError, ValueError, KeyError):
+        archive.close()
+        return page('Контрольний пакет', '<h2>Не вдалося прочитати оригінали лота</h2>'), 503
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
 
 
 def _mobile_upload_error(message, status):

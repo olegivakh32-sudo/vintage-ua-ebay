@@ -1,0 +1,42 @@
+name: Android acceptance build
+
+on:
+  push:
+    branches: [p094-quality-validation]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+    inputs:
+      test_origin:
+        description: 'HTTPS origin of the separate Render test service'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      VINTAGE_ANDROID_ORIGIN: ${{ inputs.test_origin || vars.VINTAGE_ANDROID_TEST_ORIGIN || 'https://vintage-ua-ebay-p094-test.onrender.com' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - run: gradle -p android "-PvintageOrigin=$VINTAGE_ANDROID_ORIGIN" :app:lintDebug :app:assembleDebug :app:bundleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vintage-ua-android-acceptance
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error

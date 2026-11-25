@@ -1,11 +1,13 @@
 from concurrent.futures import ThreadPoolExecutor
 import base64
+import json
 from io import BytesIO
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
+from zipfile import ZipFile
 
 from PIL import Image
 
@@ -59,6 +61,32 @@ class MobileUploadRecoveryTests(unittest.TestCase):
         self.assertEqual(m._mobile_original_bytes(item), original)
         detail = m.google_photo_to_data_url(item, size=3200)
         self.assertEqual(Image.open(BytesIO(base64.b64decode(detail.split(',')[1]))).width, 3200)
+
+    def test_https_owner_export_contains_only_current_lot_original(self):
+        from ai_pilot import inputs
+
+        original = self.photo()
+        self.assertEqual(self.send(self.client, self.form(self.client), [('phone.jpg', original)]).status_code, 201)
+        self.assertEqual(self.client.get('/mobile/acceptance-package').status_code, 403)
+        headers = {'Authorization': 'Basic ' + base64.b64encode(b'vintage:fixture').decode()}
+        with patch.dict(m.os.environ, {'VINTAGE_OPERATOR_PASSWORD': 'fixture'}):
+            self.assertEqual(self.client.get('/mobile/acceptance-package', base_url='https://localhost').status_code, 401)
+            response = self.client.get('/mobile/acceptance-package', base_url='https://localhost', headers=headers)
+            self.addCleanup(response.close)
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.cache_control.no_store)
+            self.assertEqual(m.app.test_client().get('/mobile/acceptance-package',
+                                                     base_url='https://localhost', headers=headers).status_code, 409)
+            with ZipFile(BytesIO(response.data)) as archive:
+                self.assertEqual(sorted(archive.namelist()), ['lot.json', 'photos/01.jpg'])
+                self.assertEqual(archive.read('photos/01.jpg'), original)
+                self.assertEqual(json.loads(archive.read('lot.json'))['photos'], ['photos/01.jpg'])
+                archive.extractall(self.storage)
+            _, paths = inputs(self.storage / 'lot.json')
+            self.assertEqual(paths[0].read_bytes(), original)
+            paths[0].write_bytes(self.photo('red'))
+            with self.assertRaisesRegex(ValueError, 'контрольними сумами'):
+                inputs(self.storage / 'lot.json')
 
     def test_retry_of_first_upload_recovers_without_updated_cookie_or_cache(self):
         form = self.form(self.client)

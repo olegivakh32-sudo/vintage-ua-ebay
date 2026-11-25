@@ -182,33 +182,56 @@ class AndroidTests(unittest.TestCase):
             'aspects_by_category': {'123': []},
         }
         replies = [
-            'PHOTO_ROLES_JSON: {"roles":{"1":"EBAY_PRODUCT"}}\n'
+            'PHOTO_ROLES_JSON: {"roles":{"1":"EBAY_PRODUCT","2":"EVIDENCE_ONLY","3":"EVIDENCE_ONLY"}}\n'
             'AUTO_FACTS_JSON: {"object_type":"Pocket Watch","materials":["Metal"],"materials_confidence":95,'
-            '"markings":[{"photo":1,"literal":"СД[?]"}]}\n'
+            '"markings":[{"photo":1,"literal":"СД[?]"}],"symbols":[{"photo":1,"description":"star"}]}\n'
             'SCOPE_JSON: {"scope":"ONE_PHYSICAL_ITEM","physical_item_count":1,"confidence":95}',
-            '=== IDENTIFICATION ===\nIDENTITY_JSON {"type":"Pocket Watch","material":"Metal"}\n'
-            '=== MARKET ===\nPRICE_JSON {"normal":25}',
-            '{"scale":{"visible":false},"dimension_readings":[]}',
+            '=== IDENTIFICATION ===\nIDENTITY_JSON {"type":"Pocket Watch","material":"Metal","period":"1980s"}\n'
+            '=== MARKET ===\nPRICE_JSON {"normal":25}\n'
+            'MARKET_COMPS_JSON {"comparables":[{"url":"https://example.org/watch","status":"ACTIVE",'
+            '"price_usd":25,"currency":"USD","match_evidence":"Same case style and size"}]}',
+            '{"scale":{"visible":true,"source_photo":2,"raw_digits":"125","unit":"g","confidence":95},'
+            '"shipping_bbox_cm":{"longest":8,"middle":5,"smallest":2,"confidence":95},'
+            '"dimension_readings":[{"source_photo":3,"value_cm":8,"confidence":95,"axis_note":"length"},'
+            '{"source_photo":3,"value_cm":5,"confidence":95,"axis_note":"width"},'
+            '{"source_photo":3,"value_cm":2,"confidence":95,"axis_note":"depth"}]}',
             '{"title":"Pocket Watch with an Inspected Metal Case","price_usd":"25","condition_note":"Untested. Visible wear.",'
             '"item_specifics":{"Type":"Pocket Watch"},"description":"This untested pocket watch has an inspected metal case."}',
         ]
-        data = {'lot': 'LOT 004 fixture', 'taxonomy': snapshot, 'seller_measurements':
-                {'weight_kg': 0.1, 'length_cm': 5, 'width_cm': 5, 'height_cm': 2}}
+        data = {
+            'lot': 'LOT 004 fixture', 'taxonomy': snapshot,
+            'sources': [{'url': 'https://example.org/watch', 'note': 'Synthetic asking price'}],
+            'reference': {
+                'identity': ['Pocket Watch'], 'category_id': ['123'], 'ocr': ['СД[?]'], 'period': ['1980s'],
+                'material': ['Metal'], 'symbols': ['star'], 'main_photo': 1,
+                'product_photos': [1], 'evidence_photos': [2, 3], 'title_terms': ['Pocket Watch'],
+                'price_usd': {'value': 25, 'tolerance': 0}, 'shipping_usd': {'value': 10.99, 'tolerance': 0},
+                'measurement': {key: {'value': value, 'tolerance': .0001}
+                                for key, value in zip(('weight_kg', 'length_cm', 'width_cm', 'height_cm'),
+                                                      (.125, 8, 5, 2))},
+            },
+        }
         limits = PilotLimits(Decimal('0.25'))
         with tempfile.TemporaryDirectory() as tmp:
-            image = Path(tmp) / 'photo.jpg'
-            image.write_bytes(self._jpeg().getvalue())
+            photos = [Path(tmp) / name for name in ('watch.jpg', 'digital scale.jpg', 'ruler.jpg')]
+            for photo in photos:
+                photo.write_bytes(self._jpeg().getvalue())
             # The test loader uses a distinct module object from the standalone runner.
             with patch.dict('sys.modules', {'app': m}), patch.object(m, 'OPENAI_API_KEY', 'fixture'), patch.object(
                 m, '_p054_openai_request', side_effect=replies,
             ):
-                report = run(data, [image], limits)
-        self.assertEqual(report['stage_http'], {'visual': 200, 'research': 303, 'draft': 303}, (report['stage_messages'], limits.attempts))
+                report = run(data, photos, limits)
+        self.assertEqual(report['stage_http'], {'visual': 200, 'research': 200, 'draft': 200}, (report['stage_messages'], limits.attempts))
         self.assertEqual(report['identity'], 'Pocket Watch')
         self.assertEqual(report['ocr'], 'СД[?]')
         self.assertEqual(report['category_id'], '123')
         self.assertFalse(report['admitted'])
         self.assertIn('Pocket Watch', report['draft']['title'])
+        self.assertEqual(report['draft']['measurement_source']['weight_source'], 'MEASURED_FROM_SCALE')
+        self.assertEqual(report['draft']['material_evidence_source'], 'SELLER_PHOTO')
+        comparisons = report['comparison']['verified_comparisons']
+        self.assertTrue(all(comparisons.values()), comparisons)
+        self.assertTrue(report['comparison']['title_required_terms'])
         self.assertEqual(limits.attempts, 4)
 
     def test_generic_filenames_measurement_frames_and_auto_main(self):
