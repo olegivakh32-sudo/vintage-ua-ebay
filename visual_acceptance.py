@@ -24,21 +24,28 @@ REFERENCES = json.loads((BASE / 'visual_pilot_reference.json').read_text(encodin
 FIELDS = ('identity', 'brand', 'model', 'material', 'period', 'condition', 'defects', 'category_id')
 
 
-def prepare(root):
-    """Fetch only the approved public originals and refuse a checksum change."""
+def prepare(root, originals=None):
+    """Stage the approved public originals and refuse a checksum change."""
     pictures = {row['reference_id']: row for filename in ('benchmark_sources.csv', 'benchmark_licensed_photos.csv')
                 for row in records(BASE / filename)}
     for lot, reference in REFERENCES.items():
         picture = pictures[reference['reference_id']]
-        image_url = picture['image_url']
-        url = urlsplit(image_url)
-        if url.scheme != 'https' or url.netloc not in {'openaccess-cdn.clevelandart.org', 'upload.wikimedia.org'}:
-            raise ValueError(f'{lot}: unexpected photo origin')
-        with requests.get(image_url, stream=True, timeout=(5, 12), allow_redirects=False,
-                          headers={'User-Agent': 'Vintage-UA-eBay-acceptance/1.0 (public study)'}) as response:
-            if response.status_code != 200:
-                raise ValueError(f'{lot}: photo HTTP {response.status_code}')
-            sample = response.raw.read(10 * 1024 * 1024 + 1, decode_content=True)
+        limit = 10 * 1024 * 1024
+        if originals is not None:
+            with (originals / f'{lot}.jpg').open('rb') as source:
+                sample = source.read(limit + 1)
+        else:
+            image_url = picture['image_url']
+            url = urlsplit(image_url)
+            if url.scheme != 'https' or url.netloc not in {'openaccess-cdn.clevelandart.org', 'upload.wikimedia.org'}:
+                raise ValueError(f'{lot}: unexpected photo origin')
+            with requests.get(image_url, stream=True, timeout=(5, 12), allow_redirects=False,
+                              headers={'User-Agent': 'Vintage-UA-eBay-acceptance/1.0 (public study)'}) as response:
+                if response.status_code != 200:
+                    raise ValueError(f'{lot}: photo HTTP {response.status_code}')
+                sample = response.raw.read(limit + 1, decode_content=True)
+        if len(sample) > limit:
+            raise ValueError(f'{lot}: photo is larger than the pilot limit')
         if sha256(sample).hexdigest() != picture['sha256']:
             raise ValueError(f'{lot}: public original checksum changed')
         folder = root / lot
@@ -169,10 +176,13 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--execute', action='store_true')
     mode.add_argument('--prepare', action='store_true')
+    parser.add_argument('--originals', type=Path, help='Read verified public originals from this directory.')
     args = parser.parse_args()
+    if args.originals and not args.prepare:
+        parser.error('--originals requires --prepare')
     try:
         if args.prepare:
-            prepare(args.root.resolve())
+            prepare(args.root.resolve(), args.originals)
         print(json.dumps(evaluate(args.root.resolve(), execute=args.execute), ensure_ascii=False, indent=2))
     except (OSError, KeyError, ValueError, RuntimeError) as exc:
         parser.exit(2, f'{exc}\n')

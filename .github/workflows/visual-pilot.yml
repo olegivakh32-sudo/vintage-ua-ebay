@@ -30,7 +30,8 @@ jobs:
           printf 'PILOT_ROOT=%s\n' "$PILOT_ROOT" >> "$GITHUB_ENV"
           python3 -m venv .pilot-venv
           .pilot-venv/bin/pip -q install -r requirements.txt
-          timeout 90s .pilot-venv/bin/python visual_acceptance.py "$PILOT_ROOT" --prepare > /dev/null
+          timeout 90s .pilot-venv/bin/python visual_acceptance.py "$PILOT_ROOT" --prepare \
+            --originals test_artifacts/vision-pilot > /dev/null
       - name: Verify secret is configured
         env:
           OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
@@ -56,6 +57,7 @@ jobs:
           if [[ -f "$PILOT_ROOT/A03/manifest.json" ]]; then
             umask 077
             .pilot-venv/bin/python visual_acceptance.py "$PILOT_ROOT" > "$RUNNER_TEMP/vintage-pilot-comparison.json"
+            cat "$RUNNER_TEMP/vintage-pilot-comparison.json"
           fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
