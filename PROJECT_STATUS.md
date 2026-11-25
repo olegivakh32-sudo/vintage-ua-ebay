@@ -16,7 +16,7 @@
 
 ## Практичне приймання Android 5
 
-- Розгортання Android 5 з `d2f1a9b` завершилось 25.11.2026 о 14:06 за Києвом. Під час відновлення сесії Render підтвердив статус live, HTTPS повернув сторінку власника й обмежив доступ без входу. Платний ШІ та публікація заблоковані. [Вебверсія](https://vintage-ua-ebay-p094-test.onrender.com/mobile) · [CI сервера](https://github.com/olegivakh32-sudo/vintage-ua-ebay/actions/runs/45610089768)
+- Поточне розгортання Android 5 з `0b862be`, `dep-dc3g1sjm8hqs7391s080`, завершилось 25.11.2026 о 17:39 за Києвом. Після оновлення HTTPS-прогін повторно перевірив приватний доступ, 12 синтетичних оригіналів і блокування платного ШІ та реальної публікації. [Вебверсія](https://vintage-ua-ebay-p094-test.onrender.com/mobile) · [CI сервера](https://github.com/olegivakh32-sudo/vintage-ua-ebay/actions/runs/45647120341)
 - Тестовий APK із клієнтської збірки `dcb9763` доступний без ZIP. SHA-256 HTTPS-завантаження збігається зі збіркою CI. AAB для Play залишається непідписаним. [Прямий APK](https://vintage-ua-ebay-p094-test.onrender.com/mobile/android.apk) · [Артефакти клієнта](https://github.com/olegivakh32-sudo/vintage-ua-ebay/actions/runs/45558289774)
 - Наступна дія приймання — власник перевіряє вхід на фізичному Android і завантажує LOT004, зберігаючи вихідні файли на телефоні. Тимчасова копія Render придатна для перевірки та експорту під час сеансу. Пілот одного лота до $0,25 потребує окремого погодження. [Контрольний звіт](ACCEPTANCE_REPORT.md)
 
