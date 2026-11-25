@@ -39,10 +39,11 @@ import math
 import tempfile
 import statistics
 import threading
+from contextlib import closing
 from datetime import date
 from decimal import Decimal, DecimalException, InvalidOperation, ROUND_CEILING, ROUND_HALF_UP, localcontext
 from io import BytesIO
-from zipfile import ZIP_STORED, ZipFile
+from zipfile import BadZipFile, ZIP_STORED, ZipFile
 from itsdangerous import BadSignature, URLSafeSerializer
 from PIL import Image, ImageEnhance, ImageOps, ImageStat, ImageFilter
 
@@ -59,8 +60,12 @@ from catalog_policy import (
     selectable_aspects,
 )
 from identity_evidence import corroborated_value, identity_claims
+from hold_package import export_package, staged_import
 from market_evidence import comparable_reference
-from market_profit import RATE_DOCS, amount, currency_evidence, kyiv_today, official_usd_rate, projection
+from market_profit import (
+    DOMESTIC_URL, EBAY_FEES_URL, EBAY_INTL_FEES_URL, OLX_FEES_URL, RATE_DOCS, TARIFFS_CHECKED, amount, basic_ebay_fee,
+    currency_evidence, domestic_base_quote, kyiv_today, official_usd_rate, olx_fee, projection,
+)
 from measurement_units import metric_value
 from mobile_photos import MEASUREMENT_HINT_VERSION, duplicate_photo_indices, image_sharpness, measurement_hint
 from owner_access import AUDIENCE, load_verifier, valid_pass
@@ -12994,6 +12999,95 @@ def hold_export():
     return response
 
 
+def _mobile_hold_signer():
+    return URLSafeSerializer(app.secret_key, salt='vintage-mobile-hold-package-v1')
+
+
+@app.get('/hold/package/<record_id>')
+def download_hold_package(record_id):
+    if not (_owner_https() and getattr(g, 'owner_authenticated', False) and os.environ.get('APP_SECRET')):
+        return 'Потрібен HTTPS-доступ власника та постійний ключ APP_SECRET.', 403
+    row = _p058_row(record_id)
+    if not row or row['status'] != 'active':
+        return 'Активний запис HOLD відсутній.', 404
+    archive = tempfile.SpooledTemporaryFile(max_size=4 * 1024 * 1024)
+    try:
+        record = json.loads(row['data'])
+        record['package_record_id'] = row['id']
+        export_package(archive, os.path.join(ACTIVE_LOT_CHECKPOINT_DIR, 'mobile_photos'),
+                       record, _mobile_hold_signer())
+        archive.seek(0)
+        response = send_file(archive, mimetype='application/zip', as_attachment=True,
+                             download_name=f"{row['sku']}-HOLD.zip", max_age=0)
+    except (OSError, ValueError, KeyError, TypeError):
+        archive.close()
+        return 'Не вдалося прочитати повний набір локальних фото цього лота.', 409
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
+
+
+@app.post('/hold/package')
+def restore_hold_package():
+    if not (_owner_https() and getattr(g, 'owner_authenticated', False) and os.environ.get('APP_SECRET')):
+        return 'Потрібен HTTPS-доступ власника та постійний ключ APP_SECRET.', 403
+    if not _p058_csrf_valid():
+        return 'Оновіть форму відновлення HOLD.', 403
+    file = request.files.get('package')
+    if not file:
+        return 'Виберіть ZIP-копію лота.', 400
+    root = os.path.join(ACTIVE_LOT_CHECKPOINT_DIR, 'mobile_photos')
+    try:
+        os.makedirs(root, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='.hold-import-', dir=root) as temporary:
+            staging = os.path.join(temporary, 'assets')
+            os.mkdir(staging)
+            folder, record = staged_import(file.stream, staging, _mobile_hold_signer())
+            rid = record.pop('package_record_id')
+            pid = record['snapshot']['picker_session_id']
+            lot = record['lot_number']
+            if (not re.fullmatch(r'[a-f0-9]{24}', rid) or type(lot) is not int or lot < 4
+                    or record['sku'] != f'LOT-{lot:03d}' or record['picker_id'] != pid
+                    or record['snapshot']['current_lot_number'] != lot):
+                raise ValueError('Invalid held lot')
+            original_snapshot = json.dumps(record['snapshot'], sort_keys=True)
+            record['offer_id'] = ''
+            record['photo_url'] = ''
+            record['snapshot']['ebay_media'] = []
+            draft = record['snapshot'].get('draft')
+            if isinstance(draft, dict):
+                draft['seller_reviewed'] = False
+                draft.pop('seller_confirmation_receipt', None)
+            target = os.path.join(root, folder)
+            with closing(_p058_db()) as db, db:
+                db.execute('BEGIN IMMEDIATE')
+                rows = db.execute('SELECT * FROM hold_lots WHERE id=? OR sku=? OR picker_id=?',
+                                  (rid, record['sku'], pid)).fetchall()
+                if rows and not (len(rows) == 1 and rows[0]['id'] == rid and rows[0]['sku'] == record['sku']
+                                 and rows[0]['picker_id'] == pid and rows[0]['status'] == 'active'
+                                 and json.dumps(json.loads(rows[0]['data']).get('snapshot'), sort_keys=True)
+                                 == original_snapshot):
+                    return 'У HOLD є інша версія цього лота. Поточні дані збережено.', 409
+                if os.path.exists(target) and (not os.path.isdir(target) or os.listdir(target)):
+                    return 'Цей лот або його фото вже існують. Поточні дані збережено.', 409
+                db.execute('INSERT INTO hold_lots VALUES (?,?,?,?,?,?) '
+                           'ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated=excluded.updated',
+                           (rid, record['sku'], pid, 'active', json.dumps(record, ensure_ascii=False), time.time()))
+                db.execute("UPDATE hold_meta SET value=? WHERE key='next_lot'",
+                           (str(max(lot + 1, int(_p058_meta(db, 'next_lot') or 4))),))
+                _p058_bump(db)
+                os.rename(staging, target)
+                try:
+                    db.commit()
+                except Exception:
+                    os.rename(target, staging)
+                    raise
+    except (BadSignature, BadZipFile, KeyError, TypeError, ValueError, RuntimeError):
+        return 'ZIP неповний, пошкоджений або підписаний іншим ключем.', 400
+    except OSError:
+        return 'Сховище недоступне. Повторіть відновлення пізніше.', 503
+    return redirect('/ebay/hold-queue', code=303)
+
+
 @app.route('/hold/restore',methods=['POST'])
 def hold_restore():
     if not _p058_csrf_valid():return {'error':'Invalid HOLD form'},403
@@ -13099,6 +13193,9 @@ def ebay_hold_queue():
                 actions=f'<form action="/ebay/hold-queue/archive" method="post">{hidden}<input type="hidden" name="restore" value="yes"><button>Повернути в HOLD</button></form>'
             else:
                 actions=f'<form action="/ebay/hold-queue/publish" method="post" onsubmit="this.querySelector(&quot;button&quot;).disabled=true;this.querySelector(&quot;button&quot;).textContent=&quot;Готую до фінального підтвердження…&quot;;this.setAttribute(&quot;aria-busy&quot;,&quot;true&quot;)">{hidden}<button>Підготувати оголошення на eBay</button></form><form action="/ebay/hold-queue/open" method="post">{hidden}<button>Відкрити / продовжити без нового AI</button></form><form action="/ebay/hold-queue/archive" method="post">{hidden}<button style="background:#667085">Прибрати в архів</button></form>'
+                if (getattr(g, 'owner_authenticated', False) and os.environ.get('APP_SECRET')
+                        and str(row['picker_id']).startswith('mobile-')):
+                    actions += f'<a href="/hold/package/{rid}">Зберегти лот із фото</a>'
             price=('$'+str(data.get('price'))) if data.get('price') else 'Ціну ще не визначено'
             reason=reason_names.get(data.get('reason'),data.get('reason') or 'HOLD')
             when=time.strftime('%d.%m.%Y %H:%M UTC',time.gmtime(float(row['updated'])))
@@ -13110,6 +13207,11 @@ def ebay_hold_queue():
         pager=''
         if offset>0:pager+=f'<a href="?archive={int(archive)}&offset={max(0,offset-50)}">← Попередні</a> '
         if offset+50<total:pager+=f'<a href="?archive={int(archive)}&offset={offset+50}">Наступні →</a>'
+        portable = (f'<details><summary>Відновити лот із фото</summary><form method="post" action="/hold/package" '
+                    f'enctype="multipart/form-data">{hidden_field("hold_csrf", token)}'
+                    '<label>ZIP-копія лота <input type="file" name="package" accept=".zip,application/zip" required></label>'
+                    '<button>Відновити до HOLD</button></form></details>'
+                    if getattr(g, 'owner_authenticated', False) and os.environ.get('APP_SECRET') else '')
         body=f'''<h2>HOLD — {'архів' if archive else 'відкладені лоти'}</h2>
 <p><a href="/ebay/hold-queue">Активний HOLD</a> · <a href="/ebay/hold-queue?archive=1">Архів / опубліковані</a></p>
 <p><b>Записів: {total}.</b> Назва, фото й підготовлені дані зберігаються разом. Відкриття черги не запускає AI та не шукає всі товари на eBay.</p>
@@ -13117,6 +13219,7 @@ def ebay_hold_queue():
 <div style="display:flex;gap:8px;flex-wrap:wrap">{add}{clear}</div>{_p059_hold_next_button()}
 {''.join(cards) if cards else '<p>Черга порожня. Додавайте сюди нові лоти кнопкою HOLD або після створення неопублікованої пропозиції.</p>'}{pager}
 <hr><p><a href="/hold/export">Завантажити резервну копію HOLD</a></p>
+{portable}
 <details><summary>Відновити HOLD з файлу</summary><p>Поточні записи зберігаються; дублікати не замінюються. Потрібен той самий APP_SECRET.</p><input id="hold-backup-file" type="file" accept=".json,application/json"><button type="button" onclick="importHoldBackup()">Додати записи з копії</button><p id="hold-import-status" role="status"></p></details>
 <p><small>Очищення переносить записи цього HOLD в архів. Старі пропозиції eBay автоматично не імпортуються й не видаляються. Для збереження на іншому пристрої користуйтеся файлом копії або постійним диском сервера.</small></p>'''
         response=app.make_response(page('Vintage UA HOLD',body));response.headers['Cache-Control']='no-store';return response
@@ -13443,6 +13546,15 @@ _PROFIT_EXPENSE_LABELS = {
     'ad_uah': 'Реклама, грн', 'tax_uah': 'Резерв на податки, грн',
     'conversion_uah': 'Конвертація, грн', 'returns_uah': 'Резерв повернень, грн', 'other_uah': 'Інші витрати, грн',
 }
+_PROFIT_CHOICES = {
+    'us_intl_model': {'unknown': 'Потрібен профіль eBay',
+                      'europe_non_eu': 'Europe Unsited (поза ЄС) · 1,3%',
+                      'eu_unsited': 'EU Unsited до США · 1,6%'},
+    'ua_fee_model': {'olx_private': 'OLX Доставка · приватний продаж',
+                     'olx_business': 'OLX Доставка · бізнес', 'manual': 'Інший майданчик'},
+    'ua_delivery_mode': {'buyer': 'OLX Доставку оплачує покупець',
+                         'ukrposhta': 'Продавець · Укрпошта Базовий по Україні', 'manual': 'Інший маршрут'},
+}
 
 
 def _profit_input_fields():
@@ -13454,7 +13566,49 @@ def _profit_input_fields():
                            (f'{market}_buyer_shipping_{currency}', f'Доставка, сплачена покупцем, {label}')]
         markets[market] += [(f'{market}_{name}', text + (f', {label}' if name == 'fixed_fee' else ''))
                             for name, text in _PROFIT_EXPENSE_LABELS.items()]
+    markets['us'].append(('us_checkout_tax_usd', 'Податок із замовлення покупця, USD'))
     return common, markets
+
+
+def _profit_published_costs(values, draft, notes):
+    fees, pending = {}, {}
+    if not any(values.get(f'us_{key}') for key in ('fee_pct', 'fixed_fee')):
+        price = amount(values.get('us_price_usd'))
+        shipping = amount(values.get('us_buyer_shipping_usd'))
+        tax = amount(values.get('us_checkout_tax_usd'))
+        if price and shipping is not None and draft.get('category_marketplace_id', 'EBAY_US') == 'EBAY_US':
+            base = price + shipping + (tax or 0)
+            fee = basic_ebay_fee(draft.get('category_path'), base)
+            if fee is not None:
+                international = {'europe_non_eu': Decimal('.013'), 'eu_unsited': Decimal('.016')}.get(
+                    values.get('us_intl_model'))
+                fees['us'] = fee + base * (international or 0)
+                pending['us'] = ['ebay_account'] if international is None else []
+                if tax is None:
+                    pending['us'].append('checkout_tax')
+                notes.append(f'Базова комісія eBay.com без Store за таблицею, звіреною {TARIFFS_CHECKED}. '
+                             f'Міжнародні та договірні збори залежать від акаунта. {EBAY_FEES_URL}')
+                if international is not None:
+                    notes.append(f'Міжнародна комісія за вибраним режимом акаунта. {EBAY_INTL_FEES_URL}')
+    if values.get('ua_fee_model') in {'olx_private', 'olx_business'}:
+        if not any(values.get(f'ua_{key}') for key in ('fee_pct', 'fixed_fee')):
+            fee = olx_fee(values.get('ua_price_uah'), business=values['ua_fee_model'] == 'olx_business')
+            if fee is not None:
+                fees['ua'] = fee
+                notes.append(f'Комісію успішного продажу з OLX Доставкою звірено {TARIFFS_CHECKED}. {OLX_FEES_URL}')
+        if values.get('ua_delivery_mode') == 'buyer':
+            values.setdefault('ua_buyer_shipping_uah', '0')
+            values.setdefault('ua_postage_uah', '0')
+    if values.get('ua_delivery_mode') == 'ukrposhta' and not values.get('ua_postage_uah'):
+        fee = domestic_base_quote(draft.get('packed_weight'), draft.get('package_dimensions'),
+                                  values.get('ua_price_uah'))
+        if fee is not None:
+            values['ua_postage_uah'] = str(fee)
+            values.setdefault('ua_buyer_shipping_uah', '0')
+            notes.append(f'Укрпошта Базовий між областями за габаритами пакунка, без післяплати. {DOMESTIC_URL}')
+            if values.get('ua_fee_model') in {'olx_private', 'olx_business'}:
+                pending['ua'] = ['olx_carrier']
+    return fees, pending
 
 
 def _profit_suggestions(picker_id, permitted):
@@ -13462,8 +13616,9 @@ def _profit_suggestions(picker_id, permitted):
         profile = json.loads(os.environ.get('VINTAGE_PROFIT_PROFILE', '{}'))
     except (TypeError, ValueError):
         profile = {}
-    values = {key: str(value) for key, value in profile.items()
-              if key in permitted and amount(value) is not None} if isinstance(profile, dict) else {}
+    values = {key: str(value) for key, value in profile.items() if key in permitted and
+              (str(value) in _PROFIT_CHOICES[key] if key in _PROFIT_CHOICES else amount(value) is not None)
+              } if isinstance(profile, dict) else {}
     notes = ['Витрати беруться з налаштованого профілю продавця.'] if values else []
     draft = LOT002_DRAFT_CACHE.get(picker_id) or {}
     market = MARKET_CACHE.get(picker_id) or ''
@@ -13508,7 +13663,7 @@ def market_compare():
     picker_id = session.get('picker_session_id')
     common, markets = _profit_input_fields()
     fields = common + markets['us'] + markets['ua']
-    permitted = {key for key, _ in fields}
+    permitted = {key for key, _ in fields} | _PROFIT_CHOICES.keys()
     values, notes, quote = _profit_suggestions(picker_id, permitted)
     saved = dict((MARKET_COMPARISON_CACHE.get(picker_id) or {}).get('inputs') or {})
     for side, currency in (('us', 'usd'), ('ua', 'uah')):
@@ -13520,6 +13675,8 @@ def market_compare():
     if request.method == 'POST':
         overrides.update({key: request.form[key].strip() for key in permitted if key in request.form})
     values.update({key: value for key, value in overrides.items() if value})
+    for key, options in _PROFIT_CHOICES.items():
+        values.setdefault(key, next(iter(options)))
     if not values.get('fx_uah_per_usd'):
         rate = official_usd_rate()
         if rate:
@@ -13530,11 +13687,13 @@ def market_compare():
     quote_base = amount(quote.get('base_usd'))
     fx = amount(values.get('fx_uah_per_usd'))
     if quote_base is not None and fx and not values.get('us_postage_uah'):
-        values['us_postage_uah'] = str(quote_base * fx)
-        notes.append('Доставка США оцінена за базовим тарифом Укрпошти для збереженої посилки.')
-        if quote.get('source'):
-            notes.append(str(quote['source']))
-    errors = []
+        vat = amount(quote.get('vat_on_domestic_portion_uah'))
+        values['us_postage_uah'] = str(quote_base * fx + (vat or 0))
+        notes.append('Доставка США оцінена за базовим тарифом Укрпошти для збереженої посилки з доступним ПДВ.')
+        if quote.get('tariff_source'):
+            notes.append(str(quote['tariff_source']))
+    errors = ['Сценарій продажу або доставки'
+              for key, options in _PROFIT_CHOICES.items() if values[key] not in options]
     for key, label in fields:
         if values.get(key):
             amount_value = amount(values[key])
@@ -13550,7 +13709,9 @@ def market_compare():
             else:
                 MARKET_COMPARISON_CACHE[picker_id] = previous
             return page('Прибуток', '<p>Не вдалося зберегти уточнення. Повторіть збереження.</p>'), 503
-    projections = {market: projection(values, market) if not errors else None for market in markets}
+    fees, pending = _profit_published_costs(values, LOT002_DRAFT_CACHE.get(picker_id) or {}, notes)
+    projections = {market: projection(values, market, published_fee=fees.get(market),
+                                      pending=pending.get(market, ())) if not errors else None for market in markets}
     escape = lambda value: html.escape(str(value), quote=True)
     def money(value):
         with localcontext() as context:
@@ -13558,7 +13719,9 @@ def market_compare():
             return f'{value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP):f}'
 
     missing_labels = dict(_PROFIT_EXPENSE_LABELS, buyer_shipping='Доставка покупця',
-                          cost='Собівартість', ai='Витрати на ШІ')
+                          cost='Собівартість', ai='Витрати на ШІ', ebay_account='Збори акаунта eBay',
+                          checkout_tax='Податок у замовленні покупця',
+                          olx_carrier='Договірний тариф OLX Доставки')
     result_cards = []
     for market, name in (('us', 'США'), ('ua', 'Україна')):
         result = projections[market]
@@ -13573,7 +13736,9 @@ def market_compare():
             detail = '<p>Потребує уточнення · ' + escape(', '.join(missing_labels[key] for key in pending)) + '.</p>'
         elif result['roi'] is not None:
             detail = '<p>Рентабельність витрат · ' + money(result['roi']) + '%.</p>'
+        fee_line = (f'<p>Розрахована комісія · {money(result["fees"])} грн.</p>' if market in fees else '')
         result_cards.append(f'<section><h3>{name}</h3><p>{label} · <strong>{money(result["net"])} грн</strong></p>'
+                            f'{fee_line}'
                             f'<p>Маржа за врахованими даними · {money(result["margin"])}%.</p>{detail}</section>')
     winner = ''
     if all(result and not result['missing'] for result in projections.values()):
@@ -13588,7 +13753,18 @@ def market_compare():
                        f'value="{escape(values.get(key,""))}"></label>' for key, label in group)
 
     errors_html = ('<p role="alert">Перевірте числа · ' + escape(', '.join(errors)) + '.</p>') if errors else ''
-    sources = ''.join('<li>' + escape(note) + '</li>' for note in notes)
+    sources = ''.join('<li>' + ''.join(
+        f'<a href="{escape(part)}" rel="noopener noreferrer">{escape(part)}</a>'
+        if part.startswith('https://') else escape(part)
+        for part in re.split(r'(https://[^\s<>]+)', note)
+    ) + '</li>' for note in notes)
+    options_html = {}
+    for key, options in _PROFIT_CHOICES.items():
+        name = {'us_intl_model':'Міжнародний режим eBay', 'ua_fee_model':'Майданчик',
+                'ua_delivery_mode':'Хто сплачує доставку'}[key]
+        choices = ''.join(f'<option value="{option}" {"selected" if values[key] == option else ""}>{label}</option>'
+                          for option, label in options.items())
+        options_html[key] = f'<label>{name}<select name="{key}">{choices}</select></label>'
     body = ('<h2>США / Україна — порівняння прибутку</h2>'
             '<p>Сценарій для одного товару або всього комплекту. Ціни пропозицій можуть відрізнятися від цін продажу.</p>'
             f'{errors_html}<div class="profit-cards">{"".join(result_cards)}</div>{winner}'
@@ -13596,8 +13772,10 @@ def market_compare():
             '<details><summary>Уточнити ціни й витрати</summary><form method="post">'
             + hidden_field('hold_csrf', _p058_csrf()) + '<div class="profit-inputs">' + inputs(common)
             + '</div><div class="profit-cards"><section><h3>США</h3><div class="profit-inputs">'
-            + inputs(markets['us']) + '</div></section><section><h3>Україна</h3><div class="profit-inputs">'
-            + inputs(markets['ua']) + '</div></section></div><button>Перерахувати</button></form></details>')
+            + options_html['us_intl_model'] + inputs(markets['us'])
+            + '</div></section><section><h3>Україна</h3><div class="profit-inputs">'
+            + options_html['ua_fee_model'] + options_html['ua_delivery_mode'] + inputs(markets['ua'])
+            + '</div></section></div><button>Перерахувати</button></form></details>')
     return page('США / Україна — прибуток', body), (400 if errors else 200)
 
 
@@ -14134,7 +14312,7 @@ def mobile_acceptance_package():
                     archive.close()
                     return page('Контрольний пакет', f'<h2>Оригінал кадру №{index} недоступний</h2>'), 409
                 with Image.open(BytesIO(raw)) as image:
-                    extension = {'JPEG': 'jpg', 'PNG': 'png', 'WEBP': 'webp'}[image.format]
+                    extension = {'JPEG': 'jpg', 'MPO': 'jpg', 'PNG': 'png', 'WEBP': 'webp'}[image.format]
                 name = f'photos/{index:02d}.{extension}'
                 package.writestr(name, raw)
                 files.append(name)
@@ -14166,11 +14344,11 @@ def _mobile_upload_success(items):
 
 def _mobile_prepare_photo(raw, name):
     with Image.open(BytesIO(raw)) as image:
-        if image.format not in ('JPEG', 'PNG', 'WEBP'):
+        if image.format not in ('JPEG', 'MPO', 'PNG', 'WEBP'):
             raise ValueError('Підтримуються формати JPEG, PNG і WEBP.')
         if image.width * image.height > 64_000_000:
             raise OverflowError('Роздільність фото перевищує 64 мегапікселі.')
-        if image.format == 'JPEG':
+        if image.format in ('JPEG', 'MPO'):
             image.draft('RGB', (2400, 2400))
         image.thumbnail((2400, 2400))
         oriented = ImageOps.exif_transpose(image).convert('RGB')

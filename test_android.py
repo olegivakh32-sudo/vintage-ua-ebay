@@ -358,6 +358,20 @@ class AndroidTests(unittest.TestCase):
             capped.bound(text)
         self.assertEqual(capped.attempts, 1)
 
+    def test_vision_only_pilot_has_one_image_request_and_no_web_budget(self):
+        from ai_pilot import VISION_MAXIMUM, acceptance_gaps
+
+        limits = PilotLimits(VISION_MAXIMUM, vision_only=True)
+        with self.assertRaisesRegex(RuntimeError, 'один запит'):
+            limits.bound({'input': 'text', 'max_output_tokens': 2000, 'tools': [{'type': 'web_search'}]})
+        limits.bound({'input': 'text', 'max_output_tokens': 2000})
+        self.assertEqual(limits.reserved_total, Decimal('.0204'))
+        with self.assertRaisesRegex(RuntimeError, 'спроб'):
+            limits.bound({'input': 'text', 'max_output_tokens': 2000})
+        reference = {'lot': 'Blind public specimen', 'reference': {'identity': ['teapot']}}
+        self.assertEqual(acceptance_gaps(reference, [self._jpeg()], vision_only=True), [])
+        self.assertTrue(acceptance_gaps(reference, [self._jpeg()]))
+
     def test_pilot_saves_reservation_before_returning_network_payload(self):
         import json
         from pathlib import Path

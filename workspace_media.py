@@ -12,7 +12,7 @@ from workspace_photo_review import review_status
 
 MAX_PHOTO_BYTES = 10 * 1024 * 1024
 MAX_ACCOUNT_BYTES = 256 * 1024 * 1024
-MIMES = {'JPEG': 'image/jpeg', 'PNG': 'image/png', 'WEBP': 'image/webp'}
+MIMES = {'JPEG': 'image/jpeg', 'MPO': 'image/jpeg', 'PNG': 'image/png', 'WEBP': 'image/webp'}
 
 
 def prepare_photo(upload):
@@ -24,7 +24,7 @@ def prepare_photo(upload):
             mime = MIMES.get(source.format)
             if not mime or source.width * source.height > 50_000_000:
                 raise ValueError('Unsupported photo')
-            if source.format == 'JPEG':
+            if source.format in ('JPEG', 'MPO'):
                 source.draft('RGB', (1800, 1800))
             picture = ImageOps.exif_transpose(source)
             picture.thumbnail((1800, 1800), Image.Resampling.LANCZOS)

@@ -30,6 +30,7 @@ PILOT_MODELS = {
     'gpt-5-mini-2025-08-07': (400_000, Decimal('0.25'), Decimal('2.00')),
 }
 PILOT_MAXIMUM = Decimal('0.25')
+VISION_MAXIMUM = Decimal('0.0204')  # 128,000 input tokens and no more than 2,000 output tokens.
 WORST_CASE_RESERVATION = sum(
     (calls * (context * input_rate + 5200 * output_rate) / 1_000_000
      for calls, (context, input_rate, output_rate) in zip((4, 1), PILOT_MODELS.values())),
@@ -43,6 +44,11 @@ class PilotLimits:
     reservations: list = field(default_factory=list)
     sent_research: bool = False
     on_reserve: Callable[[], None] | None = None
+    vision_only: bool = False
+
+    @property
+    def attempt_limit(self):
+        return 1 if self.vision_only else 5
 
     @property
     def attempts(self):
@@ -53,13 +59,15 @@ class PilotLimits:
         return sum((row['reserved_usd'] for row in self.reservations), Decimal(0))
 
     def bound(self, payload, references=()):
-        if self.attempts >= 5:
+        if self.attempts >= self.attempt_limit:
             raise RuntimeError('Ліміт спроб пілота вичерпано.')
         output_cap = payload.get('max_output_tokens', 0)
         if type(output_cap) is not int or not 1 <= output_cap <= 5200:
             raise RuntimeError('Ліміт вихідних токенів пілота перевищено.')
         tools = payload.get('tools') or []
         research = bool(tools)
+        if self.vision_only and (research or output_cap > 2000):
+            raise RuntimeError('Візуальний пілот дозволяє тільки один запит без інструментів і до 2000 токенів відповіді.')
         if research and (self.sent_research or len(tools) != 1 or tools[0].get('type') != 'web_search'):
             raise RuntimeError('Дозволений один етап дослідження за збереженими джерелами.')
         model = 'gpt-5-mini-2025-08-07' if research else 'gpt-4o-mini-2024-07-18'
@@ -155,7 +163,7 @@ def inspect_photos(photos):
     results = []
     for number, photo in enumerate(photos, 1):
         with Image.open(photo) as image:
-            if image.format not in {'JPEG', 'PNG', 'WEBP'} or image.width * image.height > 64_000_000:
+            if image.format not in {'JPEG', 'MPO', 'PNG', 'WEBP'} or image.width * image.height > 64_000_000:
                 raise ValueError(f'Непідтримуваний формат або розмір фото №{number}.')
             image.thumbnail((2400, 2400))
             hint = measurement_hint(ImageOps.exif_transpose(image), photo.name)
@@ -182,7 +190,7 @@ def run(data, photos, limits):
         bounded = limits.bound(payload, data.get('sources', []))
         return actual_api(bounded, timeout, picker, final_draft_slot)
 
-    taxonomy = data['taxonomy']
+    taxonomy = data.get('taxonomy') or {}
 
     def recorded_taxonomy(method, url, **kwargs):
         if method == 'GET' and url.endswith('/get_default_category_tree_id'):
@@ -226,7 +234,7 @@ def run(data, photos, limits):
 
         stage_a = prepare('photos')
         analysis = vintage.ANALYSIS_CACHE.get(picker, '')
-        stage_bc = prepare('research') if stage_a.status_code == 200 else None
+        stage_bc = prepare('research') if stage_a.status_code == 200 and not limits.vision_only else None
         identification = vintage.IDENTIFICATION_CACHE.get(picker, '')
         market = vintage.MARKET_CACHE.get(picker, '')
         if market:
@@ -243,11 +251,18 @@ def run(data, photos, limits):
             stage_d = prepare('draft')
             draft = vintage.LOT002_DRAFT_CACHE.get(picker, {})
         kind = str(identity.get('type') or '')
+        visual_observations = vintage._research_machine_json(analysis, 'PRODUCT_OBSERVATIONS_JSON')
+        visual_facts = vintage.build_product_evidence(
+            visual_observations.get('fields') if isinstance(visual_observations.get('fields'), list) else [],
+            [], {}, {}, len(photos),
+        ) if limits.vision_only else {}
+        if limits.vision_only:
+            kind = vintage.photo_type(visual_facts)
         category_draft = dict(draft) if draft else {'title': kind, 'item_specifics': {'Type': kind}}
         category_draft['visual_object_type'] = facts.get('object_type') or ''
         category_id, category_note = None, None
         with vintage.app.test_request_context(), patch.object(vintage, '_lot002_request', recorded_taxonomy):
-            if kind and kind.upper() != 'UNKNOWN':
+            if kind and kind.upper() != 'UNKNOWN' and not limits.vision_only:
                 try:
                     candidate, label = vintage._current_category('recorded', category_draft['title'], category_draft)
                     category_draft.update(category_id=candidate, category_name=label)
@@ -258,7 +273,7 @@ def run(data, photos, limits):
                     category_note = str(exc)
         with client.session_transaction() as session:
             order = session.get('photo_order', [])
-        evidence = draft.get('product_evidence') or {}
+        evidence = draft.get('product_evidence') or visual_facts
         observed = {
             field: list(dict.fromkeys(row['value'] for row in evidence.get(field, [])
                                       if row['status'] in {'PHOTO_OBSERVATION', 'SELLER_VERIFIED'}))
@@ -272,7 +287,8 @@ def run(data, photos, limits):
             'defects': '\n'.join(observed['defect']) or None,
             'ocr': '\n'.join(dict.fromkeys(mark['literal'] for mark in facts.get('markings', []))),
             'category_id': category_id, 'admitted': False,
-            'category_source': 'recorded_taxonomy', 'category_note': category_note,
+            'category_source': None if limits.vision_only else 'recorded_taxonomy',
+            'category_note': category_note,
             'stage_http': {'visual': stage_a.status_code, 'research': stage_bc.status_code if stage_bc else None,
                            'draft': stage_d.status_code if stage_d else None},
             'stage_messages': [stage.json['error'] for stage in (stage_a, stage_bc, stage_d)
@@ -288,6 +304,11 @@ def run(data, photos, limits):
                 for row in limits.reservations
             ],
         }
+        if limits.vision_only:
+            report['product_evidence'] = visual_facts
+            for field in ('brand', 'model', 'country', 'material', 'period'):
+                options = {row['value'] for row in visual_facts.get(field, [])}
+                report[field] = next(iter(options)) if len(options) == 1 else None
         report['reference'] = data.get('reference', {})
         report['comparison'] = compare_reference(report['reference'], report)
         return report
@@ -361,7 +382,7 @@ def write_report(path, data):
             temporary.unlink(missing_ok=True)
 
 
-def acceptance_gaps(data, photos):
+def acceptance_gaps(data, photos, vision_only=False):
     gaps = []
     lot004 = bool(re.fullmatch(r'LOT[ -]*0*4', data['lot'].strip(), re.IGNORECASE))
     if lot004 and len(photos) != 12:
@@ -369,7 +390,7 @@ def acceptance_gaps(data, photos):
     if not isinstance(data.get('reference'), dict) or not data['reference']:
         gaps.append('Для реального пілота потрібні незалежні еталони.')
     taxonomy = data.get('taxonomy') or {}
-    if (not isinstance(taxonomy, dict) or not taxonomy.get('tree_id')
+    if not vision_only and (not isinstance(taxonomy, dict) or not taxonomy.get('tree_id')
             or not isinstance(taxonomy.get('suggestions'), list) or not taxonomy['suggestions']
             or not isinstance(taxonomy.get('aspects_by_category'), dict) or not taxonomy['aspects_by_category']):
         gaps.append('Для реального пілота потрібен збережений знімок таксономії eBay.')
@@ -394,20 +415,23 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('manifest', type=Path)
     parser.add_argument('--execute', action='store_true')
+    parser.add_argument('--vision-only', action='store_true', help='One visual request. Excludes category, pricing and publishing.')
     parser.add_argument('--report', type=Path)
-    parser.add_argument('--budget-usd', '--estimated-stop-usd', dest='budget_usd', type=Decimal, default=PILOT_MAXIMUM)
+    parser.add_argument('--budget-usd', '--estimated-stop-usd', dest='budget_usd', type=Decimal)
     args = parser.parse_args()
     try:
         data, photos = inputs(args.manifest)
-        if not args.budget_usd.is_finite() or not 0 < args.budget_usd <= Decimal('0.25'):
-            raise ValueError('Ліміт має бути додатним і не перевищувати 0.25 USD.')
-        limits = PilotLimits(args.budget_usd)
-        gaps = acceptance_gaps(data, photos)
+        maximum = VISION_MAXIMUM if args.vision_only else PILOT_MAXIMUM
+        budget = args.budget_usd if args.budget_usd is not None else maximum
+        if not budget.is_finite() or not 0 < budget <= maximum:
+            raise ValueError(f'Ліміт має бути додатним і не перевищувати {maximum} USD.')
+        limits = PilotLimits(budget, vision_only=args.vision_only)
+        gaps = acceptance_gaps(data, photos, args.vision_only)
         if not args.execute:
             print(json.dumps({
                 'lot': data['lot'], 'photos': inspect_photos(photos),
-                'attempt_limit': 5, 'budget_usd': str(limits.budget_usd), 'paid_calls': 0,
-                'worst_case_reservation_usd': str(WORST_CASE_RESERVATION),
+                'attempt_limit': limits.attempt_limit, 'budget_usd': str(limits.budget_usd), 'paid_calls': 0,
+                'worst_case_reservation_usd': str(VISION_MAXIMUM if args.vision_only else WORST_CASE_RESERVATION),
                 'missing_acceptance_inputs': gaps, 'ready_for_separate_approval': not gaps,
             }, ensure_ascii=False, indent=2))
             return 0
@@ -425,6 +449,7 @@ def main():
             write_report(args.report, {
                 'lot': data['lot'], 'status': status, 'attempts': limits.attempts,
                 'budget_usd': str(limits.budget_usd), 'reserved_usd': str(limits.reserved_total),
+                'stage': 'VISION_ONLY' if limits.vision_only else 'FULL',
                 'reservations': [dict(row, reserved_usd=str(row['reserved_usd'])) for row in limits.reservations],
             })
 
@@ -435,7 +460,7 @@ def main():
         except Exception:
             reserve_report('interrupted')
             raise
-        result['mode'] = 'APPROVED_PILOT'
+        result['mode'] = 'APPROVED_VISION_ONLY' if limits.vision_only else 'APPROVED_PILOT'
         write_report(args.report, result)
         print(f'Звіт: {args.report}. Спроб API: {limits.attempts}.')
         return 0

@@ -58,6 +58,36 @@ class MarketProfitTests(unittest.TestCase):
         self.assertEqual(m._market_bin_price(text), '')
         self.assertTrue(m._market_price_quality(text.replace('200', '40'))['ok'])
 
+    def test_public_fees_and_postage_have_market_and_scope_limits(self):
+        self.assertEqual(profit.basic_ebay_fee('Home & Garden > Desk Lamps', 10), Decimal('1.66'))
+        self.assertEqual(profit.basic_ebay_fee('Books & Magazines > Books', 100), Decimal('15.70'))
+        self.assertEqual(profit.basic_ebay_fee('Cameras & Photo > Cameras', 7600), Decimal('1022.75'))
+        self.assertIsNone(profit.basic_ebay_fee('Jewelry & Watches > Watches', 100))
+        self.assertIsNone(profit.basic_ebay_fee('Coins & Paper Money > Bullion > Gold', 100))
+        self.assertEqual(profit.olx_fee('300', business=True), Decimal(29))
+        self.assertEqual(profit.olx_fee('30000'), Decimal(499))
+        self.assertEqual(profit.domestic_base_quote(2, '15 x 10 x 10 cm', 500), Decimal(50))
+        self.assertEqual(profit.domestic_base_quote(2, '15 x 10 x 10 cm', 600), Decimal(53))
+        self.assertEqual(profit.domestic_base_quote(6, '15 x 10 x 10 cm', 500), Decimal(110))
+        self.assertIsNone(profit.domestic_base_quote(31, '15 x 10 x 10 cm', 500))
+
+    def test_fixed_tariffs_use_checkout_tax_as_fee_base_and_hold_unknown_costs(self):
+        settings = {'us_price_usd': '100', 'us_buyer_shipping_usd': '10', 'us_checkout_tax_usd': '5',
+                    'us_intl_model': 'europe_non_eu', 'ua_price_uah': '1000', 'ua_fee_model': 'olx_business',
+                    'ua_delivery_mode': 'buyer', 'fx_uah_per_usd': '40'}
+        notes = []
+        fees, pending = m._profit_published_costs(settings, {'category_path': 'Home & Garden > Desk Lamps'}, notes)
+        self.assertEqual(fees['us'], Decimal('17.535'))
+        self.assertEqual(pending['us'], [])
+        self.assertEqual(fees['ua'], Decimal(50))
+        self.assertEqual(settings['ua_buyer_shipping_uah'], '0')
+        self.assertEqual(settings['ua_postage_uah'], '0')
+        result = profit.projection(settings, 'us', published_fee=fees['us'], pending=pending['us'])
+        self.assertIn('postage_uah', result['missing'])
+        self.assertNotIn('fee_pct', result['missing'])
+        self.assertEqual(result['net'], Decimal('3698.60'))
+        self.assertTrue(any('5224' in line or 'international-fees' in line for line in notes))
+
     def test_market_page_accepts_partial_inputs_and_clears_legacy_overrides(self):
         client = m.app.test_client()
         with client.session_transaction() as session:

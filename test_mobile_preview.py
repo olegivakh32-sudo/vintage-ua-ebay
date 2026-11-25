@@ -152,7 +152,7 @@ class PreviewRestartTests(unittest.TestCase):
                             self.assertEqual(health.status_code, 200)
                             self.assertFalse(health.json()['openai_configured'])
                             break
-                        except requests.ConnectionError:
+                        except (requests.ConnectionError, requests.Timeout):
                             if process.poll() is not None or monotonic() >= deadline:
                                 self.fail(log.read_text())
                             sleep(0.05)
