@@ -62,6 +62,7 @@
 - If price extraction fails, allow seller correction before Preflight rather than dead-ending.
 - Fixed-price Offers use GTC.
 - Use category-specific eBay condition policy; non-working/parts items should map conservatively.
+- Зберігати назви й категорії запасних частин та ремонтних комплектів. Продаж виробу на запчастини або ремонт потребує підтвердження стану для допуску. Ця перевірка застосовується також до фактичного опису на eBay.
 - Enable Best Offer only when eBay metadata says the category supports it.
 - Retry safe transient OpenAI/eBay reads; never create duplicate Offers after uncertain POST results.
 - Safety stops remain before consequential eBay writes/publication.
