@@ -40,7 +40,7 @@ import tempfile
 import statistics
 import threading
 from datetime import date
-from decimal import Decimal, DecimalException, InvalidOperation, ROUND_CEILING, ROUND_HALF_UP
+from decimal import Decimal, DecimalException, InvalidOperation, ROUND_CEILING, ROUND_HALF_UP, localcontext
 from io import BytesIO
 from zipfile import ZIP_STORED, ZipFile
 from itsdangerous import BadSignature, URLSafeSerializer
@@ -58,9 +58,14 @@ from catalog_policy import (
 )
 from identity_evidence import corroborated_value, identity_claims
 from market_evidence import comparable_reference
+from market_profit import RATE_DOCS, amount, currency_evidence, kyiv_today, official_usd_rate, projection
 from measurement_units import metric_value
 from mobile_photos import duplicate_photo_indices, image_sharpness, measurement_hint
 from owner_access import AUDIENCE, load_verifier, valid_pass
+from photo_assessment import (
+    EDIT_FIELDS, EVIDENCE_SCENES, SCENE_TYPES, VISUAL_VERSION,
+    composition_and_tone, edit_settings as normalize_photo_edits, mild_white_balance,
+)
 from product_codes import BARCODE_HINT_VERSION, catalogue_hints, read_retail_codes, research_identifier
 
 from flask import (
@@ -239,7 +244,7 @@ RESEARCH_SPEC_CACHE = {}
 PHOTO_ROLE_CACHE = {}
 EBAY_PHOTO_ROLES = frozenset({'EBAY_PRODUCT', 'EBAY_EVIDENCE'})
 PHOTO_REVIEW_VERSION = '2'
-PHOTO_HINT_VERSION = '3'
+PHOTO_HINT_VERSION = '4'
 
 # P026: per-LOT OpenAI usage/cost guard. Values are best-effort estimates from
 # Responses API usage fields; web-search calls are counted separately.
@@ -519,7 +524,7 @@ def _white_background_edge_connected(image):
     return Image.composite(white, rgb, mask)
 
 
-def _safe_photo_edit(image_bytes, brightness=1.0, contrast=1.0, color=1.0, sharpness=1.0):
+def _safe_photo_edit(image_bytes, brightness=1.0, contrast=1.0, color=1.0, sharpness=1.0, balanced=False):
     """Non-destructive eBay photo editor. No background segmentation or generative edits."""
     image = Image.open(BytesIO(image_bytes))
     image = ImageOps.exif_transpose(image)
@@ -528,24 +533,22 @@ def _safe_photo_edit(image_bytes, brightness=1.0, contrast=1.0, color=1.0, sharp
             bg=Image.new("RGB", image.size, "white"); rgba=image.convert("RGBA"); bg.paste(rgba, mask=rgba.getchannel("A")); image=bg
         else: image=image.convert("RGB")
     elif image.mode == "L": image=image.convert("RGB")
-    # Neutral defaults. Seller controls are intentionally bounded to keep defects/patina truthful.
-    brightness=max(0.75,min(1.30,float(brightness)))
-    contrast=max(0.75,min(1.30,float(contrast)))
-    color=max(0.70,min(1.35,float(color)))
-    sharpness=max(0.70,min(1.50,float(sharpness)))
-    if max(image.size)>1600: image.thumbnail((1600,1600),Image.Resampling.LANCZOS)
+    settings = normalize_photo_edits(dict(brightness=brightness, contrast=contrast, color=color, sharpness=sharpness))
+    brightness, contrast, color, sharpness = (settings[name] for name, _, _ in EDIT_FIELDS.values())
+    image.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+    if balanced:
+        image = mild_white_balance(image)
     image=ImageEnhance.Brightness(image).enhance(brightness) if brightness!=1 else image
     image=ImageEnhance.Contrast(image).enhance(contrast) if contrast!=1 else image
     image=ImageEnhance.Color(image).enhance(color) if color!=1 else image
     image=ImageEnhance.Sharpness(image).enhance(sharpness) if sharpness!=1 else image
-    if max(image.size)>1600: image.thumbnail((1600,1600),Image.Resampling.LANCZOS)
     out=BytesIO(); image.save(out,format="JPEG",quality=93,optimize=True); return out.getvalue()
 
 def _download_picker_photo(index, edited=False, max_side=2400, edit_settings=None):
+    settings = normalize_photo_edits(edit_settings or {})
+    sig = tuple(settings[name] for name, _, _ in EDIT_FIELDS.values()) + (settings.get('balanced', False),)
     _local_items=PHOTO_CACHE.get(session.get('picker_session_id')) or []
     if 1<=index<=len(_local_items) and _local_items[index-1].get('mobile_file'):
-        es=edit_settings or {}
-        sig=tuple(round(float(es.get(k,1.0)),3) for k in ('brightness','contrast','color','sharpness'))
         key=(session.get('picker_session_id'),index,max_side,sig,_local_items[index-1]['mobile_file'],bool(edited))
         if key in PHOTO_EDIT_CACHE:return PHOTO_EDIT_CACHE[key]
         raw=_mobile_local_bytes(_local_items[index-1])
@@ -564,8 +567,6 @@ def _download_picker_photo(index, edited=False, max_side=2400, edit_settings=Non
     if not base_url:
         raise ValueError("Google Photos baseUrl missing")
 
-    es=edit_settings or {}
-    sig=(round(float(es.get("brightness",1.0)),3),round(float(es.get("contrast",1.0)),3),round(float(es.get("color",1.0)),3),round(float(es.get("sharpness",1.0)),3))
     cache_key = (picker_id, index, max_side, sig)
     if edited and cache_key in PHOTO_EDIT_CACHE:
         return PHOTO_EDIT_CACHE[cache_key]
@@ -648,29 +649,19 @@ def picker_editor():
     roles = PHOTO_ROLE_CACHE.get(picker_id) if ready else {}
     if mobile and (not ready or request.args.get('roles') == '1' or not (set(roles.values()) & EBAY_PHOTO_ROLES)):
         options = []
-        for item in items:
-            _mobile_evidence_hint(item)
-        duplicates = duplicate_photo_indices({i: item.get('photo_fingerprint') for i, item in enumerate(items, 1)})
-        for i, item in enumerate(items, 1):
-            hint = item.get('measurement_hint')
+        for row in _mobile_photo_assessments(items):
+            i = row['photo']
             checked = ' checked' if roles.get(i) in EBAY_PHOTO_ROLES else ''
-            status = {'ruler': 'Можлива лінійка', 'scale': 'Можливі ваги', 'display': 'Цифровий дисплей'}.get(hint)
-            if not status:
-                status = ('Службовий кадр' if roles.get(i) == 'EVIDENCE_ONLY'
-                          else 'Потребує перевірки' if not checked else 'Фото товару')
-            if i in duplicates:
-                status += f' · Збігається з фото {duplicates[i]}'
-            elif item.get('photo_sharpness', 1) < .065:
-                status += ' · Перевірте різкість'
+            status = row['note']
             options.append(
-                f'<label class="photo-choice"><img src="/picker/thumb/{i}?size=200" loading="lazy" decoding="async" alt="">'
+                f'<label class="photo-choice"><img src="/picker/thumb/{i}?size=320" loading="lazy" decoding="async" alt="">'
                 f'<span><input type="checkbox" name="product_photo" value="{i}"{checked}> Фото {i}</span>'
-                f'<small>{status}</small></label>'
+                f'<small>{html.escape(status)}</small></label>'
             )
-        automatic = ''
-        if _paid_ai_enabled() and not ANALYSIS_CACHE.get(picker_id):
-            automatic = '<form method="post" action="/picker/analyze"><button>Розпізнати й розподілити фото за допомогою ШІ</button></form>'
         key = _mobile_role_review_key(picker_id, items)
+        automatic = _mobile_suggestions_form(key) if not ready else ''
+        if _paid_ai_enabled() and not ANALYSIS_CACHE.get(picker_id):
+            automatic += '<form method="post" action="/picker/analyze"><button>Розпізнати й розподілити фото за допомогою ШІ</button></form>'
         return page('Вибір фото товару', '<h2>Які фото показати на eBay?</h2>'
                     '<p>Позначте лише фото товару. Кадри з вагами, лінійкою, пакуванням та невизначені '
                     'залиште порожніми. Вони збережуться для вимірювання.</p>' + automatic +
@@ -689,26 +680,44 @@ def picker_editor():
     if missing:
         return _p085_recover_editor(picker_id, items, eligible)
     cards = []
+    tones = {row['photo']: row['tone'] for row in _mobile_photo_assessments(items)} if mobile else {}
+    snapshots = APPROVED_PHOTO_CACHE.get(picker_id) or {}
     auto_main = session.get('main_photo_mode') == 'auto' or not session.get('photo_editor_approved')
     effective_main = session.get('main_photo_index')
     for i in eligible:
+        snapshot = snapshots.get(i) or {}
+        saved = normalize_photo_edits(snapshot.get('settings') or {})
+        controls = []
+        for (prefix, (name, low, high)), label in zip(
+            EDIT_FIELDS.items(), ('Яскравість', 'Контраст', 'Насиченість', 'Різкість')
+        ):
+            value = saved[name]
+            controls.append(
+                f"<label>{label} <input class='ctl' data-k='{prefix}' type='range' "
+                f"min='{low}' max='{high}' step='0.005' value='{value}'>"
+                f"<input type='hidden' name='{prefix}_{i}' value='{value}' form='photo-approval-form'></label>"
+            )
+        balanced = int(saved.get('balanced', False))
+        settings = html.escape(json.dumps(tones.get(i, {})), quote=True)
+        params = '&amp;'.join(f'{prefix}={saved[name]}' for prefix, (name, _, _) in EDIT_FIELDS.items())
+        preview = (f'/picker/approved/{i}' if snapshot and session.get('photo_editor_approved')
+                   else f'/picker/edited/{i}?{params}&amp;wb={balanced}')
         cards.append(f"""
-        <div style='border:1px solid #ddd;border-radius:10px;padding:8px;margin-bottom:14px'>
-          <h3 style='margin:4px 0 8px'>Фото {i}</h3>
-          <label style='display:block;margin:6px 0 10px;font-size:17px;font-weight:bold'><input type='radio' name='main_photo' value='{i}' form='photo-approval-form' {'checked' if not auto_main and effective_main == i else ''}> Головне фото</label>
-          <div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>
-            <div><b>Оригінал</b><br><img src='/picker/thumb/{i}' loading='lazy' decoding='async' style='width:100%;max-height:280px;object-fit:contain;background:#f4f4f4'></div>
-            <div><b>Після редагування</b><br><img class='edited-preview' data-i='{i}' src='/picker/edited/{i}?b=1&c=1&s=1&h=1' loading='lazy' decoding='async' style='width:100%;max-height:280px;object-fit:contain;background:#f4f4f4'></div>
+        <section class='photo-card'>
+          <h3>Фото {i}</h3>
+          <label class='touch-label'><input type='radio' name='main_photo' value='{i}' form='photo-approval-form' {'checked' if not auto_main and effective_main == i else ''}> Головне фото</label>
+          <div class='editor-images'>
+            <div><b>Оригінал</b><br><img src='/picker/thumb/{i}?size=640' loading='lazy' decoding='async' alt='Оригінал фото {i}'></div>
+            <div><b>Після редагування</b><br><img class='edited-preview' data-i='{i}' src='{preview}' loading='lazy' decoding='async' alt='Відредаговане фото {i}'></div>
           </div>
-          <div class='edit-controls' data-i='{i}' style='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:9px'>
-            <label>Яскравість <input class='ctl' data-k='b' type='range' min='0.75' max='1.30' step='0.05' value='1'><input type='hidden' name='b_{i}' value='1' form='photo-approval-form'></label>
-            <label>Контраст <input class='ctl' data-k='c' type='range' min='0.75' max='1.30' step='0.05' value='1'><input type='hidden' name='c_{i}' value='1' form='photo-approval-form'></label>
-            <label>Насиченість <input class='ctl' data-k='s' type='range' min='0.70' max='1.35' step='0.05' value='1'><input type='hidden' name='s_{i}' value='1' form='photo-approval-form'></label>
-            <label>Різкість <input class='ctl' data-k='h' type='range' min='0.70' max='1.50' step='0.05' value='1'><input type='hidden' name='h_{i}' value='1' form='photo-approval-form'></label>
+          <div class='edit-controls' data-i='{i}' data-tone='{settings}'>
+            {''.join(controls)}
+            <label class='touch-label'><input type='checkbox' class='balance' {'checked' if balanced else ''}> Баланс білого</label>
+            <input type='hidden' name='wb_{i}' value='{balanced}' form='photo-approval-form'>
+            <input type='hidden' name='keep_{i}' value='1' form='photo-approval-form'>
           </div>
-          <button type='button' class='reset-edit' data-i='{i}' style='margin-top:8px'>Скинути правки</button>
-        </div>""")
-
+          <button type='button' class='reset-edit' data-i='{i}'>Скинути правки</button>
+        </section>""")
     approved = bool(session.get("photo_editor_approved"))
     excluded = sum(roles.get(i) not in EBAY_PHOTO_ROLES for i in range(1, len(items) + 1))
     review_link = '<a href="/picker/editor?roles=1">Змінити перелік фото товару</a>' if mobile else ''
@@ -723,6 +732,7 @@ def picker_editor():
           Вибрати головне фото автоматично</label>
         <p>Поточний вибір: {effective_main or 'ще немає'}</p>
         <b>Налаштування для всіх фото</b>
+        {"<button type='button' id='preset-automatic'>Автопокращення фото</button>" if mobile else ""}
         <button type='button' id='preset-natural'>Природні кольори</button>
         <button type='button' id='preset-bright'>Світліше</button>
         <button type='button' id='reset-all'>Скинути все</button>
@@ -730,7 +740,7 @@ def picker_editor():
       {''.join(cards)}
       <form id='photo-approval-form' method='post' action='/picker/editor/approve'>
         <button id='approve-photos-btn' type='submit' style='font-size:18px;padding:14px 18px'>Затвердити фото</button>
-        <span id='edited-ready-status' style='margin-left:10px'></span><button type='button' id='retry-edited' hidden>Повторити лише незавантажені фото</button>
+        <span id='edited-ready-status' role='status'></span><button type='button' id='retry-edited' hidden>Повторити лише незавантажені фото</button>
       </form>
       <script>
       (() => {{
@@ -745,18 +755,37 @@ def picker_editor():
         retry.addEventListener('click',()=>{{imgs.filter(x=>!x.complete || !x.naturalWidth).forEach(x=>{{attempts.set(x,0);reload(x)}});update();}});
         function refresh(card){{
           const i=card.dataset.i; const vals={{b:1,c:1,s:1,h:1}};
+          const wb=card.querySelector('.balance').checked ? '1' : '0';
+          document.querySelector(`input[name="wb_${{i}}"]`).value=wb;
+          document.querySelector(`input[name="keep_${{i}}"]`).value='0';
           card.querySelectorAll('.ctl').forEach(x=>{{ vals[x.dataset.k]=x.value; document.querySelector(`input[name="${{x.dataset.k}}_${{i}}"]`).value=x.value; }});
           const img=document.querySelector(`img.edited-preview[data-i="${{i}}"]`);
-          attempts.set(img,0); img.src=`/picker/edited/${{i}}?b=${{vals.b}}&c=${{vals.c}}&s=${{vals.s}}&h=${{vals.h}}`;
+          attempts.set(img,0); img.src=`/picker/edited/${{i}}?b=${{vals.b}}&c=${{vals.c}}&s=${{vals.s}}&h=${{vals.h}}&wb=${{wb}}`;
         }}
-        document.querySelectorAll('.edit-controls').forEach(card=>{{ let timer; card.querySelectorAll('.ctl').forEach(x=>x.addEventListener('input',()=>{{
+        document.querySelectorAll('.edit-controls').forEach(card=>{{
+          let timer;
+          card.querySelector('.balance').addEventListener('change',()=>refresh(card));
+          card.querySelectorAll('.ctl').forEach(x=>x.addEventListener('input',()=>{{
           document.querySelector(`input[name="${{x.dataset.k}}_${{card.dataset.i}}"]`).value=x.value;
           clearTimeout(timer);timer=setTimeout(()=>refresh(card),180);
         }})); }});
-        document.querySelectorAll('.reset-edit').forEach(b=>b.addEventListener('click',()=>{{ const card=document.querySelector(`.edit-controls[data-i="${{b.dataset.i}}"]`); card.querySelectorAll('.ctl').forEach(x=>x.value=1); refresh(card); }}));
-        function applyAll(vals){{
-          document.querySelectorAll('.edit-controls').forEach(card=>{{ card.querySelectorAll('.ctl').forEach(x=>{{x.value=vals[x.dataset.k] ?? 1}}); refresh(card); }});
+        function applyPreset(card, vals){{
+          card.querySelectorAll('.ctl').forEach(x=>{{x.value=vals[x.dataset.k] ?? 1}});
+          card.querySelector('.balance').checked=Boolean(vals.wb);
+          refresh(card);
         }}
+        document.querySelectorAll('.reset-edit').forEach(button=>button.addEventListener('click',()=>{{
+          applyPreset(document.querySelector(`.edit-controls[data-i="${{button.dataset.i}}"]`), {{}});
+        }}));
+        function applyAll(vals){{
+          document.querySelectorAll('.edit-controls').forEach(card=>applyPreset(card, vals));
+        }}
+        document.getElementById('preset-automatic')?.addEventListener('click',()=>{{
+          document.querySelectorAll('.edit-controls').forEach(card=>{{
+            const tone=JSON.parse(card.dataset.tone);
+            applyPreset(card, {{b:tone.brightness,c:tone.contrast,s:tone.color,h:tone.sharpness,wb:tone.balanced}});
+          }});
+        }});
         document.getElementById('preset-natural').addEventListener('click',()=>applyAll({{b:1.05,c:1.05,s:1.00,h:1.10}}));
         document.getElementById('preset-bright').addEventListener('click',()=>applyAll({{b:1.10,c:1.03,s:1.00,h:1.08}}));
         document.getElementById('reset-all').addEventListener('click',()=>applyAll({{b:1,c:1,s:1,h:1}}));
@@ -778,48 +807,44 @@ def picker_editor():
 @app.route("/picker/edited/<int:index>")
 def picker_edited(index):
     try:
-        settings={"brightness":request.args.get("b",1.0,type=float),"contrast":request.args.get("c",1.0,type=float),"color":request.args.get("s",1.0,type=float),"sharpness":request.args.get("h",1.0,type=float)}
+        settings={"brightness":request.args.get("b",1.0,type=float),"contrast":request.args.get("c",1.0,type=float),"color":request.args.get("s",1.0,type=float),"sharpness":request.args.get("h",1.0,type=float),
+                  "balanced":request.args.get("wb") == "1"}
         data = _download_picker_photo(index, edited=True, max_side=1600, edit_settings=settings)
         return Response(data, content_type="image/jpeg", headers={"Cache-Control": "no-store"})
     except Exception:
         return 'Відредаговане фото недоступне. Відкрийте редактор, щоб повторити.', 404
 
 
-def _auto_main_score(jpeg_bytes):
-    """Cheap deterministic cover-photo score on the edited white-background JPEG."""
-    try:
-        from PIL import Image, ImageStat
-        im=Image.open(BytesIO(jpeg_bytes)).convert('RGB')
-        w,h=im.size
-        pix=im.load(); xs=[]; ys=[]
-        # sparse scan: non-near-white pixels approximate the item/ruler foreground
-        step=max(1,int(max(w,h)/320))
-        for y in range(0,h,step):
-            for x in range(0,w,step):
-                r,g,b=pix[x,y]
-                if min(r,g,b)<235 and (r+g+b)<710:
-                    xs.append(x); ys.append(y)
-        if len(xs)<20: return -999.0
-        x0,x1=min(xs),max(xs); y0,y1=min(ys),max(ys)
-        bw=(x1-x0+1)/w; bh=(y1-y0+1)/h; area=bw*bh
-        cx=((x0+x1)/2)/w; cy=((y0+y1)/2)/h
-        center_pen=abs(cx-.5)+abs(cy-.5)
-        edge_pen=(1 if x0<0.02*w or x1>0.98*w else 0)+(1 if y0<0.02*h or y1>0.98*h else 0)
-        # Prefer a complete, reasonably large object, but penalize extreme closeups/crops.
-        target=0.36
-        size_score=1.8-abs(area-target)*3.2
-        if area>0.72: size_score-=2.0
-        fill = min(1.0, len(xs)*step*step/max(1,(x1-x0+1)*(y1-y0+1)))
-        sharpness = image_sharpness(im)
-        return size_score + fill*1.4 - center_pen*1.5 - edge_pen*1.6 + min(sharpness, .6)*3
-    except Exception:
-        return -999.0
+def _photo_model_scenes(picker_id, count, analysis=None):
+    raw = _research_machine_json(analysis or ANALYSIS_CACHE.get(picker_id) or '', 'PHOTO_SCENES_JSON')
+    scenes = {}
+    for index in range(1, count + 1):
+        item = raw.get(str(index))
+        if not isinstance(item, list) or len(item) != 2:
+            continue
+        kind, confidence = item
+        if isinstance(kind, str) and kind in SCENE_TYPES and type(confidence) is int and 85 <= confidence <= 100:
+            scenes[index] = kind
+    return scenes
 
 
-def _preferred_main_photo(approved, candidates, roles):
+def _preferred_main_photo(approved, candidates, roles, picker_id=None):
     product_views = [index for index in candidates if roles.get(index) == 'EBAY_PRODUCT']
-    return max(product_views or candidates,
-               key=lambda index: (_auto_main_score((approved.get(index) or {}).get('bytes', b'')), -index))
+    scenes = _photo_model_scenes(picker_id, max(candidates))
+    items = PHOTO_CACHE.get(picker_id) or []
+
+    def rank(index):
+        try:
+            with Image.open(BytesIO(approved[index]['bytes'])) as image:
+                score = composition_and_tone(image, image_sharpness(image))['score']
+        except (KeyError, OSError, ValueError):
+            visual = items[index - 1].get('photo_visual') or {} if index <= len(items) else {}
+            score = visual.get('score', -999)
+        scene_bonus = {'FULL_SET': 12, 'GENERAL_PRODUCT': 6, 'DETAIL': -5, 'DEFECT': -7,
+                       'MARKINGS': -7, 'BARCODE': -7}.get(scenes.get(index), 0)
+        return score + scene_bonus, -index
+
+    return max(product_views or candidates, key=rank)
 
 
 @app.route("/picker/editor/approve", methods=["POST"])
@@ -840,21 +865,29 @@ def picker_editor_approve(automatic=False):
     # to Measurement/Research but are never frozen for EPS/eBay upload.
     from PIL import Image as _VerifyImage
     import hashlib as _hashlib
+    _mobile_restore_approved_photos(picker_id)
+    old_snapshots = (APPROVED_PHOTO_CACHE.get(picker_id) or {}) if session.get('photo_editor_approved') else {}
     approved = {}
     failures = []
+    mobile_tones = ({row['photo']: row['tone'] for row in _mobile_photo_assessments(items)}
+                    if automatic and str(picker_id).startswith('mobile-') else {})
     for i in eligible:
+        if not automatic and request.form.get(f'keep_{i}') == '1' and i in old_snapshots:
+            approved[i] = old_snapshots[i]
+            continue
         last_exc=None
         for attempt in range(2):
             try:
-                settings = {} if automatic else {
-                    name: request.form.get(f"{prefix}_{i}", 1.0, type=float)
-                    for name, prefix in (('brightness', 'b'), ('contrast', 'c'), ('color', 's'), ('sharpness', 'h'))
-                }
+                settings = normalize_photo_edits(mobile_tones.get(i, {}) if automatic else {
+                    **{name: request.form.get(f"{prefix}_{i}", 1.0, type=float)
+                       for prefix, (name, _, _) in EDIT_FIELDS.items()},
+                    'balanced': request.form.get(f'wb_{i}') == '1',
+                })
                 data = _download_picker_photo(i, edited=True, max_side=1600, edit_settings=settings)
                 if not data:
                     raise ValueError("empty edited JPEG")
                 _im = _VerifyImage.open(BytesIO(data)); _im.verify()
-                approved[i] = {"bytes": data, "sha256": _hashlib.sha256(data).hexdigest()}
+                approved[i] = {"bytes": data, "sha256": _hashlib.sha256(data).hexdigest(), "settings": settings}
                 last_exc=None
                 break
             except Exception as exc:
@@ -868,7 +901,7 @@ def picker_editor_approve(automatic=False):
         return page("Редактор фото", "<h2>Не вдалося затвердити фото</h2><pre>" + html.escape("\n".join(failures)) + "</pre><p><a href='/picker/editor'>Back</a></p>"), 409
     APPROVED_PHOTO_CACHE[picker_id] = approved
     if main_index not in eligible:
-        main_index = _preferred_main_photo(approved, eligible, PHOTO_ROLE_CACHE.get(picker_id) or {})
+        main_index = _preferred_main_photo(approved, eligible, PHOTO_ROLE_CACHE.get(picker_id) or {}, picker_id)
         session['main_photo_mode'] = 'auto'
     else:
         session['main_photo_mode'] = 'manual'
@@ -963,17 +996,39 @@ def page(title, body):
       .editor-tools {{ position:sticky; top:0; z-index:20; background:#fff; border:1px solid #ddd; border-radius:10px; padding:8px; margin:10px 0; }}
       .edit-controls label {{ min-width:0; }}
       .edit-controls input[type=range] {{ display:block; width:100%; height:42px; margin:0; padding:0; }}
-      progress {{ width:100%; }}
+      .photo-card,.profit-cards section {{ border:1px solid var(--line); border-radius:12px; padding:12px; margin:12px 0; min-width:0; }}
+      .photo-card h3 {{ margin-top:0; }}
+      .editor-images,.edit-controls,.profit-cards {{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }}
+      .editor-images img {{ width:100%; aspect-ratio:4 / 3; object-fit:contain; background:#f4f4f4; }}
+      .touch-label {{ display:flex; align-items:center; gap:10px; min-height:48px; }}
+      .touch-label input {{ width:21px; height:21px; flex-shrink:0; }}
+      .profit-inputs {{ display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); }}
+      .profit-inputs label {{ display:grid; gap:4px; }}
+      .content details {{ margin:14px 0; }}
+      .content summary {{ cursor:pointer; min-height:44px; padding:10px 0; }}
+      :focus-visible {{ outline:3px solid #17699a; outline-offset:3px; }}
+      nav a {{ scroll-margin:10px; }}
+      progress {{ display:block; width:100%; height:18px; }}
       @media (max-width:620px) {{
         .shell {{ padding:12px 8px max(32px,env(safe-area-inset-bottom)); }}
         .content {{ padding:12px; border-radius:12px; overflow-wrap:anywhere; }}
-        .brand {{ font-size:18px; }}
-        button {{ min-height:44px; white-space:normal; }}
+        body {{ font-size:17px; }}
+        .brand {{ font-size:20px; }}
+        .subtitle {{ font-size:14px; }}
+        button,nav a,.mobile-actions a {{ min-height:48px; white-space:normal; }}
+        nav a,.mobile-actions a {{ display:inline-flex; align-items:center; }}
+        input[type=file],input:not([type=checkbox],[type=radio],[type=range],[type=hidden]),select {{ min-height:48px; }}
         input[type=file] {{ width:100%; }}
+        .profit-cards {{ grid-template-columns:1fr; gap:0; }}
+        .photo-card {{ padding:10px; }}
+        .editor-images {{ grid-template-columns:1fr; }}
+        .photo-card:focus-within {{ scroll-margin-bottom:70px; }}
         table {{ display:block; overflow-x:auto; }}
         .editor-tools {{ position:static; }}
-      .editor-tools button {{ font-size:14px; padding:8px; }}
-      .photo-choices {{ grid-template-columns:repeat(auto-fill,minmax(126px,1fr)); }}
+        .editor-tools button {{ margin:4px 0; }}
+        .photo-grid {{ grid-template-columns:repeat(auto-fill,minmax(min(100%,138px),1fr)); }}
+        .photo-choice small {{ font-size:15px; }}
+        .photo-choice {{ padding:8px; }}
       }}
     </style>
 </head>
@@ -4429,7 +4484,9 @@ def picker_items():
 )
 def picker_thumb(index):
     try:
-        return Response(_download_picker_photo(index,max_side=200 if request.args.get('size') == '200' else 600),content_type='image/jpeg',headers={'Cache-Control':'no-store'})
+        size = {'200': 200, '320': 320, '640': 640}.get(request.args.get('size'), 600)
+        return Response(_download_picker_photo(index, max_side=size),
+                        content_type='image/jpeg', headers={'Cache-Control':'no-store'})
     except Exception:
         return 'Фото недоступне. Відкрийте редактор для відновлення без ШІ.',404
 
@@ -4506,7 +4563,7 @@ def _ebay_photo_indices(items, picker_id=None):
         eligible=[i for i in eligible if i in approved]
     main=int(session.get('main_photo_index') or 0)
     if main not in eligible and eligible:
-        main = _preferred_main_photo(approved, eligible, roles)
+        main = _preferred_main_photo(approved, eligible, roles, picker_id)
         session['main_photo_index'] = main
         session['main_photo_mode'] = 'auto'
     ordered=([main] if main in eligible else [])+[i for i in eligible if i!=main]
@@ -4569,12 +4626,14 @@ MANDATORY EVIDENCE PROCEDURE:
 14. UNKNOWN is preferable to a fabricated fact. Confidence must reflect evidence and must never be inflated to satisfy listing readiness.
 15. PHOTO ROLE SPLIT: classify EVERY supplied photo by its source photo number. Use EBAY_PRODUCT for normal buyer-facing item photos; EVIDENCE_ONLY for scale/weight, ruler/tape/caliper/measurement, packing-only or internal workflow photos that should never be published; EBAY_EVIDENCE for buyer-useful close-ups such as maker marks, serials, defects or construction details that are both evidence and useful listing photos. An external ruler, tape, caliper or scale photo is always EVIDENCE_ONLY even if the item occupies most of the image. Look around the entire frame, including cropped scale displays, measurement ticks at steep angles, and measuring tools at the margins. If unsure whether a measuring tool is visible, use NEEDS_REVIEW. A scale or ruler that is itself the product may be EBAY_PRODUCT when shown on its own; an external device measuring that product is evidence only.
 
-OUTPUT ORDER IS CRITICAL. Before any prose, output EXACTLY these THREE machine-readable lines, with one role for EVERY source photo number:
+OUTPUT ORDER IS CRITICAL. Before any prose, output these FOUR machine-readable lines, with one role and one scene for EVERY source photo number:
 PHOTO_ROLES_JSON: {{"roles":{{"1":"EBAY_PRODUCT","2":"EVIDENCE_ONLY"}}}}
+PHOTO_SCENES_JSON: {{"1":["FULL_SET",95],"2":["SCALE",90]}}
 AUTO_FACTS_JSON: {{"materials":[],"materials_confidence":0,"material_evidence":"","tested_status":"Untested","completeness":"Unknown","brand":"","origin":"","marking_present":false,"brand_evidence":"","confidence":0,"object_type":"UNKNOWN","markings":[{{"photo":1,"literal":"","language":"","kind":"MAKER|MODEL_NUMBER|SERIAL|QUALITY_MARK|INSCRIPTION|UNKNOWN"}}],"symbols":[{{"photo":1,"description":""}}]}}
 SCOPE_JSON: {{"scope":"ONE_PHYSICAL_ITEM","physical_item_count":1,"confidence":0,"note":""}}
 For SCOPE_JSON, front/back/detail/scale views of one object are ONE_PHYSICAL_ITEM. Count separate cards, stickers, inserts and other loose pieces in the clearest complete overview, not across repeated photos. A collection sold as one lot is still MULTIPLE_PHYSICAL_ITEMS. If exact count is unclear use UNCERTAIN, never report one physical item merely because it is one sale lot. Use MULTIPLE_PHYSICAL_ITEMS only for truly separate physical objects.
-A ruler/tape/caliper/scale/packing-only photo MUST be EVIDENCE_ONLY. Do not omit any source photo number.
+Use PHOTO_SCENES_JSON values [type, confidence (integer 0–100)]. Types: GENERAL_PRODUCT, FULL_SET, DETAIL, MARKINGS, DEFECT, SCALE, RULER, BARCODE, PACKAGE, OTHER, UNCERTAIN.
+FULL_SET requires that all parts of the offered lot are visible in this source photo. Compare against the other angles to distinguish a part or cropped view. A digital screen or numbers alone do not establish a weighing device. Read the unit and look for the weighing platform, controls and the item on it. Zoom mentally on graduation marks and edges to distinguish rulers from repeated patterns. A ruler/tape/caliper/scale used to measure the item, or a packing-only photo, MUST be EVIDENCE_ONLY. A measuring device sold as the item can be GENERAL_PRODUCT. Do not omit any source photo number.
 
 Then return IN UKRAINIAN using EXACTLY these sections:
 1. ЩО ЦЕ
@@ -4599,22 +4658,29 @@ Use only tested_status: Untested, Tested working, Tested not working, Not applic
                 else:
                     content.append({"type":"input_text","text":f"SOURCE PHOTO #{i} — role classification/low detail"})
                     content.append({"type":"input_image","image_url":google_photo_to_data_url(items[i-1],640),"detail":"low"})
-            analysis=call_openai({"model":"gpt-5.6-luna","input":[{"role":"user","content":content}],"reasoning":{"effort":"low"},"max_output_tokens":1500,"store":False},timeout=120)
+            analysis=call_openai({"model":"gpt-5.6-luna","input":[{"role":"user","content":content}],"reasoning":{"effort":"low"},"max_output_tokens":2000,"store":False},timeout=120)
             parsed_roles=_photo_roles_from_analysis(analysis,len(items))
             # Reliability fallback only when the cheap pass violates the structured contract.
             if parsed_roles is None:
-                analysis=call_openai({"model":"gpt-5.6-sol","input":[{"role":"user","content":content}],"reasoning":{"effort":"low"},"max_output_tokens":1500,"store":False},timeout=150)
+                analysis=call_openai({"model":"gpt-5.6-sol","input":[{"role":"user","content":content}],"reasoning":{"effort":"low"},"max_output_tokens":2000,"store":False},timeout=150)
                 parsed_roles=_photo_roles_from_analysis(analysis,len(items))
             if parsed_roles is None:
                 return page("Перевірка фото", "<h2>ШІ повернув неповний розподіл фото</h2>"
                             "<p>Лот і фото збережено.</p><a href='/picker/editor'>Відкрити редактор</a>"), 422
             previous = PHOTO_ROLE_CACHE.get(picker_id) if _photo_roles_ready(items, picker_id) else {}
+            scenes = _photo_model_scenes(picker_id, len(items), analysis)
             for i in parsed_roles:
                 hint = _mobile_evidence_hint(items[i-1]) if str(picker_id).startswith('mobile-') else None
-                if previous.get(i) == 'EVIDENCE_ONLY' or hint in {'ruler', 'scale'}:
+                scene = scenes.get(i)
+                if previous.get(i) == 'EVIDENCE_ONLY' or scene in EVIDENCE_SCENES:
                     parsed_roles[i] = 'EVIDENCE_ONLY'
+                elif hint in {'ruler', 'scale'}:
+                    parsed_roles[i] = ('NEEDS_REVIEW' if scene in {'GENERAL_PRODUCT', 'FULL_SET'}
+                                       else 'EVIDENCE_ONLY')
                 elif hint == 'display' and parsed_roles[i] in EBAY_PHOTO_ROLES:
                     parsed_roles[i] = 'NEEDS_REVIEW'
+                elif parsed_roles[i] == 'EBAY_PRODUCT' and scene in {'DETAIL', 'MARKINGS', 'DEFECT', 'BARCODE'}:
+                    parsed_roles[i] = 'EBAY_EVIDENCE'
             duplicates = duplicate_photo_indices({
                 i: items[i-1].get('photo_fingerprint') for i in parsed_roles
                 if parsed_roles[i] in EBAY_PHOTO_ROLES
@@ -4663,7 +4729,7 @@ Use only tested_status: Untested, Tested working, Tested not working, Not applic
     else:
         next_step = f"<form action='/picker/fast-research' method='post' style='margin-top:25px'>{hidden_field('analysis',analysis)}<button type='submit' style='font-size:20px;padding:14px 20px'>Продовжити до розпізнавання, ціни й вимірів</button></form>"
     # P024.7: machine-readable control lines are internal protocol, not seller-facing report text.
-    display_analysis=re.sub(r'(?m)^\s*(?:PHOTO_ROLES_JSON|AUTO_FACTS_JSON|SCOPE_JSON):.*(?:\n|$)', '', str(analysis or '')).strip()
+    display_analysis=re.sub(r'(?m)^\s*(?:PHOTO_ROLES_JSON|PHOTO_SCENES_JSON|AUTO_FACTS_JSON|SCOPE_JSON):.*(?:\n|$)', '', str(analysis or '')).strip()
     body=f"""<h2>{label} — Аналіз ШІ</h2><p style='color:green'><b>✓ Візуальний аналіз завершено</b></p>{compact}{_usage_summary_html(picker_id)}
     <details><summary><b>Переглянути звіт ШІ</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:10px'>{text_to_html(display_analysis)}</div></details>
     {next_step}"""
@@ -4797,7 +4863,9 @@ SECOND LINE exactly:
 AUTO_SPECS_JSON {{"match_count":0,"confidence":0,"evidence_strength":0,"identity_status":"UNKNOWN","exact_model_confirmed":false,"weight_kg":null,"length_cm":null,"width_cm":null,"height_cm":null,"type":"UNKNOWN","material":"UNKNOWN","brand":"UNKNOWN","model":"UNKNOWN","country":"UNKNOWN","period":"UNKNOWN","sources_summary":""}}
 Populate these only from the verified identification and defensible market evidence.
 For SOLD, provide the explicit sale evidence and the observed sold date as YYYY-MM-DD. If either is missing, exclude the record. Use only USD prices.
-MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"currency":"USD","match_evidence":"","sale_evidence":"","sold_date":""}}]}}
+For ACTIVE, include checked_on YYYY-MM-DD. In a separate block report comparable Ukrainian offers. Preserve UAH and sale evidence. Do not present asking prices as sales.
+MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"currency":"USD","match_evidence":"","sale_evidence":"","sold_date":"","checked_on":""}}]}}
+UA_MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_uah":null,"currency":"UAH","match_evidence":"","sale_evidence":"","sold_date":"","checked_on":""}}]}}
 Use the exact page URL from web search. For SOLD, record the visible sale evidence, omitting unverified sales.
 
 Then return IN UKRAINIAN:
@@ -4860,7 +4928,9 @@ Then concise Ukrainian sections: status, what it is, markings/OCR, distinctive f
 PRICE_JSON {{"quick":null,"normal":null,"patient":null,"minimum":null}}
 AUTO_SPECS_JSON {{"match_count":0,"confidence":0,"evidence_strength":0,"identity_status":"UNKNOWN","exact_model_confirmed":false,"weight_kg":null,"length_cm":null,"width_cm":null,"height_cm":null,"type":"UNKNOWN","material":"UNKNOWN","brand":"UNKNOWN","model":"UNKNOWN","country":"UNKNOWN","period":"UNKNOWN","sources_summary":""}}
 For SOLD, provide the explicit sale evidence and the observed sold date as YYYY-MM-DD. If either is missing, exclude the record. Use only USD prices.
-MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"currency":"USD","match_evidence":"","sale_evidence":"","sold_date":""}}]}}
+For ACTIVE, include checked_on YYYY-MM-DD. In a separate block report comparable Ukrainian offers. Preserve UAH and sale evidence. Do not present asking prices as sales.
+MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"currency":"USD","match_evidence":"","sale_evidence":"","sold_date":"","checked_on":""}}]}}
+UA_MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_uah":null,"currency":"UAH","match_evidence":"","sale_evidence":"","sold_date":"","checked_on":""}}]}}
 Use the exact page URL from web search. For SOLD, record the visible sale evidence, omitting unverified sales.
 Then concise Ukrainian sections: confirmed sold comps, active comps, closest comparable + differences, price logic, recommended prices, evidence-safe eBay title, category/type suggestion, safe item specifics, market confidence, sources.
 SPECS_EVIDENCE_JSON {{"sources":[{{"url":"","title":"","same_variant":false,"confidence":0,"matched_features":[],"contradictions":[],"weight_basis":"NET|GROSS|UNKNOWN","weight_kg":null,"length_cm":null,"width_cm":null,"height_cm":null}}]}}
@@ -6528,7 +6598,9 @@ Minimum acceptable offer: $...
 10. CONFIDENCE
 11. SOURCES
 For SOLD, provide the explicit sale evidence and the observed sold date as YYYY-MM-DD. If either is missing, exclude the record. Use only USD prices.
-MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"currency":"USD","match_evidence":"","sale_evidence":"","sold_date":""}}]}}
+For ACTIVE, include checked_on YYYY-MM-DD. In a separate block report comparable Ukrainian offers. Preserve UAH and sale evidence. Do not present asking prices as sales.
+MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"currency":"USD","match_evidence":"","sale_evidence":"","sold_date":"","checked_on":""}}]}}
+UA_MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_uah":null,"currency":"UAH","match_evidence":"","sale_evidence":"","sold_date":"","checked_on":""}}]}}
 Include exact web search URLs and visible evidence for SOLD.
 The four recommended prices must be numeric USD values whenever there is enough market evidence to list the item; if evidence is weak, choose conservative values and state low confidence rather than omitting the price."""
         try:
@@ -13276,68 +13348,168 @@ def compare_ua_us_net_profit(data):
     return result
 
 
-@app.route('/markets/compare', methods=['GET','POST'])
+_PROFIT_EXPENSE_LABELS = {
+    'fee_pct': 'Комісія, %', 'fixed_fee': 'Фіксована комісія',
+    'postage_uah': 'Доставка, грн', 'packing_uah': 'Пакування, грн',
+    'ad_uah': 'Реклама, грн', 'tax_uah': 'Резерв на податки, грн',
+    'conversion_uah': 'Конвертація, грн', 'returns_uah': 'Резерв повернень, грн', 'other_uah': 'Інші витрати, грн',
+}
+
+
+def _profit_input_fields():
+    common = [('fx_uah_per_usd', 'Курс грн за USD'), ('cost_uah', 'Собівартість, грн'),
+              ('ai_cost_usd', 'Витрати на ШІ, USD')]
+    markets = {}
+    for market, currency, label in (('us', 'usd', 'USD'), ('ua', 'uah', 'грн')):
+        markets[market] = [(f'{market}_price_{currency}', f'Ціна товару, {label}'),
+                           (f'{market}_buyer_shipping_{currency}', f'Доставка, сплачена покупцем, {label}')]
+        markets[market] += [(f'{market}_{name}', text + (f', {label}' if name == 'fixed_fee' else ''))
+                            for name, text in _PROFIT_EXPENSE_LABELS.items()]
+    return common, markets
+
+
+def _profit_suggestions(picker_id, permitted):
+    try:
+        profile = json.loads(os.environ.get('VINTAGE_PROFIT_PROFILE', '{}'))
+    except (TypeError, ValueError):
+        profile = {}
+    values = {key: str(value) for key, value in profile.items()
+              if key in permitted and amount(value) is not None} if isinstance(profile, dict) else {}
+    notes = ['Витрати беруться з налаштованого профілю продавця.'] if values else []
+    draft = LOT002_DRAFT_CACHE.get(picker_id) or {}
+    market = MARKET_CACHE.get(picker_id) or ''
+    source_urls = _reported_web_source_urls(market)
+    for side, currency, marker, price in (
+        ('us', 'USD', 'MARKET_COMPS_JSON', 'price_usd'), ('ua', 'UAH', 'UA_MARKET_COMPS_JSON', 'price_uah'),
+    ):
+        records = _research_machine_json(market, marker).get('comparables')
+        records = [dict(row, price=row.get(price)) for row in records
+                   if isinstance(row, dict)] if isinstance(records, list) else []
+        evidence = currency_evidence(records, source_urls, currency, kyiv_today())
+        if not evidence:
+            continue
+        if side == 'us' and not _market_price_quality(market)['ok']:
+            continue
+        values[f'{side}_price_{currency.lower()}'] = evidence['value']
+        label = 'США' if side == 'us' else 'Україна'
+        basis = 'зі звіту про завершені продажі' if evidence['kind'] == 'REPORTED_SOLD' else 'з активних пропозицій'
+        notes.append(f"{label} · медіана {basis} за {evidence['observed_on']}. "
+                     f"Продані у звіті: {evidence['sold_count']}, активні: {evidence['asking_count']}. "
+                     + ' '.join(evidence['sources']))
+    if draft.get('price'):
+        values['us_price_usd'] = str(draft['price'])
+        notes.append('Ціна США підставлена зі збереженої чернетки як сценарій.')
+    if draft.get('shipping_usd'):
+        values['us_buyer_shipping_usd'] = str(draft['shipping_usd'])
+    if not values.get('us_price_usd') and _market_bin_price(market):
+        values['us_price_usd'] = _market_bin_price(market)
+        notes.append('Ціна США підставлена зі збереженої ринкової оцінки.')
+    usage = AI_USAGE_CACHE.get(picker_id) or {}
+    if 'estimated_cost_usd' in usage:
+        values['ai_cost_usd'] = str(usage['estimated_cost_usd'])
+        notes.append('Витрати на ШІ підставлені як оцінка за журналом цього лота.')
+    quote = draft.get('shipping_quote') or {}
+    return values, notes, quote
+
+
+@app.route('/markets/compare', methods=['GET', 'POST'])
 def market_compare():
+    if request.method == 'POST' and not _p058_csrf_valid():
+        return page('Прибуток', '<p>Оновіть форму перед збереженням розрахунку.</p>'), 403
     picker_id = session.get('picker_session_id')
-    saved = MARKET_COMPARISON_CACHE.get(picker_id) or {} if picker_id else {}
-    values = dict(saved.get('inputs') or {})
-    result = saved.get('result')
-    error = ''
-    status = 200
-    fields = [
-        ('fx_uah_per_usd','Курс: гривень за 1 USD'),('cost_uah','Собівартість товару, грн'),
-        ('us_price_usd','США: ціна товару, USD'),('us_buyer_shipping_usd','США: доставка, сплачена покупцем, USD'),
-        ('us_fee_pct','США: сумарна змінна комісія, %'),('us_fixed_fee_usd','США: фіксована комісія, USD'),
-        ('us_postage_uah','США: фактичні витрати на доставку, грн'),('us_packing_uah','США: пакування, грн'),
-        ('us_other_uah','США: інші витрати, грн'),('ua_price_uah','Україна: ціна товару, грн'),
-        ('ua_buyer_shipping_uah','Україна: доставка, сплачена покупцем, грн'),('ua_fee_pct','Україна: комісія, %'),
-        ('ua_fixed_fee_uah','Україна: фіксована комісія, грн'),('ua_postage_uah','Україна: витрати на доставку, грн'),
-        ('ua_packing_uah','Україна: пакування, грн'),('ua_other_uah','Україна: інші витрати, грн')]
-    evidence = [('us_source','Посилання / джерело ціни США'),('ua_source','Посилання / джерело ціни України'),
-                ('price_basis','Основа цін: продані / активні / власна оцінка'),('checked_on','Дата перевірки джерел і курсу')]
+    common, markets = _profit_input_fields()
+    fields = common + markets['us'] + markets['ua']
+    permitted = {key for key, _ in fields}
+    values, notes, quote = _profit_suggestions(picker_id, permitted)
+    saved = dict((MARKET_COMPARISON_CACHE.get(picker_id) or {}).get('inputs') or {})
+    for side, currency in (('us', 'usd'), ('ua', 'uah')):
+        legacy = f'{side}_fixed_fee_{currency}'
+        if legacy in saved:
+            saved.setdefault(f'{side}_fixed_fee', saved[legacy])
+    saved = {key: saved[key] for key in permitted if key in saved}
+    overrides = dict(saved)
     if request.method == 'POST':
-        values = {key:request.form.get(key,'').strip() for key,_ in fields + evidence}
-        result = None
-        try:
-            result = compare_ua_us_net_profit(values)
-            if picker_id:
-                MARKET_COMPARISON_CACHE[picker_id] = {'inputs':values,'result':result}
-                _save_active_lot_checkpoint()
-        except DecimalException:
-            error = 'Значення виходять за обчислюваний діапазон. Перевірте курс і комісії.'
-            result, status = None, 400
-        except ValueError as exc:
-            error = str(exc)
-            status = 400
-    elif not values and picker_id:
-        draft = LOT002_DRAFT_CACHE.get(picker_id) or {}
-        # Use an existing reviewed draft where present; do not trigger new research.
-        values['us_price_usd'] = str(draft.get('price') or _market_bin_price(MARKET_CACHE.get(picker_id) or '') or '')
-        values['us_buyer_shipping_usd'] = str(draft.get('shipping_usd') or '')
-    esc = lambda value: html.escape(str(value), quote=True)
-    inputs = ''.join(f'<p><label>{esc(label)}<br><input name="{key}" type="number" step="any" min="0" value="{esc(values.get(key,""))}" required></label></p>' for key,label in fields)
-    inputs += ''.join(f'<p><label>{esc(label)}<br><input name="{key}" value="{esc(values.get(key,""))}" maxlength="1500"></label></p>' for key,label in evidence)
-    table = ''
-    if result:
-        us_floor = result.get('us_break_even_usd')
-        ua_floor = result.get('ua_break_even_uah')
-        floors = ''
-        if 'us_break_even_usd' in result:
-            us_floor = f'${us_floor}' if us_floor is not None else 'недосяжна'
-            ua_floor = f'{ua_floor} грн' if ua_floor is not None else 'недосяжна'
-            floors = f'<p>Беззбиткова ціна товару. США — {us_floor}. Україна — {ua_floor}.</p>'
-        winner = {'US':'США','UA':'Україна','EQUAL':'Однаково'}[result['better_market']]
-        table = (f'<h3>За введеними даними вигідніше: {winner}</h3><table><tr><th>Ринок</th><th>Прибуток, грн</th></tr>'
-                 f'<tr><td>США</td><td>{result["us_net_uah"]}</td></tr><tr><td>Україна</td><td>{result["ua_net_uah"]}</td></tr></table>'
-                 f'<p>Різниця США − Україна: {result["difference_uah"]} грн.</p>'
-                 + floors + '<p>Сценарний розрахунок. Джерела та статус продажу автоматично не перевірялися. Від’ємне значення означає збиток.</p>')
+        overrides.update({key: request.form[key].strip() for key in permitted if key in request.form})
+    values.update({key: value for key, value in overrides.items() if value})
+    if not values.get('fx_uah_per_usd'):
+        rate = official_usd_rate()
+        if rate:
+            values['fx_uah_per_usd'] = rate['value']
+            notes.append(f"Офіційний курс НБУ на {rate['effective_on']}. {RATE_DOCS}")
+        else:
+            notes.append('Поточний курс НБУ недоступний. Для США можна ввести курс вручну.')
+    quote_base = amount(quote.get('base_usd'))
+    fx = amount(values.get('fx_uah_per_usd'))
+    if quote_base is not None and fx and not values.get('us_postage_uah'):
+        values['us_postage_uah'] = str(quote_base * fx)
+        notes.append('Доставка США оцінена за базовим тарифом Укрпошти для збереженої посилки.')
+        if quote.get('source'):
+            notes.append(str(quote['source']))
+    errors = []
+    for key, label in fields:
+        if values.get(key):
+            amount_value = amount(values[key])
+            if (amount_value is None or (key.endswith('_pct') and amount_value > 100)
+                    or (key in {'fx_uah_per_usd', 'us_price_usd', 'ua_price_uah'} and amount_value <= 0)):
+                errors.append(label)
+    if request.method == 'POST' and not errors and picker_id:
+        previous = MARKET_COMPARISON_CACHE.get(picker_id)
+        MARKET_COMPARISON_CACHE[picker_id] = {'inputs': overrides}
+        if not _save_active_lot_checkpoint():
+            if previous is None:
+                MARKET_COMPARISON_CACHE.pop(picker_id, None)
+            else:
+                MARKET_COMPARISON_CACHE[picker_id] = previous
+            return page('Прибуток', '<p>Не вдалося зберегти уточнення. Повторіть збереження.</p>'), 503
+    projections = {market: projection(values, market) if not errors else None for market in markets}
+    escape = lambda value: html.escape(str(value), quote=True)
+    def money(value):
+        with localcontext() as context:
+            context.prec = 52
+            return f'{value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP):f}'
+
+    missing_labels = dict(_PROFIT_EXPENSE_LABELS, buyer_shipping='Доставка покупця',
+                          cost='Собівартість', ai='Витрати на ШІ')
+    result_cards = []
+    for market, name in (('us', 'США'), ('ua', 'Україна')):
+        result = projections[market]
+        if not result:
+            result_cards.append(f'<section><h3>{name}</h3><p>Потрібні ціна' +
+                                (' і курс.' if market == 'us' else ' товару.') + '</p></section>')
+            continue
+        pending = result['missing']
+        label = 'Після відомих витрат' if pending else 'Розрахунковий прибуток'
+        detail = ''
+        if pending:
+            detail = '<p>Потребує уточнення · ' + escape(', '.join(missing_labels[key] for key in pending)) + '.</p>'
+        elif result['roi'] is not None:
+            detail = '<p>Рентабельність витрат · ' + money(result['roi']) + '%.</p>'
+        result_cards.append(f'<section><h3>{name}</h3><p>{label} · <strong>{money(result["net"])} грн</strong></p>'
+                            f'<p>Маржа за врахованими даними · {money(result["margin"])}%.</p>{detail}</section>')
+    winner = ''
+    if all(result and not result['missing'] for result in projections.values()):
+        difference = projections['us']['net'] - projections['ua']['net']
+        winner = ('<p><strong>За цим сценарієм вигідніше · ' +
+                  ('США' if difference > 0 else 'Україна' if difference < 0 else 'однаково') +
+                  '.</strong></p>')
+    else:
+        winner = '<p>Рекомендація ринку з’явиться після уточнення відсутніх витрат і цін.</p>'
+    def inputs(group):
+        return ''.join(f'<label>{escape(label)}<input name="{key}" inputmode="decimal" '
+                       f'value="{escape(values.get(key,""))}"></label>' for key, label in group)
+
+    errors_html = ('<p role="alert">Перевірте числа · ' + escape(', '.join(errors)) + '.</p>') if errors else ''
+    sources = ''.join('<li>' + escape(note) + '</li>' for note in notes)
     body = ('<h2>США / Україна — порівняння прибутку</h2>'
-            '<p>Рахуйте одну одиницю продажу: один предмет або весь лот. Дані з готової чернетки підставляються без нового аналізу.</p>'
-            '<p>Вкажіть усі витрати, включно з податками, рекламою, конвертацією та резервом повернень у полі «інші». Якщо витрат немає, введіть 0. Комісія рахується з ціни товару та доставки покупця.</p>'
-            '<p>Курс і комісії вводяться вручну. Порівняння не змінює ціну лота й нічого не публікує.</p>'
-            + (f'<p role="alert">{esc(error)}</p>' if error else '') + table +
-            f'<form method="post">{inputs}<button type="submit">Порівняти без API</button></form>')
-    return page('США / Україна — прибуток',body), status
+            '<p>Сценарій для одного товару або всього комплекту. Ціни пропозицій можуть відрізнятися від цін продажу.</p>'
+            f'{errors_html}<div class="profit-cards">{"".join(result_cards)}</div>{winner}'
+            f'<details><summary>Джерела розрахунку</summary><ul>{sources}</ul></details>'
+            '<details><summary>Уточнити ціни й витрати</summary><form method="post">'
+            + hidden_field('hold_csrf', _p058_csrf()) + '<div class="profit-inputs">' + inputs(common)
+            + '</div><div class="profit-cards"><section><h3>США</h3><div class="profit-inputs">'
+            + inputs(markets['us']) + '</div></section><section><h3>Україна</h3><div class="profit-inputs">'
+            + inputs(markets['ua']) + '</div></section></div><button>Перерахувати</button></form></details>')
+    return page('США / Україна — прибуток', body), (400 if errors else 200)
 
 
 @app.before_request
@@ -13548,6 +13720,8 @@ def _mobile_save_approved_photos(pid):
         if not _mobile_file_matches(path, raw):
             _mobile_write(path, raw)
         entries[str(i)]={'file':filename,'sha256':digest}
+        if isinstance(snap.get('settings'), dict):
+            entries[str(i)]['settings'] = normalize_photo_edits(snap['settings'])
     if len(entries)!=len(photos):raise RuntimeError('Incomplete approved photo backup')
     manifest = os.path.join(root, 'approved.json')
     encoded = json.dumps(entries, sort_keys=True).encode()
@@ -13566,6 +13740,8 @@ def _mobile_restore_approved_photos(pid):
             with open(os.path.join(root,filename),'rb') as f:raw=f.read()
             if hashlib.sha256(raw).hexdigest()!=entry['sha256']:return
             restored[int(i)]={'bytes':raw,'sha256':entry['sha256']}
+            if isinstance(entry.get('settings'), dict):
+                restored[int(i)]['settings'] = normalize_photo_edits(entry['settings'])
         if restored:APPROVED_PHOTO_CACHE[pid]=restored
     except (OSError,ValueError,KeyError,TypeError):return
 
@@ -13720,7 +13896,8 @@ def mobile_prepare_stage():
     analysis = ANALYSIS_CACHE.get(picker_id) or ''
     if stage == 'photos':
         if not analysis and not _paid_ai_enabled():
-            return {'error': 'Контрольний запуск ШІ очікує окремого погодження. Оригінали збережено.'}, 503
+            return {'error': 'Контрольний запуск ШІ очікує окремого погодження. Оригінали збережено.',
+                    'open': '/mobile/acceptance-check'}, 503
         response = app.make_response(picker_analyze())
         if response.status_code != 200:
             return {'error': 'Не вдалося завершити аналіз фото. Оригінали збережено.',
@@ -13748,33 +13925,90 @@ def mobile_prepare_stage():
     return {'error': 'Почніть підготовку з фото лота.'}, 409
 
 
+_PHOTO_OBSERVATIONS = {
+    'GROUP_VIEW': 'Огляд кількох частин', 'GENERAL_VIEW': 'Кандидат для оголошення',
+    'CROP': 'Можлива деталь або обрізаний товар', 'UNCERTAIN': 'Кадр потребує перевірки',
+}
+
+
+def _mobile_photo_assessments(items):
+    hints = {index: _mobile_evidence_hint(item) for index, item in enumerate(items, 1)}
+    duplicates = duplicate_photo_indices({index: item.get('photo_fingerprint')
+                                          for index, item in enumerate(items, 1)})
+    rows = []
+    for index, item in enumerate(items, 1):
+        visual = item.get('photo_visual') if item.get('photo_visual_version') == VISUAL_VERSION else None
+        if visual is None:
+            try:
+                with Image.open(BytesIO(_mobile_local_bytes(item))) as image:
+                    visual = composition_and_tone(image, item.get('photo_sharpness') or 0)
+            except (OSError, ValueError, TypeError):
+                visual = {'kind': 'UNCERTAIN', 'tone': {}, 'score': -999.0}
+            item.update(photo_visual=visual, photo_visual_version=VISUAL_VERSION)
+        hint = hints[index]
+        row = {'photo': index, 'hint': hint, **visual, 'role': 'NEEDS_REVIEW'}
+        if hint in ('ruler', 'scale'):
+            row.update(role='EVIDENCE_ONLY', note={'ruler': 'Можлива лінійка', 'scale': 'Можливі ваги'}[hint])
+        elif index in duplicates:
+            row.update(note=f'Збігається з фото {duplicates[index]}', duplicate_of=duplicates[index])
+        elif hint == 'display':
+            row['note'] = 'Цифровий дисплей або напис · перевірте призначення'
+        else:
+            row['note'] = _PHOTO_OBSERVATIONS[visual['kind']]
+            if visual['kind'] in ('GENERAL_VIEW', 'GROUP_VIEW'):
+                if item.get('photo_sharpness', 0) >= .065:
+                    row['role'] = 'EBAY_PRODUCT'
+                else:
+                    row['note'] += ' · Перевірте різкість'
+        rows.append(row)
+    return rows
+
+
+def _mobile_suggestions_form(key):
+    return ('<form method="post" action="/mobile/apply-photo-suggestions">'
+            + hidden_field('hold_csrf', _p058_csrf())
+            + hidden_field('selection', key) + '<button>Застосувати попередній відбір</button></form>')
+
+
+@app.route('/mobile/apply-photo-suggestions', methods=['POST'])
+def mobile_apply_photo_suggestions():
+    if not _p058_csrf_valid():
+        return page('Вибір фото', '<p>Оновіть форму вибору фото.</p>'), 403
+    picker_id = session.get('picker_session_id')
+    items = PHOTO_CACHE.get(picker_id) or []
+    if (not str(picker_id or '').startswith('mobile-') or not 1 <= len(items) <= 24
+            or request.form.get('selection') != _mobile_role_review_key(picker_id, items)):
+        return page('Вибір фото', '<p>Список фото змінився.</p><a href="/picker/editor">Оновити вибір</a>'), 409
+    if _photo_roles_ready(items, picker_id):
+        return redirect('/picker/editor', code=303)
+    roles = {row['photo']: row['role'] for row in _mobile_photo_assessments(items)}
+    if 'EBAY_PRODUCT' not in roles.values():
+        return page('Вибір фото', '<p>Додайте чіткий загальний вигляд або виберіть фото вручну.</p>'
+                    '<a href="/picker/editor">Перевірити фото</a>'), 422
+    previous = PHOTO_ROLE_CACHE.get(picker_id)
+    previous_session = dict(session)
+    _use_photo_roles(picker_id, items, roles)
+    if not _save_active_lot_checkpoint():
+        session.clear()
+        session.update(previous_session)
+        if previous is None:
+            PHOTO_ROLE_CACHE.pop(picker_id, None)
+        else:
+            PHOTO_ROLE_CACHE[picker_id] = previous
+        return page('Вибір фото', '<p>Не вдалося зберегти вибір.</p><a href="/picker/editor">Повторити</a>'), 503
+    return redirect('/picker/editor', code=303)
+
+
 @app.route('/mobile/acceptance-check')
 def mobile_acceptance_check():
     picker_id = session.get('picker_session_id')
     photos = PHOTO_CACHE.get(picker_id) or []
     if not str(picker_id or '').startswith('mobile-') or not 1 <= len(photos) <= 24:
         return page('Перевірка фото', '<h2>Спочатку завантажте фото</h2><a href="/mobile">До завантаження</a>'), 409
-    rows = [{'photo': index, 'hint': _mobile_evidence_hint(item)}
-            for index, item in enumerate(photos, 1)]
-    duplicates = duplicate_photo_indices({index: item.get('photo_fingerprint')
-                                          for index, item in enumerate(photos, 1)})
-    scores = {}
-    hints = {'ruler': 'Можлива лінійка', 'scale': 'Можливі ваги', 'display': 'Можливий цифровий дисплей'}
-    for row, item in zip(rows, photos):
-        index = row['photo']
-        if row['hint'] in hints:
-            row['note'] = hints[row['hint']]
-        elif index in duplicates:
-            row['note'] = f'Збігається з кадром №{duplicates[index]}'
-        else:
-            try:
-                score = _auto_main_score(_mobile_local_bytes(item))
-            except (OSError, ValueError):
-                score = -999.0
-            if score > -999.0:
-                scores[index] = score
-            row['note'] = 'Кандидат для оголошення' if score > -999.0 else 'Кадр потребує перевірки'
-    main = max(scores, key=scores.__getitem__) if scores else None
+    rows = _mobile_photo_assessments(photos)
+    candidates = [row for row in rows if row['role'] == 'EBAY_PRODUCT']
+    best = max(candidates, key=lambda row: row['score'], default=None)
+    main = best['photo'] if best is not None else None
     codes = _mobile_catalogue_hints(photos)
     if request.accept_mimetypes.best == 'application/json':
         return {'lot': _current_lot_label(), 'photos': rows, 'suggested_main': main, 'retail_codes': codes}
@@ -13787,9 +14021,11 @@ def mobile_acceptance_check():
         clue, = codes['candidates']
         barcode_note = (f"<p>Штрихкод {html.escape(clue['code'])} з кадрів "
                         f"{', '.join(map(str, clue['photos']))} доступний як підказка для пошуку.</p>")
+    apply = (_mobile_suggestions_form(_mobile_role_review_key(picker_id, photos))
+             if candidates and not _photo_roles_ready(photos, picker_id) else '')
     return page('Локальна перевірка фото', '<h2>Локальна перевірка фото</h2>'
                 '<p>Попередній відбір за виглядом кадрів. Для остаточного відбору перевірте редактор.</p>'
-                f'<p>{summary}</p><ul>{observations}</ul>{barcode_note}<p><a href="/mobile">До фото лота</a></p>')
+                f'<p>{summary}</p>{apply}<ul>{observations}</ul>{barcode_note}<p><a href="/mobile">До фото лота</a></p>')
 
 
 @app.route('/mobile/acceptance-package')

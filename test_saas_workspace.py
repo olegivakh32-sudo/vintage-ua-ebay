@@ -8,6 +8,7 @@ from threading import Barrier
 import unittest
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlsplit
+from zipfile import ZipFile
 
 from PIL import Image
 
@@ -187,6 +188,17 @@ class WorkspaceTests(unittest.TestCase):
         owned = self.send(self.first, '/account/export').json['photos']
         self.assertEqual(len(owned), 1)
         self.assertEqual(self.send(self.second, '/account/export').json['photos'], [])
+        with self.send(self.first, f'/account/export/photos?store={owner}') as own_archive:
+            self.assertEqual(own_archive.status_code, 200)
+            self.assertEqual(own_archive.headers['Cache-Control'], 'private, no-store')
+            with ZipFile(BytesIO(own_archive.data)) as package:
+                file = f'photos/{owner}/{draft["id"]}/01.jpg'
+                self.assertEqual(package.namelist(), [file, 'photos.json'])
+                self.assertEqual(package.read(file), raw)
+        self.assertEqual(self.send(self.second, f'/account/export/photos?store={owner}').status_code, 404)
+        with self.send(self.second, '/account/export/photos') as empty_archive:
+            with ZipFile(BytesIO(empty_archive.data)) as package:
+                self.assertEqual(package.namelist(), ['photos.json'])
         self.assertEqual(self.send(self.first, '/account', 'DELETE', {'confirm': True, 'password': PASSWORD},
                                    csrf=alice).status_code, 200)
         with self.app.extensions['vintage_workspace'].connect() as db:
@@ -280,6 +292,26 @@ class WorkspaceTests(unittest.TestCase):
             exchange.assert_called_once()
             self.assertEqual(self.send(self.first, path, 'DELETE', {}, csrf=alice).status_code, 200)
             self.assertIsNone(self.send(self.first, path).json['connection'])
+
+    def test_expired_ebay_state_cannot_store_late_provider_response(self):
+        config = dict(self.config, EBAY_SANDBOX_CLIENT_ID='test-app-id',
+                      EBAY_SANDBOX_CLIENT_SECRET='test-secret', EBAY_SANDBOX_RUNAME='test-runame',
+                      EBAY_SANDBOX_ENCRYPTION_KEY=urlsafe_b64encode(bytes(32)).decode())
+        self.app = create_app(config)
+        self.first = self.app.test_client()
+        csrf = self.account(self.first, ALICE)
+        identifier = self.store(self.first, csrf)
+        path = f'/stores/{identifier}/ebay'
+        start = self.send(self.first, path, 'POST', {}, csrf=csrf).json
+        state = parse_qs(urlsplit(start['authorization_url']).query)['state'][0]
+
+        def delayed_exchange(client, code):
+            self.clock += 601
+            return 'synthetic-user', 'synthetic-token', 999
+
+        with patch('workspace_ebay.SandboxEBay.exchange', delayed_exchange):
+            self.assertEqual(self.send(self.first, f'/ebay/sandbox/callback?code=test&state={state}').status_code, 409)
+        self.assertIsNone(self.send(self.first, path).json['connection'])
 
     def test_trial_quota_replay_and_per_store_cost(self):
         csrf = self.account(self.first, ALICE)

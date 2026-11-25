@@ -1,7 +1,10 @@
 from decimal import Decimal
 from io import BytesIO
 import hashlib
+import json
+from pathlib import Path
 import re
+import tempfile
 import time
 import unittest
 from unittest.mock import patch
@@ -210,6 +213,91 @@ class AndroidTests(unittest.TestCase):
             self.assertFalse(session['photo_editor_approved'])
             self.assertNotIn(session['picker_session_id'], m.PHOTO_ROLE_CACHE)
 
+    def test_local_suggestions_exclude_tools_and_preserve_approved_manual_edits(self):
+        from PIL import ImageDraw
+
+        overview = Image.new('RGB', (400, 300), '#e8e3df')
+        draw = ImageDraw.Draw(overview)
+        draw.rectangle((63, 77, 175, 225), fill='#395873')
+        draw.rectangle((231, 87, 329, 215), fill='#305b51')
+        detail = overview.crop((48, 66, 194, 234))
+        _, ruler = self.fixture_images()
+        display = Image.new('RGB', (400, 300), 'white')
+        draw = ImageDraw.Draw(display)
+        for x in (135, 167, 199):
+            draw.rectangle((x, 143, x+15, 171), outline='black', width=4)
+            draw.line((x, 157, x+15, 157), fill='black', width=3)
+        photos = []
+        for index, (image, name) in enumerate(
+            ((detail, 'IMG_1.jpg'), (overview, 'IMG_2.jpg'), (ruler, 'IMG_3.jpg'),
+             (display, 'IMG_4.jpg'), (overview, 'IMG_5.jpg'), (display, 'digital_scale.jpg')), 1
+        ):
+            output = BytesIO()
+            image.save(output, 'JPEG')
+            output.seek(0)
+            photos.append((output, name))
+        self.assertEqual(self.client.post('/mobile/upload', data={
+            'hold_csrf': self.csrf, 'photos': photos,
+        }).status_code, 303)
+        response = self.client.get('/mobile/acceptance-check', headers={'Accept': 'application/json'}).json
+        self.assertEqual(response['suggested_main'], 2)
+        self.assertEqual(response['photos'][2]['role'], 'EVIDENCE_ONLY')
+        self.assertEqual(response['photos'][3]['role'], 'NEEDS_REVIEW')
+        self.assertEqual(response['photos'][4]['duplicate_of'], 2)
+        self.assertEqual(response['photos'][5]['role'], 'EVIDENCE_ONLY')
+        page = self.client.get('/picker/editor').get_data(as_text=True)
+        key = re.search(r'name="selection" value="([^"]+)"', page)[1]
+        pick = {'hold_csrf': self.csrf, 'selection': key}
+        self.assertEqual(self.client.post('/mobile/apply-photo-suggestions', data=pick).status_code, 303)
+        # Seller can keep the detail and make it the cover explicitly.
+        self.assertEqual(self.client.post('/picker/editor', data={
+            **pick, 'product_photo': ['1', '2'],
+        }).status_code, 303)
+        self.assertEqual(self.client.post('/picker/editor/approve', data={
+            'main_photo': '1', 'b_1': '1.085', 'wb_1': '1',
+        }).status_code, 302)
+        before = self.client.get('/picker/approved/1').data
+        self.assertEqual(self.client.post('/mobile/apply-photo-suggestions', data=pick).status_code, 303)
+        with self.client.session_transaction() as state:
+            self.assertEqual(state['main_photo_index'], 1)
+            self.assertEqual(state['photo_order'], [1, 2])
+            m.APPROVED_PHOTO_CACHE.pop(state['picker_session_id'])
+        restored = self.client.get('/picker/editor').get_data(as_text=True)
+        self.assertIn("name='b_1' value='1.085'", restored)
+        self.assertIn("name='wb_1' value='1'", restored)
+        self.assertEqual(self.client.get('/picker/approved/1').data, before)
+        self.assertEqual(self.client.post('/picker/editor/approve', data={
+            'main_photo': '2', 'keep_1': '1', 'keep_2': '1',
+        }).status_code, 302)
+        with self.client.session_transaction() as state:
+            self.assertEqual(state['photo_order'], [2, 1])
+        self.assertEqual(self.client.get('/picker/approved/1').data, before)
+
+    def test_photo_scene_evidence_and_complete_set_cover(self):
+        from PIL import ImageDraw
+
+        view, _ = self.fixture_images()
+        complete = view.copy()
+        ImageDraw.Draw(complete).ellipse((52, 145, 89, 178), fill='#303842')
+        frames = []
+        for i, image in enumerate((view, complete, view.transpose(Image.Transpose.FLIP_TOP_BOTTOM)), 1):
+            raw = BytesIO()
+            image.save(raw, 'JPEG')
+            raw.seek(0)
+            frames.append((raw, f'IMG_{i}.jpg'))
+        self.client.post('/mobile/upload', data={'hold_csrf': self.csrf, 'photos': frames})
+        response = ('PHOTO_ROLES_JSON: {"roles":{"1":"EBAY_PRODUCT","2":"EBAY_PRODUCT","3":"EBAY_PRODUCT"}}\n'
+                    'PHOTO_SCENES_JSON: {"1":["GENERAL_PRODUCT",97],"2":["FULL_SET",94],"3":["SCALE",95]}')
+        with patch.dict(m.os.environ, {'ALLOW_PAID_AI': '1'}), patch.object(
+            m, 'OPENAI_API_KEY', 'fixture'
+        ), patch.object(m, 'call_openai', return_value=response):
+            result = self.client.post('/mobile/prepare-stage', data={'hold_csrf': self.csrf, 'stage': 'photos'})
+        self.assertEqual(result.status_code, 200)
+        with self.client.session_transaction() as state:
+            self.assertEqual(state['photo_order'], [2, 1])
+            self.assertEqual(m.PHOTO_ROLE_CACHE[state['picker_session_id']][3], 'EVIDENCE_ONLY')
+            self.assertTrue(state['photo_editor_approved'])
+
     def test_missing_ai_key_shows_navigation_without_losing_photos(self):
         self.client.post('/mobile/upload', data={
             'hold_csrf': self.csrf, 'photos': (self._jpeg(), 'IMG_01.jpg'),
@@ -286,6 +374,26 @@ class AndroidTests(unittest.TestCase):
             with patch.object(limits, 'on_reserve', side_effect=OSError('storage unavailable')):
                 with self.assertRaisesRegex(OSError, 'storage unavailable'):
                     limits.bound({'input': 'more text', 'max_output_tokens': 100})
+
+    def test_pilot_checks_package_and_prevents_resending_same_frames(self):
+        from ai_pilot import acceptance_gaps, claim_run, inputs
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            photo = root / 'photo.jpg'
+            photo.write_bytes(self._jpeg().getvalue())
+            manifest = root / 'lot.json'
+            manifest.write_text(json.dumps({'lot': 'LOT 004', 'photos': [photo.name]}))
+            data, photos = inputs(manifest)
+            self.assertEqual(len(acceptance_gaps(data, photos)), 3)
+            first = root / 'first.json'
+            claim_run(manifest, first, data)
+            self.assertEqual(first.stat().st_mode & 0o777, 0o600)
+            with self.assertRaisesRegex(ValueError, 'вже зарезервовано'):
+                claim_run(manifest, root / 'second.json', data)
+            manifest.write_text(json.dumps({'lot': 'LOT 004', 'photos': [str(photo)]}))
+            with self.assertRaisesRegex(ValueError, 'відносними шляхами'):
+                inputs(manifest)
 
     def test_isolated_pilot_runs_recognition_through_draft_and_recorded_taxonomy(self):
         import tempfile

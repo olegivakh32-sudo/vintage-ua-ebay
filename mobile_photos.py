@@ -55,7 +55,19 @@ def _has_ruler_ticks(image):
                 gaps = [right[0] - left[0] for left, right in zip(run, run[1:])]
                 pitch = sorted(gaps)[3]
                 lengths = [length for _, length in run]
-                if 5 <= pitch <= 28 and all(abs(gap - pitch) <= 2 for gap in gaps) and max(lengths) - min(lengths) >= 3:
+                if not (5 <= pitch <= 28 and max(lengths) - min(lengths) >= 3):
+                    continue
+                if all(abs(gap - pitch) <= 2 for gap in gaps):
+                    return True
+                # Oblique views can change spacing gradually. Require a mostly
+                # monotone run with two recurring graduation lengths.
+                changes = [b - a for a, b in zip(gaps, gaps[1:])]
+                shortest, longest = min(lengths), max(lengths)
+                if (max(abs(gap - pitch) for gap in gaps) <= max(2, pitch * .28)
+                        and max(map(abs, changes)) <= 2
+                        and (sum(change < 0 for change in changes) <= 1 or sum(change > 0 for change in changes) <= 1)
+                        and sum(length <= shortest + 1 for length in lengths) >= 2
+                        and sum(length >= longest - 1 for length in lengths) >= 2):
                     return True
     return False
 

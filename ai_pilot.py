@@ -13,6 +13,7 @@ from decimal import Decimal
 from hashlib import sha256
 import json
 import os
+import re
 from pathlib import Path
 import tempfile
 from unittest.mock import patch
@@ -29,6 +30,11 @@ PILOT_MODELS = {
     'gpt-5-mini-2025-08-07': (400_000, Decimal('0.25'), Decimal('2.00')),
 }
 PILOT_MAXIMUM = Decimal('0.25')
+WORST_CASE_RESERVATION = sum(
+    (calls * (context * input_rate + 5200 * output_rate) / 1_000_000
+     for calls, (context, input_rate, output_rate) in zip((4, 1), PILOT_MODELS.values())),
+    Decimal(0),
+)
 
 
 @dataclass
@@ -122,18 +128,24 @@ def fit_4o_mini_vision(messages, token_ceiling):
 
 def inputs(filename):
     data = json.loads(filename.read_text(encoding='utf-8'))
-    photos = [(filename.parent / path).resolve() for path in data['photos']]
+    root = filename.parent.resolve()
+    names = [Path(path) for path in data['photos']]
+    photos = [(root / name).resolve() for name in names]
+    if any(name.is_absolute() or not photo.is_relative_to(root) for name, photo in zip(names, photos)):
+        raise ValueError('Фото пілота мають передаватися відносними шляхами з каталогу пакета.')
     if not 1 <= len(photos) <= 24 or len(set(photos)) != len(photos):
         raise ValueError('Виберіть від 1 до 24 різних фото.')
     if any(not path.is_file() or path.stat().st_size > 10 * 1024 * 1024 for path in photos):
         raise ValueError('Кожне фото має бути локальним файлом до 10 МБ.')
     if not isinstance(data['lot'], str) or not data['lot'].strip():
         raise ValueError('Потрібен ідентифікатор лота.')
-    if 'originals' in data:
-        expected = [{'photo': index, 'sha256': sha256(path.read_bytes()).hexdigest()}
-                    for index, path in enumerate(photos, 1)]
-        if data['originals'] != expected:
-            raise ValueError('Оригінали не збігаються з контрольними сумами пакета.')
+    expected = [{'photo': index, 'sha256': sha256(path.read_bytes()).hexdigest()}
+                for index, path in enumerate(photos, 1)]
+    if 'originals' in data and data['originals'] != expected:
+        raise ValueError('Оригінали не збігаються з контрольними сумами пакета.')
+    if len({row['sha256'] for row in expected}) != len(photos):
+        raise ValueError('Пакет містить точні дублікати оригіналів.')
+    data['_photo_digests'] = [row['sha256'] for row in expected]
     return data, photos
 
 
@@ -338,6 +350,35 @@ def write_report(path, data):
             temporary.unlink(missing_ok=True)
 
 
+def acceptance_gaps(data, photos):
+    gaps = []
+    lot004 = bool(re.fullmatch(r'LOT[ -]*0*4', data['lot'].strip(), re.IGNORECASE))
+    if lot004 and len(photos) != 12:
+        gaps.append('Для LOT004 очікуються 12 оригінальних фото.')
+    if not isinstance(data.get('reference'), dict) or not data['reference']:
+        gaps.append('Для реального пілота потрібні незалежні еталони.')
+    taxonomy = data.get('taxonomy') or {}
+    if (not isinstance(taxonomy, dict) or not taxonomy.get('tree_id')
+            or not isinstance(taxonomy.get('suggestions'), list) or not taxonomy['suggestions']
+            or not isinstance(taxonomy.get('aspects_by_category'), dict) or not taxonomy['aspects_by_category']):
+        gaps.append('Для реального пілота потрібен збережений знімок таксономії eBay.')
+    return gaps
+
+
+def claim_run(manifest, report, data):
+    digest = sha256(''.join(sorted(data['_photo_digests'])).encode()).hexdigest()
+    claim = manifest.parent / f'.ai-pilot-{digest}.lock'
+    try:
+        os.close(os.open(claim, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+    except FileExistsError:
+        raise ValueError('Цей набір фото вже зарезервовано. Перевірте попередній звіт і витрати.') from None
+    try:
+        os.close(os.open(report, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+    except OSError:
+        claim.unlink()
+        raise
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('manifest', type=Path)
@@ -350,10 +391,13 @@ def main():
         if not args.budget_usd.is_finite() or not 0 < args.budget_usd <= Decimal('0.25'):
             raise ValueError('Ліміт має бути додатним і не перевищувати 0.25 USD.')
         limits = PilotLimits(args.budget_usd)
+        gaps = acceptance_gaps(data, photos)
         if not args.execute:
             print(json.dumps({
                 'lot': data['lot'], 'photos': inspect_photos(photos),
                 'attempt_limit': 5, 'budget_usd': str(limits.budget_usd), 'paid_calls': 0,
+                'worst_case_reservation_usd': str(WORST_CASE_RESERVATION),
+                'missing_acceptance_inputs': gaps, 'ready_for_separate_approval': not gaps,
             }, ensure_ascii=False, indent=2))
             return 0
         if not args.report or os.environ.get('APPROVE_AI_PILOT') != '1' or not os.environ.get('OPENAI_API_KEY'):
@@ -361,14 +405,10 @@ def main():
         # The research snapshot is scheduled to shut down first.
         if datetime.now(timezone.utc).date() >= date(2026, 12, 11):
             raise ValueError('Моделі пілота потребують повторної перевірки тарифів і доступності.')
-        if not isinstance(data.get('reference'), dict) or not data['reference']:
-            raise ValueError('Для реального пілота потрібні незалежні еталони.')
-        taxonomy = data.get('taxonomy') or {}
-        if (not isinstance(taxonomy, dict) or not taxonomy.get('tree_id') or not taxonomy.get('suggestions')
-                or not isinstance(taxonomy.get('aspects_by_category'), dict)):
-            raise ValueError('Для реального пілота потрібен збережений знімок таксономії eBay.')
+        if gaps:
+            raise ValueError(' '.join(gaps))
         inspect_photos(photos)
-        os.close(os.open(args.report, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+        claim_run(args.manifest, args.report, data)
 
         def reserve_report(status='running'):
             write_report(args.report, {

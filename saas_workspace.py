@@ -7,10 +7,12 @@ import os
 import re
 import secrets
 import sqlite3
+from tempfile import SpooledTemporaryFile
 import time
 from uuid import uuid4
+from zipfile import ZIP_STORED, ZipFile
 
-from flask import Flask, Response, g, jsonify, redirect, request, url_for
+from flask import Flask, Response, g, jsonify, redirect, request, send_file, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import sandbox_billing as billing
@@ -374,20 +376,22 @@ def create_app(config=None):
         seller, refresh, expires = ebay.exchange(code[0])
         store_id = row['store_id']
         sealed = ebay.seal(g.account, store_id, refresh)
+        completed_at = int(app.config['WORKSPACE_CLOCK']())
         try:
             with store.connect(write=True) as db:
                 removed = db.execute(
                     'DELETE FROM ebay_states WHERE state_hash=? AND account_id=? AND store_id=? AND consumed=1 '
-                    'AND EXISTS (SELECT 1 FROM sessions WHERE token_hash=? AND account_id=? AND expires_at>?)',
-                    (state_hash, g.account, store_id, g.token_hash, g.account, g.now),
+                    'AND expires_at>? AND EXISTS (SELECT 1 FROM sessions '
+                    'WHERE token_hash=? AND account_id=? AND expires_at>?)',
+                    (state_hash, g.account, store_id, completed_at, g.token_hash, g.account, completed_at),
                 )
                 if not removed.rowcount:
                     raise WorkspaceError('Запит підключення eBay замінено або скасовано.', 409)
                 db.execute('INSERT INTO ebay_connections VALUES (?, ?, ?, ?, ?) '
                            'ON CONFLICT(account_id, store_id) DO UPDATE SET seller_id=excluded.seller_id, '
                            'encrypted_refresh=excluded.encrypted_refresh, expires_at=excluded.expires_at',
-                           (g.account, store_id, seller, sealed, g.now + expires))
-                audit(db, g.account, 'ebay.sandbox.connect', store_id, g.now)
+                           (g.account, store_id, seller, sealed, completed_at + expires))
+                audit(db, g.account, 'ebay.sandbox.connect', store_id, completed_at)
         except sqlite3.IntegrityError:
             raise WorkspaceError('Магазин eBay Sandbox уже підключено до іншого профілю.', 409) from None
         return redirect(url_for('home', shop=store_id), code=303)
@@ -530,6 +534,44 @@ def create_app(config=None):
             output = _account_snapshot(db, g.account)
         return Response(json.dumps(output, ensure_ascii=False), mimetype='application/json',
                         headers={'Content-Disposition': 'attachment; filename=vintage-test-account.json'})
+
+    @app.get('/account/export/photos')
+    def export_account_photos():
+        store_id = request.args.get('store')
+        criteria, params = 'account_id=?', (g.account,)
+        if store_id is not None:
+            criteria += ' AND store_id=?'
+            params += (store_id,)
+        archive = SpooledTemporaryFile(max_size=4 * 1024 * 1024)
+        try:
+            with store.connect() as db:
+                db.execute('BEGIN')
+                if store_id is not None:
+                    _store(db, g.account, store_id)
+                count, size = db.execute(
+                    'SELECT count(*), coalesce(sum(length(original)), 0) FROM media WHERE ' + criteria, params,
+                ).fetchone()
+                if size > 100 * 1024 * 1024 or count > 3000:
+                    raise WorkspaceError('Пакет завеликий. Виберіть магазин або завантажте потрібні оригінали з лота.', 413)
+                files = []
+                with ZipFile(archive, 'w', compression=ZIP_STORED) as package:
+                    rows = db.execute('SELECT store_id, draft_id, slot, digest, mime, original '
+                                      'FROM media WHERE ' + criteria + ' ORDER BY store_id, draft_id, slot', params)
+                    for row in rows:
+                        extension = {'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp'}[row['mime']]
+                        name = f"photos/{row['store_id']}/{row['draft_id']}/{row['slot']:02d}.{extension}"
+                        package.writestr(name, row['original'])
+                        files.append({'file': name, 'sha256': row['digest']})
+                    package.writestr('photos.json', json.dumps(files, ensure_ascii=False))
+            with store.connect(write=True) as db:
+                audit(db, g.account, 'account.export.photos', store_id, g.now)
+            archive.seek(0)
+            response = send_file(archive, mimetype='application/zip', as_attachment=True,
+                                 download_name='vintage-test-photos.zip', max_age=0)
+        except Exception:
+            archive.close()
+            raise
+        return response
 
     @app.delete('/account')
     def delete_account():
