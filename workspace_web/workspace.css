@@ -1,0 +1,18 @@
+:root { color-scheme: light; font: 16px/1.5 system-ui, sans-serif; color: #172b28; background: #f2f5f1; }
+body { margin: 0; }
+main { max-width: 960px; margin: auto; padding: clamp(1rem, 4vw, 2.5rem); }
+header { border-bottom: 1px solid #c5d1c8; margin-bottom: 1rem; }
+h1, h2, h3 { line-height: 1.2; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 1rem; }
+.grid > section, #entry form { background: #fff; border: 1px solid #d7e0d9; border-radius: .8rem; padding: 1.1rem; }
+form { margin-block: 1rem; }
+label { display: block; margin-block: .7rem; }
+label > :is(input, select, textarea) { box-sizing: border-box; width: 100%; display: block; }
+input, select, textarea, button { font: inherit; padding: .55rem .7rem; border: 1px solid #7b9489; border-radius: .35rem; }
+label.check input { width: auto; display: inline; }
+button { color: #fff; background: #225241; border-color: #225241; cursor: pointer; margin: .15rem 0; }
+button:disabled { opacity: .55; cursor: wait; }
+a { color: #174d43; }
+.danger { background: #8d312d; border-color: #8d312d; }
+#notice { min-height: 1.5em; font-weight: 600; }
+li button { margin-inline-start: .45rem; }

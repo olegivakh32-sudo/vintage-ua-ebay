@@ -6,9 +6,11 @@ import unittest
 from unittest.mock import patch
 
 from PIL import Image, ImageDraw
+import zxingcpp
 
 from ai_pilot import PilotLimits
 from mobile_photos import measurement_hint
+from product_codes import canonical_gtin, research_identifier
 from test_mobile import m
 
 
@@ -114,6 +116,33 @@ class AndroidTests(unittest.TestCase):
         for x in range(30, 380, 10):
             draw.line((x, 65, x, 73), fill=0, width=2)
         self.assertIsNone(measurement_hint(stripes, 'IMG_003.jpg'))
+
+    def test_local_barcodes_are_checked_and_separated_from_conflicting_labels(self):
+        number = '4006381333931'
+        self.assertIsNone(canonical_gtin('4006381333932'))
+        self.assertEqual(canonical_gtin('012345678905'), canonical_gtin('0012345678905'))
+
+        def jpg(code):
+            symbol = zxingcpp.create_barcode(code, zxingcpp.BarcodeFormat.EAN13)
+            photo = Image.fromarray(zxingcpp.write_barcode_to_image(symbol, scale=4))
+            result = BytesIO()
+            photo.save(result, 'JPEG')
+            result.seek(0)
+            return result
+
+        def upload(code):
+            return self.client.post('/mobile/upload', data={'hold_csrf': self.csrf,
+                                                           'photos': [(jpg(code), 'IMG.jpg')]})
+
+        self.assertEqual(upload(number).status_code, 303)
+        headers = {'Accept': 'application/json'}
+        codes = self.client.get('/mobile/acceptance-check', headers=headers).json['retail_codes']
+        self.assertEqual(codes, {'status': 'UNIQUE', 'candidates': [{'code': number, 'photos': [1]}]})
+        self.assertIn(number, research_identifier(codes))
+        self.assertEqual(upload('5901234123457').status_code, 303)
+        codes = self.client.get('/mobile/acceptance-check', headers=headers).json['retail_codes']
+        self.assertEqual(codes['status'], 'CONFLICT')
+        self.assertNotIn(number, research_identifier(codes))
 
     def test_offline_acceptance_check_suggests_cover_without_approving_roles(self):
         product, ruler = self.fixture_images()

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Тестовий кабінет · Vintage UA</title>
+  <link rel="stylesheet" href="/ui/workspace.css">
+  <script defer src="/ui/workspace.js"></script>
+</head>
+<body>
+<main>
+  <header><h1>Тестовий кабінет</h1><p>Використовуйте синтетичні дані. Тут немає реальних платежів.</p></header>
+  <p id="notice" role="status" aria-live="polite"></p>
+  <section id="entry">
+    <h2>Доступ до кабінету</h2>
+    <div class="grid">
+      <form id="login">
+        <h3>Вхід</h3>
+        <label>Email<input name="email" type="email" autocomplete="username" required></label>
+        <label>Пароль<input name="password" type="password" autocomplete="current-password" required></label>
+        <button>Увійти</button>
+      </form>
+      <form id="register">
+        <h3>Реєстрація</h3>
+        <label>Тестовий email<input name="email" type="email" autocomplete="username" required></label>
+        <label>Пароль<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+        <label>Запрошення<input name="invite" type="password" required></label>
+        <label class="check"><input name="accept" type="checkbox" required> Приймаю <a href="/legal">тестові умови</a></label>
+        <button>Зареєструватися</button>
+      </form>
+    </div>
+  </section>
+  <div id="workspace" hidden>
+    <div class="grid">
+      <section>
+        <h2>Магазини і чернетки</h2>
+        <form id="add-store">
+          <label>Назва магазину<input name="name" maxlength="100" required></label>
+          <label>Ринок<select name="marketplace"><option>EBAY_US</option><option>EBAY_GB</option><option>EBAY_DE</option><option>EBAY_FR</option><option>EBAY_IT</option><option>EBAY_ES</option><option>EBAY_CA</option><option>EBAY_AU</option></select></label>
+          <button>Додати магазин</button>
+        </form>
+        <label>Активний магазин<select id="stores"></select></label>
+        <p id="ebay-state"></p>
+        <div id="store-tools" hidden>
+          <button id="link-ebay" type="button">Підключити eBay Sandbox</button>
+          <button id="unlink-ebay" type="button">Від’єднати eBay Sandbox</button>
+          <button id="meter" type="button">Записати тестову підготовку</button>
+          <form id="new-draft">
+            <label>SKU<input name="sku" maxlength="50" required></label>
+            <label>Заголовок<input name="title" maxlength="80" required></label>
+            <label>Стан<select name="condition"><option value="UNVERIFIED">Потребує перевірки</option><option value="NEW">Новий</option><option value="USED">Вживаний</option><option value="REFURBISHED">Відновлений</option><option value="FOR_PARTS">На запчастини</option></select></label>
+            <label>Опис<textarea name="description" maxlength="10000"></textarea></label>
+            <button>Зберегти чернетку</button>
+          </form>
+          <ul id="drafts"></ul>
+        </div>
+      </section>
+      <section>
+        <h2>Тестова підписка</h2>
+        <p id="usage"></p>
+        <form id="checkout">
+          <label>Тариф<select id="tariffs" name="plan"></select></label>
+          <button>Імітувати оплату</button>
+        </form>
+        <button id="cancel" type="button">Скасувати продовження</button>
+        <ul id="payments"></ul>
+      </section>
+      <section>
+        <h2>Звернення</h2>
+        <form id="support">
+          <label>Повідомлення<textarea name="detail" required maxlength="1500"></textarea></label>
+          <button>Зберегти тестове звернення</button>
+        </form>
+        <ul id="tickets"></ul>
+      </section>
+      <section>
+        <h2>Акаунт</h2>
+        <p><a href="/account/export">Експортувати дані</a> · <a href="/legal">Тестові умови й конфіденційність</a></p>
+        <button id="logout" type="button">Вийти</button>
+        <form id="erase">
+          <label>Пароль<input name="password" type="password" autocomplete="current-password" required></label>
+          <label class="check"><input name="confirm" type="checkbox" required> Підтверджую видалення тестового акаунта</label>
+          <button class="danger">Видалити акаунт</button>
+        </form>
+      </section>
+    </div>
+  </div>
+</main>
+</body>
+</html>

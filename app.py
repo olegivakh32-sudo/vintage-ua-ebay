@@ -59,6 +59,7 @@ from catalog_policy import (
 from identity_evidence import corroborated_value, identity_claims
 from measurement_units import metric_value
 from mobile_photos import duplicate_photo_indices, image_sharpness, measurement_hint
+from product_codes import BARCODE_HINT_VERSION, catalogue_hints, read_retail_codes, research_identifier
 
 from flask import (
     Flask,
@@ -4792,11 +4793,13 @@ Reference specs source: source name/URL or UNKNOWN
 
 def _p026_combined_research_engine(label, analysis, items, used_indices, structure, usage_picker_id=None):
     """One paid web-research call; returns two logical module outputs."""
+    identifier = research_identifier(_mobile_catalogue_hints(items))
     prompt=f"""P026 COMBINED RESEARCH — TWO LOGICAL MODULES, ONE API CALL
 Current lot: {label}
 PHYSICAL STRUCTURE: {json.dumps(structure, ensure_ascii=False)}
 SELLER VISUAL ANALYSIS:
 {analysis}
+{identifier}
 
 Do the work in this order:
 A) IDENTIFICATION ENGINE: identify the physical item as far as evidence permits.
@@ -13538,6 +13541,22 @@ def _mobile_local_bytes(item):
         return photo.read()
 
 
+def _mobile_catalogue_hints(items):
+    observations = []
+    for index, item in enumerate(items[:24], start=1):
+        if not item.get('mobile_file'):
+            continue
+        if item.get('retail_code_version') != BARCODE_HINT_VERSION:
+            try:
+                with Image.open(BytesIO(_mobile_local_bytes(item))) as image:
+                    item['retail_code_hints'] = read_retail_codes(image)
+            except (OSError, TypeError, ValueError, RuntimeError):
+                item['retail_code_hints'] = []
+            item['retail_code_version'] = BARCODE_HINT_VERSION
+        observations.append((index, item.get('retail_code_hints') or []))
+    return catalogue_hints(observations)
+
+
 def _mobile_original_bytes(item):
     digest = item.get('mobile_original_sha256')
     if digest:
@@ -13714,13 +13733,21 @@ def mobile_acceptance_check():
                 scores[index] = score
             row['note'] = 'Кандидат для оголошення' if score > -999.0 else 'Кадр потребує перевірки'
     main = max(scores, key=scores.__getitem__) if scores else None
+    codes = _mobile_catalogue_hints(photos)
     if request.accept_mimetypes.best == 'application/json':
-        return {'lot': _current_lot_label(), 'photos': rows, 'suggested_main': main}
+        return {'lot': _current_lot_label(), 'photos': rows, 'suggested_main': main, 'retail_codes': codes}
     summary = f'Попередня обкладинка — кадр №{main}.' if main else 'Кадр для попередньої обкладинки не визначено.'
     observations = ''.join(f"<li>Фото №{row['photo']} — {row['note']}</li>" for row in rows)
+    barcode_note = ''
+    if codes['status'] == 'CONFLICT':
+        barcode_note = '<p>Знайдено різні штрихкоди. Перевірте, який належить товару.</p>'
+    elif codes['status'] == 'UNIQUE':
+        clue, = codes['candidates']
+        barcode_note = (f"<p>Штрихкод {html.escape(clue['code'])} з кадрів "
+                        f"{', '.join(map(str, clue['photos']))} доступний як підказка для пошуку.</p>")
     return page('Локальна перевірка фото', '<h2>Локальна перевірка фото</h2>'
                 '<p>Попередній відбір за виглядом кадрів. Для остаточного відбору перевірте редактор.</p>'
-                f'<p>{summary}</p><ul>{observations}</ul><p><a href="/mobile">До фото лота</a></p>')
+                f'<p>{summary}</p><ul>{observations}</ul>{barcode_note}<p><a href="/mobile">До фото лота</a></p>')
 
 
 @app.route('/mobile/acceptance-package')
