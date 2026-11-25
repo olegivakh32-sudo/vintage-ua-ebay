@@ -51,7 +51,8 @@ class MobileHoldPackageTests(unittest.TestCase):
 
         with (
             TemporaryDirectory() as tmp,
-            patch.dict(os.environ, {'APP_SECRET': 'local-test-only-shared-key', 'VINTAGE_OPERATOR_PASSWORD': owner[1]}),
+            patch.dict(os.environ, {'VINTAGE_HOLD_BACKUP_KEY': 'local-test-only-shared-key',
+                                    'VINTAGE_OPERATOR_PASSWORD': owner[1]}),
             patch.dict(m.app.config, {'SECRET_KEY': 'local-test-only-shared-key'}),
             patch.object(m, '_sync_current_lot_once', return_value=4),
             patch.object(m.requests.sessions.Session, 'request', side_effect=AssertionError('No network')),
@@ -101,7 +102,8 @@ class MobileHoldPackageTests(unittest.TestCase):
                     destination.writestr(name, b'altered' if name.endswith('.source') else raw)
 
             with (patch.object(m, 'ACTIVE_LOT_CHECKPOINT_DIR', str(Path(tmp) / 'after')),
-                  patch.dict(os.environ, {'HOLD_QUEUE_DIR': str(Path(tmp) / 'after')})):
+                  patch.dict(os.environ, {'HOLD_QUEUE_DIR': str(Path(tmp) / 'after')}),
+                  patch.dict(m.app.config, {'SECRET_KEY': 'new-web-session-key'})):
                 restored = m.app.test_client()
                 csrf, _ = login(restored)
 

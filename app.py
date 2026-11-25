@@ -12966,13 +12966,21 @@ def hold_clear():
     return redirect('/ebay/hold-queue',code=303)
 
 
+def _hold_backup_key():
+    return os.environ.get('VINTAGE_HOLD_BACKUP_KEY') or app.secret_key
+
+
+def _hold_backup_configured():
+    return bool(os.environ.get('VINTAGE_HOLD_BACKUP_KEY') or os.environ.get('APP_SECRET'))
+
+
 def _p058_hold_signer():
     from itsdangerous import URLSafeSerializer
-    return URLSafeSerializer(app.secret_key,salt='vintage-hold-registry-v1')
+    return URLSafeSerializer(_hold_backup_key(),salt='vintage-hold-registry-v1')
 
 
 def _p058_store_key():
-    return hashlib.sha256((str(app.secret_key)+'|'+str(EBAY_CLIENT_ID or '')).encode()).hexdigest()[:24]
+    return hashlib.sha256((str(_hold_backup_key())+'|'+str(EBAY_CLIENT_ID or '')).encode()).hexdigest()[:24]
 
 
 @app.route('/hold/state',methods=['GET'])
@@ -13000,13 +13008,13 @@ def hold_export():
 
 
 def _mobile_hold_signer():
-    return URLSafeSerializer(app.secret_key, salt='vintage-mobile-hold-package-v1')
+    return URLSafeSerializer(_hold_backup_key(), salt='vintage-mobile-hold-package-v1')
 
 
 @app.get('/hold/package/<record_id>')
 def download_hold_package(record_id):
-    if not (_owner_https() and getattr(g, 'owner_authenticated', False) and os.environ.get('APP_SECRET')):
-        return 'Потрібен HTTPS-доступ власника та постійний ключ APP_SECRET.', 403
+    if not (_owner_https() and getattr(g, 'owner_authenticated', False) and _hold_backup_configured()):
+        return 'Потрібен HTTPS-доступ власника та постійний ключ резервних копій.', 403
     row = _p058_row(record_id)
     if not row or row['status'] != 'active':
         return 'Активний запис HOLD відсутній.', 404
@@ -13028,8 +13036,8 @@ def download_hold_package(record_id):
 
 @app.post('/hold/package')
 def restore_hold_package():
-    if not (_owner_https() and getattr(g, 'owner_authenticated', False) and os.environ.get('APP_SECRET')):
-        return 'Потрібен HTTPS-доступ власника та постійний ключ APP_SECRET.', 403
+    if not (_owner_https() and getattr(g, 'owner_authenticated', False) and _hold_backup_configured()):
+        return 'Потрібен HTTPS-доступ власника та постійний ключ резервних копій.', 403
     if not _p058_csrf_valid():
         return 'Оновіть форму відновлення HOLD.', 403
     file = request.files.get('package')
@@ -13193,7 +13201,7 @@ def ebay_hold_queue():
                 actions=f'<form action="/ebay/hold-queue/archive" method="post">{hidden}<input type="hidden" name="restore" value="yes"><button>Повернути в HOLD</button></form>'
             else:
                 actions=f'<form action="/ebay/hold-queue/publish" method="post" onsubmit="this.querySelector(&quot;button&quot;).disabled=true;this.querySelector(&quot;button&quot;).textContent=&quot;Готую до фінального підтвердження…&quot;;this.setAttribute(&quot;aria-busy&quot;,&quot;true&quot;)">{hidden}<button>Підготувати оголошення на eBay</button></form><form action="/ebay/hold-queue/open" method="post">{hidden}<button>Відкрити / продовжити без нового AI</button></form><form action="/ebay/hold-queue/archive" method="post">{hidden}<button style="background:#667085">Прибрати в архів</button></form>'
-                if (getattr(g, 'owner_authenticated', False) and os.environ.get('APP_SECRET')
+                if (getattr(g, 'owner_authenticated', False) and _hold_backup_configured()
                         and str(row['picker_id']).startswith('mobile-')):
                     actions += f'<a href="/hold/package/{rid}">Зберегти лот із фото</a>'
             price=('$'+str(data.get('price'))) if data.get('price') else 'Ціну ще не визначено'
@@ -13211,7 +13219,7 @@ def ebay_hold_queue():
                     f'enctype="multipart/form-data">{hidden_field("hold_csrf", token)}'
                     '<label>ZIP-копія лота <input type="file" name="package" accept=".zip,application/zip" required></label>'
                     '<button>Відновити до HOLD</button></form></details>'
-                    if getattr(g, 'owner_authenticated', False) and os.environ.get('APP_SECRET') else '')
+                    if getattr(g, 'owner_authenticated', False) and _hold_backup_configured() else '')
         body=f'''<h2>HOLD — {'архів' if archive else 'відкладені лоти'}</h2>
 <p><a href="/ebay/hold-queue">Активний HOLD</a> · <a href="/ebay/hold-queue?archive=1">Архів / опубліковані</a></p>
 <p><b>Записів: {total}.</b> Назва, фото й підготовлені дані зберігаються разом. Відкриття черги не запускає AI та не шукає всі товари на eBay.</p>
@@ -13220,7 +13228,7 @@ def ebay_hold_queue():
 {''.join(cards) if cards else '<p>Черга порожня. Додавайте сюди нові лоти кнопкою HOLD або після створення неопублікованої пропозиції.</p>'}{pager}
 <hr><p><a href="/hold/export">Завантажити резервну копію HOLD</a></p>
 {portable}
-<details><summary>Відновити HOLD з файлу</summary><p>Поточні записи зберігаються; дублікати не замінюються. Потрібен той самий APP_SECRET.</p><input id="hold-backup-file" type="file" accept=".json,application/json"><button type="button" onclick="importHoldBackup()">Додати записи з копії</button><p id="hold-import-status" role="status"></p></details>
+<details><summary>Відновити HOLD з файлу</summary><p>Поточні записи зберігаються. Для копії потрібен той самий ключ підпису.</p><input id="hold-backup-file" type="file" accept=".json,application/json"><button type="button" onclick="importHoldBackup()">Додати записи з копії</button><p id="hold-import-status" role="status"></p></details>
 <p><small>Очищення переносить записи цього HOLD в архів. Старі пропозиції eBay автоматично не імпортуються й не видаляються. Для збереження на іншому пристрої користуйтеся файлом копії або постійним диском сервера.</small></p>'''
         response=app.make_response(page('Vintage UA HOLD',body));response.headers['Cache-Control']='no-store';return response
     except Exception as exc:
