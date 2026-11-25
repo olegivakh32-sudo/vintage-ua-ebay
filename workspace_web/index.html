@@ -53,6 +53,16 @@
             <button>Зберегти чернетку</button>
           </form>
           <ul id="drafts"></ul>
+          <div id="photo-tools" hidden>
+            <h3 id="photo-title">Фото чернетки</h3>
+            <form id="photo-upload">
+              <label>Галерея<input name="gallery" type="file" multiple accept="image/jpeg,image/png,image/webp"></label>
+              <label>Камера<input name="camera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"></label>
+              <button>Зберегти фото</button>
+            </form>
+            <p id="photo-hints"></p>
+            <ul id="photo-list"></ul>
+          </div>
         </div>
       </section>
       <section>

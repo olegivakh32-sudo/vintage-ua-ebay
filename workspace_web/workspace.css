@@ -16,3 +16,4 @@ a { color: #174d43; }
 .danger { background: #8d312d; border-color: #8d312d; }
 #notice { min-height: 1.5em; font-weight: 600; }
 li button { margin-inline-start: .45rem; }
+#photo-list img { display: inline-block; width: 84px; max-height: 84px; object-fit: contain; vertical-align: middle; margin: .3rem; }

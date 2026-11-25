@@ -17,6 +17,7 @@ import sandbox_billing as billing
 from catalog_policy import marketplace_code
 from workspace_db import WorkspaceDB, WorkspaceError, audit, replay, save_response
 from workspace_ebay import SandboxEBay
+from workspace_media import MAX_PHOTO_BYTES, album, prepare_photo, store_photo
 
 COOKIE = '__Host-vintage_workspace'
 SESSION_SECONDS = int(timedelta(hours=12).total_seconds())
@@ -117,6 +118,8 @@ def _account_snapshot(db, account):
                          'ORDER BY store_id', (account,)),
         'drafts': _rowset(db, 'SELECT id, store_id, sku, title, description, condition, revision FROM drafts '
                           'WHERE account_id=? ORDER BY store_id, sku', (account,)),
+        'photos': _rowset(db, 'SELECT store_id, draft_id, slot, digest AS sha256, mime FROM media WHERE account_id=? '
+                          'ORDER BY store_id, draft_id, slot', (account,)),
         'support': _rowset(db, 'SELECT id, detail, created_at FROM tickets WHERE account_id=? ORDER BY created_at', (account,)),
         'usage': _rowset(db, 'SELECT id, store_id, feature, minor, created_at FROM usage WHERE account_id=? '
                          'ORDER BY created_at, id', (account,)),
@@ -160,7 +163,12 @@ def create_app(config=None):
         if unsafe:
             if (origin and origin != request.host_url.rstrip('/')) or request.headers.get('Sec-Fetch-Site') == 'cross-site':
                 raise WorkspaceError('Неприпустиме джерело запиту.', 403)
-            if not request.is_json:
+            if request.endpoint == 'draft_photos' and request.method == 'POST':
+                if request.mimetype != 'multipart/form-data':
+                    raise WorkspaceError('Додайте фото як файл.', 415)
+                request.max_content_length = MAX_PHOTO_BYTES + 65536
+                request.max_form_parts = 2
+            elif not request.is_json:
                 raise WorkspaceError('Використовуйте JSON.', 415)
         if request.endpoint in PUBLIC_ENDPOINTS or not request.endpoint:
             return
@@ -184,7 +192,7 @@ def create_app(config=None):
     def privacy_headers(response):
         response.headers.update({
             'Cache-Control': 'private, no-store',
-            'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; "
+            'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
                                        "connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
             'Referrer-Policy': 'no-referrer',
             'X-Content-Type-Options': 'nosniff',
@@ -433,6 +441,42 @@ def create_app(config=None):
             )
             audit(db, g.account, 'draft.update', lot_id, g.now)
             return _draft(db, g.account, store_id, lot_id)
+
+    @app.route('/stores/<store_id>/drafts/<lot_id>/photos', methods=['GET', 'POST'])
+    def draft_photos(store_id, lot_id):
+        scope = (g.account, store_id, lot_id)
+        with store.connect() as db:
+            _draft(db, *scope)
+            if request.method == 'GET':
+                return album(db, scope)
+        inputs = request.files.getlist('photo')
+        if len(inputs) != 1 or len(request.files) != 1:
+            raise WorkspaceError('Виберіть один кадр для цього запиту.')
+        photo = prepare_photo(inputs[0])
+        with store.connect(write=True) as db:
+            _draft(db, *scope)
+            slot, created = store_photo(db, scope, photo)
+            if created:
+                audit(db, g.account, 'draft.photo', lot_id, g.now)
+            return {'slot': slot, **album(db, scope)}, 201 if created else 200
+
+    @app.get('/stores/<store_id>/drafts/<lot_id>/photos/<int:slot>/<kind>')
+    def draft_photo(store_id, lot_id, slot, kind):
+        if kind == 'preview':
+            with store.connect() as db:
+                row = db.execute('SELECT preview FROM media WHERE account_id=? AND store_id=? AND draft_id=? AND slot=?',
+                                 (g.account, store_id, lot_id, slot)).fetchone()
+            if row:
+                return Response(row['preview'], mimetype='image/jpeg')
+        elif kind == 'original':
+            with store.connect() as db:
+                row = db.execute('SELECT original, mime FROM media WHERE account_id=? AND store_id=? AND draft_id=? AND slot=?',
+                                 (g.account, store_id, lot_id, slot)).fetchone()
+            if row:
+                extension = {'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp'}[row['mime']]
+                return Response(row['original'], mimetype=row['mime'],
+                                headers={'Content-Disposition': f'attachment; filename="photo-{slot:02d}.{extension}"'})
+        raise WorkspaceError('Фото не знайдено.', 404)
 
     @app.get('/billing')
     def bill():

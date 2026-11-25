@@ -47,6 +47,16 @@ CREATE TABLE IF NOT EXISTS drafts (
     FOREIGN KEY (account_id, store_id) REFERENCES stores(account_id, id) ON DELETE CASCADE,
     UNIQUE(account_id, store_id, sku)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS draft_scope ON drafts(account_id, store_id, id);
+CREATE TABLE IF NOT EXISTS media (
+    account_id TEXT NOT NULL, store_id TEXT NOT NULL, draft_id TEXT NOT NULL,
+    slot INTEGER NOT NULL CHECK (slot BETWEEN 1 AND 24),
+    digest TEXT NOT NULL, mime TEXT NOT NULL, original BLOB NOT NULL, preview BLOB NOT NULL,
+    hint TEXT, codes TEXT NOT NULL, sharpness REAL NOT NULL,
+    PRIMARY KEY (account_id, store_id, draft_id, slot),
+    UNIQUE(account_id, store_id, draft_id, digest),
+    FOREIGN KEY (account_id, store_id, draft_id) REFERENCES drafts(account_id, store_id, id) ON DELETE CASCADE
+);
 CREATE TABLE IF NOT EXISTS tickets (
     id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     detail TEXT NOT NULL, created_at INTEGER NOT NULL
@@ -157,6 +167,7 @@ class WorkspaceDB:
         with closing(sqlite3.connect(self.path, timeout=10)) as connection:
             connection.row_factory = sqlite3.Row
             connection.execute('PRAGMA foreign_keys=ON')
+            connection.execute('PRAGMA secure_delete=ON')
             with connection:
                 if write:
                     connection.execute('BEGIN IMMEDIATE')

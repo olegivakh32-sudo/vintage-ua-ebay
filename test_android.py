@@ -2,14 +2,18 @@ from decimal import Decimal
 from io import BytesIO
 import hashlib
 import re
+import time
 import unittest
 from unittest.mock import patch
+from zipfile import ZipFile
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from PIL import Image, ImageDraw
 import zxingcpp
 
 from ai_pilot import PilotLimits
 from mobile_photos import measurement_hint
+from owner_access import issue_pass
 from product_codes import canonical_gtin, research_identifier
 from test_mobile import m
 
@@ -45,21 +49,68 @@ class AndroidTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(apk.data).hexdigest(),
                                  '6b8ac2eca9a7b188423255a46adb32634ea96738efd69ba3e1bdd575b1513b45')
 
+    def test_acceptance_service_rejects_production_ebay_credentials_before_any_request(self):
+        origin = f'https://{m.ACCEPTANCE_HOST}'
+        owner = Ed25519PrivateKey.generate()
+        auth = ('vintage', issue_pass(owner, int(time.time()) + 3600))
+        with patch.multiple(m, EBAY_CLIENT_ID='demo-id', EBAY_CLIENT_SECRET='demo-secret',
+                            EBAY_REFRESH_TOKEN='demo-token', _RENDER_OWNER_VERIFIER=owner.public_key()), \
+                patch.object(m.requests, 'post') as transport:
+            with m.app.test_request_context(base_url=origin):
+                with self.assertRaisesRegex(RuntimeError, 'disabled on the acceptance service'):
+                    m.get_ebay_access_token()
+            self.assertEqual(self.client.get('/ebay/connect', base_url=origin, auth=auth).status_code, 409)
+            self.assertTrue(self.client.get('/health', base_url=origin).json['production_ebay_blocked'])
+            transport.assert_not_called()
+
     def test_test_domain_uses_secure_cookies_and_blocks_paid_actions_without_platform_variables(self):
         env = {'VINTAGE_ACCEPTANCE_SERVER': '0', 'RENDER': '', 'ALLOW_PAID_AI': '1', 'ENABLE_LIVE_PUBLISH': '1'}
         origin = f'https://{m.ACCEPTANCE_HOST}'
-        with patch.dict(m.os.environ, env), patch.object(m, 'OPENAI_API_KEY', 'test-key'):
+        owner = Ed25519PrivateKey.generate()
+        auth = ('vintage', issue_pass(owner, int(time.time()) + 3600))
+        with patch.dict(m.os.environ, env), patch.multiple(m, OPENAI_API_KEY='test-key',
+                                                          _RENDER_OWNER_VERIFIER=owner.public_key()):
             browser = m.app.test_client()
             project = browser.get('/health', base_url=origin).json
             self.assertFalse(project['paid_ai_enabled'])
             self.assertFalse(project['live_publish_enabled'])
-            cookie = browser.get('/mobile', base_url=origin).headers['Set-Cookie']
+            cookie = browser.get('/mobile', base_url=origin, auth=auth).headers['Set-Cookie']
             self.assertIn('; Secure', cookie)
             self.assertIn('; SameSite=Lax', cookie)
             with browser.get('/mobile/android.apk', base_url=origin) as apk:
                 self.assertEqual(apk.status_code, 200)
             impostor = f'{origin}.example'
             self.assertEqual(browser.get('/mobile/android.apk', base_url=impostor).status_code, 404)
+
+    def test_signed_owner_protection_covers_upload_and_original_package(self):
+        owner = Ed25519PrivateKey.generate()
+        now = int(time.time())
+        valid = ('vintage', issue_pass(owner, now + 3600))
+        expired = ('vintage', issue_pass(owner, now - 1))
+        origin = f'https://{m.ACCEPTANCE_HOST}'
+        browser = m.app.test_client()
+        with patch.object(m, '_RENDER_OWNER_VERIFIER', owner.public_key()):
+            for path in ('/mobile', '/mobile/acceptance-package', '/ebay/hold-queue'):
+                self.assertEqual(browser.get(path, base_url=origin).status_code, 401)
+            self.assertEqual(browser.get('/mobile', base_url=origin, auth=expired).status_code, 401)
+            self.assertEqual(browser.get('/mobile', base_url=origin.replace('https:', 'http:'), auth=valid).status_code, 403)
+            visitor = browser.get('/mobile', base_url=origin, auth=valid)
+            self.assertEqual(visitor.status_code, 200)
+            self.assertIn('no-store', visitor.headers['Cache-Control'])
+            self.assertEqual(visitor.headers['Strict-Transport-Security'], 'max-age=31536000')
+            with browser.session_transaction(base_url=origin) as active:
+                csrf = active['hold_csrf']
+                active['current_lot_number'] = 4
+            jpeg = self._jpeg().getvalue()
+            upload = browser.post('/mobile/upload', base_url=origin, auth=valid, data={
+                'hold_csrf': csrf, 'photos': [(BytesIO(jpeg), 'source.jpg')],
+            })
+            self.assertEqual(upload.status_code, 303)
+            with browser.get('/mobile/acceptance-package', base_url=origin, auth=valid) as response:
+                self.assertEqual(response.status_code, 200)
+                with ZipFile(BytesIO(response.data)) as archive:
+                    self.assertEqual(archive.read('photos/01.jpg'), jpeg)
+            self.assertEqual(browser.get('/mobile/acceptance-package', base_url=origin).status_code, 401)
 
     @staticmethod
     def fixture_images():

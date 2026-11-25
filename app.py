@@ -59,6 +59,7 @@ from catalog_policy import (
 from identity_evidence import corroborated_value, identity_claims
 from measurement_units import metric_value
 from mobile_photos import duplicate_photo_indices, image_sharpness, measurement_hint
+from owner_access import AUDIENCE, load_verifier, valid_pass
 from product_codes import BARCODE_HINT_VERSION, catalogue_hints, read_retail_codes, research_identifier
 
 from flask import (
@@ -75,7 +76,8 @@ from flask import (
 from flask.sessions import SecureCookieSessionInterface
 
 APP_RELEASE = "P094 · Android 5"
-ACCEPTANCE_HOST = 'vintage-ua-ebay-p094-test.onrender.com'
+ACCEPTANCE_HOST = AUDIENCE
+_RENDER_OWNER_VERIFIER = load_verifier()
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 250 * 1024 * 1024
 if os.environ.get('VINTAGE_SECURE_COOKIES') == '1':
@@ -112,44 +114,62 @@ def _live_publish_enabled():
     return not _acceptance_service() and os.environ.get('ENABLE_LIVE_PUBLISH') == '1'
 
 
+def _owner_https():
+    # The public Render edge redirects HTTP before forwarding to the test service.
+    return request.is_secure or (
+        _acceptance_host() and request.headers.get('X-Forwarded-Proto', '').split(',')[-1].strip().lower() == 'https'
+    )
+
+
 @app.before_request
 def require_operator_access():
     password = os.environ.get('VINTAGE_OPERATOR_PASSWORD')
-    if not password or request.endpoint == 'health':
+    hosted_test = _acceptance_host()
+    if request.endpoint == 'health' or (hosted_test and request.endpoint == 'mobile_android_download'):
         return None
+    if not hosted_test and not password:
+        return None
+    if hosted_test and not _owner_https():
+        return Response('Доступ власника потребує HTTPS.', status=403)
     auth = request.authorization
-    if (auth is None or auth.type != 'basic' or auth.username != 'vintage'
-            or not secrets.compare_digest((auth.password or '').encode(), password.encode())):
+    authenticated = False
+    if auth and auth.type == 'basic' and auth.username == 'vintage':
+        credential = auth.password or ''
+        if password:
+            authenticated = secrets.compare_digest(credential.encode(), password.encode())
+        elif hosted_test:
+            authenticated = valid_pass(credential, _RENDER_OWNER_VERIFIER, time.time())
+    if not authenticated:
         return Response('Потрібен доступ власника.', status=401, headers={
             'WWW-Authenticate': 'Basic realm="Vintage UA", charset="UTF-8"',
             'Cache-Control': 'no-store',
         })
     if request.method in {'POST', 'PUT', 'PATCH', 'DELETE'} and request.headers.get('Sec-Fetch-Site') == 'cross-site':
         return Response('Відкрийте дію безпосередньо в застосунку.', status=403)
+    g.owner_authenticated = True
     return None
 
 
 @app.after_request
 def prevent_private_page_caching(response):
-    if os.environ.get('VINTAGE_OPERATOR_PASSWORD') and request.endpoint != 'health':
+    if _acceptance_host():
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000'
+    if ((_acceptance_host() or os.environ.get('VINTAGE_OPERATOR_PASSWORD'))
+        and request.endpoint not in {'health', 'mobile_android_download'}):
         if not response.cache_control.no_store:
             response.headers['Cache-Control'] = 'private, no-store'
         response.headers['Referrer-Policy'] = 'same-origin'
     return response
 
 
-# P045: a fixed fallback secret is unsafe on a public deployment.
-# Keep legacy local startup compatible, but refuse requests without a real secret
-# when running on Render. Set APP_SECRET in Render environment settings.
+# A deployment with a persistent store configures its own secret. An ephemeral
+# process keeps its temporary signing key in memory.
 @app.before_request
 def _p045_require_production_secret():
     if os.environ.get("RENDER") and not os.environ.get("APP_SECRET"):
         return "Server configuration error: APP_SECRET is required", 503
 
-app.secret_key = os.environ.get(
-    "APP_SECRET",
-    "temporary-development-key"
-)
+app.secret_key = os.environ.get('APP_SECRET') or secrets.token_urlsafe(48)
 
 # =========================================================
 # CONFIG
@@ -1009,6 +1029,8 @@ def build_ebay_auth_url(state):
         params=params,
     ).prepare().url
 def _ebay_setup_error():
+    if _acceptance_service():
+        return page('Підключення eBay', '<h2>Робочий eBay вимкнено в тестовому середовищі</h2>'), 409
     if not request.is_secure or not os.environ.get('VINTAGE_OPERATOR_PASSWORD'):
         return page('Підключення eBay', '<h2>Налаштування eBay доступне власнику через HTTPS</h2>'), 403
     if not all((EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, EBAY_RUNAME)):
@@ -1109,6 +1131,8 @@ def ebay_callback():
 
 
 def get_ebay_access_token():
+    if _acceptance_service():
+        raise RuntimeError('Production eBay access is disabled on the acceptance service')
     # P051: missing credentials must fail locally instead of retrying OAuth for minutes.
     if not all((EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, EBAY_REFRESH_TOKEN)):
         raise RuntimeError("eBay configuration missing: EBAY_CLIENT_ID, EBAY_CLIENT_SECRET and EBAY_REFRESH_TOKEN are required")
@@ -3800,6 +3824,8 @@ def health():
         "commit": os.environ.get('RENDER_GIT_COMMIT'),
         "paid_ai_enabled": _paid_ai_enabled(),
         "live_publish_enabled": _live_publish_enabled(),
+        "production_ebay_blocked": _acceptance_service(),
+        "owner_access_required": bool(_acceptance_host() or os.environ.get('VINTAGE_OPERATOR_PASSWORD')),
         "google_configured": bool(
             GOOGLE_CLIENT_ID
             and GOOGLE_CLIENT_SECRET
@@ -13617,7 +13643,7 @@ def mobile_home():
         for i in range(1, len(photos) + 1)
     )
     export = ('<a href="/mobile/acceptance-package">Завантажити пакет для перевірки</a>'
-              if str(pid or '').startswith('mobile-') and os.environ.get('VINTAGE_OPERATOR_PASSWORD') else '')
+              if str(pid or '').startswith('mobile-') and getattr(g, 'owner_authenticated', False) else '')
     controls = ('<div class="mobile-actions"><a href="/picker/editor">Редактор фото</a>'
                 '<a href="/picker/items">Поточний лот</a>'
                 '<a href="/mobile/acceptance-check">Локальна перевірка фото</a>' + export + '</div>'
@@ -13752,7 +13778,7 @@ def mobile_acceptance_check():
 
 @app.route('/mobile/acceptance-package')
 def mobile_acceptance_package():
-    if not request.is_secure or not os.environ.get('VINTAGE_OPERATOR_PASSWORD'):
+    if not _owner_https() or not getattr(g, 'owner_authenticated', False):
         return page('Контрольний пакет', '<h2>Пакет доступний власнику через HTTPS</h2>'), 403
     picker_id = session.get('picker_session_id')
     photos = PHOTO_CACHE.get(picker_id) or []

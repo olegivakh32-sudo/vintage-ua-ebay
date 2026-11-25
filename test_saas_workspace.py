@@ -1,5 +1,6 @@
 from base64 import urlsafe_b64encode
 from concurrent.futures import ThreadPoolExecutor
+from io import BytesIO
 from pathlib import Path
 import sqlite3
 from tempfile import TemporaryDirectory
@@ -7,6 +8,8 @@ from threading import Barrier
 import unittest
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlsplit
+
+from PIL import Image
 
 from saas_workspace import COOKIE, SESSION_SECONDS, TERMS_VERSION, create_app
 from sandbox_billing import TRIAL_LIMIT
@@ -148,6 +151,46 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(view['subscription']['state'], 'refunded')
         self.assertEqual(len(view['payments']), 1)
         self.assertIsNotNone(view['payments'][0]['refunded_at'])
+
+    def test_private_photos_have_scoped_bytes_scrubbed_previews_and_idempotent_slots(self):
+        alice, bob = self.account(self.first, ALICE), self.account(self.second, BOB)
+        owner = self.store(self.first, alice)
+        other = self.store(self.second, bob)
+        draft = self.draft(self.first, alice, owner)
+        path = f'/stores/{owner}/drafts/{draft["id"]}'
+        album = path + '/photos'
+        source = Image.effect_noise((300, 300), 100).convert('RGB')
+        exif = Image.Exif()
+        exif[270] = 'PRIVATE ORIGINAL MARKER'
+        memory = BytesIO()
+        source.save(memory, 'JPEG', quality=97, exif=exif)
+        raw = memory.getvalue()
+        self.assertGreater(len(raw), 32768)
+
+        def upload(client, csrf, data):
+            return client.post(album, base_url=ORIGIN, headers={'X-CSRF-Token': csrf},
+                               data={'photo': (BytesIO(data), 'customer-name.jpg')})
+
+        self.assertEqual(upload(self.second, bob, raw).status_code, 404)
+        self.assertEqual(upload(self.first, alice, b'invalid photo').status_code, 400)
+        self.assertEqual(upload(self.first, alice, raw).status_code, 201)
+        self.assertEqual(upload(self.first, alice, raw).status_code, 200)
+        self.assertEqual(self.send(self.first, path).headers['ETag'], '"2"')
+        preview = self.send(self.first, album + '/1/preview')
+        self.assertEqual(preview.status_code, 200)
+        self.assertNotIn(b'PRIVATE ORIGINAL MARKER', preview.data)
+        original = self.send(self.first, album + '/1/original')
+        self.assertEqual(original.data, raw)
+        self.assertIn('photo-01.jpg', original.headers['Content-Disposition'])
+        self.assertEqual(self.send(self.second, album + '/1/original').status_code, 404)
+        self.assertEqual(self.send(self.first, album.replace(owner, other) + '/1/preview').status_code, 404)
+        owned = self.send(self.first, '/account/export').json['photos']
+        self.assertEqual(len(owned), 1)
+        self.assertEqual(self.send(self.second, '/account/export').json['photos'], [])
+        self.assertEqual(self.send(self.first, '/account', 'DELETE', {'confirm': True, 'password': PASSWORD},
+                                   csrf=alice).status_code, 200)
+        with self.app.extensions['vintage_workspace'].connect() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM media').fetchone()[0], 0)
 
     def test_parallel_charge_and_replay_produce_one_payment(self):
         csrf = self.account(self.first, ALICE)

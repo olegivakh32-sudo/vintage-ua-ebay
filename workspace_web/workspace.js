@@ -6,6 +6,7 @@ const retryKeys = new Map();
 let csrf = null;
 let terms = '';
 let storeId = new URL(window.location.href).searchParams.get('shop') || '';
+let selectedDraft = null;
 
 async function api(path, method = 'GET', data, repeatable = false) {
     const headers = {};
@@ -46,6 +47,7 @@ function action(handler) {
 
 const fields = (form) => Object.fromEntries(new FormData(form));
 const currentStore = () => '/stores/' + encodeURIComponent(storeId);
+const currentAlbum = () => currentStore() + '/drafts/' + encodeURIComponent(selectedDraft.id) + '/photos';
 const currency = (minor) => (minor / 100).toFixed(2) + ' грн (тест)';
 
 function rows(id, entries, build) {
@@ -60,15 +62,53 @@ async function showDrafts() {
     storeId = byId('stores').value;
     byId('store-tools').hidden = !storeId;
     byId('ebay-state').textContent = '';
-    if (!storeId) return;
+    if (!storeId) {
+        byId('photo-tools').hidden = true;
+        return;
+    }
     const path = currentStore();
     const [content, ebay] = await Promise.all([api(path + '/drafts'), api(path + '/ebay')]);
     if (path !== currentStore()) return;
-    rows('drafts', content.drafts, (item, draft) => { item.textContent = draft.sku + ' · ' + draft.title; });
+    rows('drafts', content.drafts, (item, draft) => {
+        item.textContent = draft.sku + ' · ' + draft.title;
+        const open = document.createElement('button');
+        open.textContent = 'Фото';
+        open.onclick = action(async () => {
+            selectedDraft = draft;
+            await showAlbum();
+        });
+        item.append(open);
+    });
+    if (!content.drafts.some((draft) => draft.id === selectedDraft?.id)) {
+        selectedDraft = null;
+        byId('photo-tools').hidden = true;
+        byId('photo-list').replaceChildren();
+    }
     byId('ebay-state').textContent = ebay.connection ? 'Магазин Sandbox підключено' :
         ebay.enabled ? 'Магазин Sandbox можна підключити' : 'eBay Sandbox ще не налаштовано';
     byId('link-ebay').hidden = !ebay.enabled || Boolean(ebay.connection);
     byId('unlink-ebay').hidden = !ebay.connection;
+}
+
+async function showAlbum() {
+    const path = currentAlbum();
+    const data = await api(path);
+    if (!selectedDraft || path !== currentAlbum()) return;
+    byId('photo-title').textContent = 'Фото · ' + selectedDraft.sku;
+    byId('photo-tools').hidden = false;
+    const cover = data.suggested_main ? ' · попереднє головне №' + data.suggested_main : '';
+    const codes = data.retail_codes.status === 'CONFLICT' ? ' · кілька різних кодів' :
+        data.retail_codes.status === 'UNIQUE' ? ' · код ' + data.retail_codes.candidates[0].code : '';
+    byId('photo-hints').textContent = data.photos.length + ' із 24' + cover + codes;
+    rows('photo-list', data.photos, (item, photo) => {
+        const image = document.createElement('img');
+        image.src = path + '/' + photo.slot + '/preview';
+        image.alt = 'Фото №' + photo.slot;
+        const original = document.createElement('a');
+        original.textContent = photo.hint ? 'Оригінал · службова підказка' : 'Оригінал';
+        original.href = path + '/' + photo.slot + '/original';
+        item.append(image, original);
+    });
 }
 
 async function showStores() {
@@ -111,11 +151,13 @@ async function showWorkspace(token) {
 function endWorkspace() {
     csrf = null;
     storeId = '';
+    selectedDraft = null;
     retryKeys.clear();
     byId('workspace').hidden = true;
     byId('entry').hidden = false;
     document.querySelectorAll('form').forEach((form) => form.reset());
-    for (const area of ['stores', 'drafts', 'payments', 'tickets']) byId(area).replaceChildren();
+    byId('photo-tools').hidden = true;
+    for (const area of ['stores', 'drafts', 'payments', 'tickets', 'photo-list']) byId(area).replaceChildren();
 }
 
 byId('login').onsubmit = action(async (form) => {
@@ -140,6 +182,18 @@ byId('new-draft').onsubmit = action(async (form) => {
     await api(currentStore() + '/drafts', 'POST', fields(form), true);
     form.reset();
     await showDrafts();
+});
+byId('photo-upload').onsubmit = action(async (form) => {
+    const path = currentAlbum();
+    const images = [...form.elements.gallery.files, ...form.elements.camera.files];
+    for (const file of images.slice(0, 24)) {
+        const data = new FormData();
+        data.append('photo', file);
+        const response = await fetch(path, {method: 'POST', headers: {'X-CSRF-Token': csrf}, body: data});
+        if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Фото не збережено.');
+        if (selectedDraft && path === currentAlbum()) await showAlbum();
+    }
+    form.reset();
 });
 byId('link-ebay').onclick = action(async () => {
     const state = await api(currentStore() + '/ebay', 'POST', {});
