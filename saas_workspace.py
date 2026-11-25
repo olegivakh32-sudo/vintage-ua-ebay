@@ -20,6 +20,7 @@ from catalog_policy import marketplace_code
 from workspace_db import WorkspaceDB, WorkspaceError, audit, replay, save_response
 from workspace_ebay import SandboxEBay
 from workspace_media import MAX_PHOTO_BYTES, album, prepare_photo, store_photo
+from workspace_photo_review import queue_review
 
 COOKIE = '__Host-vintage_workspace'
 SESSION_SECONDS = int(timedelta(hours=12).total_seconds())
@@ -111,6 +112,10 @@ def _rowset(db, statement, parameters):
 
 
 def _account_snapshot(db, account):
+    reviews = _rowset(db, 'SELECT store_id, draft_id, state, result FROM photo_reviews WHERE account_id=? '
+                      'ORDER BY store_id, draft_id', (account,))
+    for review in reviews:
+        review['result'] = json.loads(review['result']) if review['result'] else None
     return {
         'account': dict(db.execute(
             'SELECT id, email, terms_version, created_at FROM accounts WHERE id=?', (account,),
@@ -122,6 +127,7 @@ def _account_snapshot(db, account):
                           'WHERE account_id=? ORDER BY store_id, sku', (account,)),
         'photos': _rowset(db, 'SELECT store_id, draft_id, slot, digest AS sha256, mime FROM media WHERE account_id=? '
                           'ORDER BY store_id, draft_id, slot', (account,)),
+        'photo_reviews': reviews,
         'support': _rowset(db, 'SELECT id, detail, created_at FROM tickets WHERE account_id=? ORDER BY created_at', (account,)),
         'usage': _rowset(db, 'SELECT id, store_id, feature, minor, created_at FROM usage WHERE account_id=? '
                          'ORDER BY created_at, id', (account,)),
@@ -450,6 +456,7 @@ def create_app(config=None):
     def draft_photos(store_id, lot_id):
         scope = (g.account, store_id, lot_id)
         with store.connect() as db:
+            db.execute('BEGIN')
             _draft(db, *scope)
             if request.method == 'GET':
                 return album(db, scope)
@@ -460,9 +467,20 @@ def create_app(config=None):
         with store.connect(write=True) as db:
             _draft(db, *scope)
             slot, created = store_photo(db, scope, photo)
+            queue_review(db, scope, g.now)
             if created:
                 audit(db, g.account, 'draft.photo', lot_id, g.now)
             return {'slot': slot, **album(db, scope)}, 201 if created else 200
+
+    @app.post('/stores/<store_id>/drafts/<lot_id>/photos/review')
+    def request_photo_review(store_id, lot_id):
+        _json_fields()
+        scope = (g.account, store_id, lot_id)
+        with store.connect(write=True) as db:
+            _draft(db, *scope)
+            queue_review(db, scope, g.now)
+            result = album(db, scope)
+        return result, 202 if result['review']['state'] in ('PENDING', 'RUNNING') else 200
 
     @app.get('/stores/<store_id>/drafts/<lot_id>/photos/<int:slot>/<kind>')
     def draft_photo(store_id, lot_id, slot, kind):

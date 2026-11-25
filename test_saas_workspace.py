@@ -10,11 +10,12 @@ from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlsplit
 from zipfile import ZipFile
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from saas_workspace import COOKIE, SESSION_SECONDS, TERMS_VERSION, create_app
 from sandbox_billing import TRIAL_LIMIT
 from workspace_ebay import IDENTITY_API, IDENTITY_SCOPE, TOKEN_API
+from workspace_photo_review import LEASE_SECONDS, MAX_ATTEMPTS, _claim, run_one
 
 
 ORIGIN = 'https://vintage-workspace.test'
@@ -203,6 +204,79 @@ class WorkspaceTests(unittest.TestCase):
                                    csrf=alice).status_code, 200)
         with self.app.extensions['vintage_workspace'].connect() as db:
             self.assertEqual(db.execute('SELECT count(*) FROM media').fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT count(*) FROM photo_reviews').fetchone()[0], 0)
+
+    def review_fixture(self):
+        csrf = self.account(self.first, ALICE)
+        store = self.store(self.first, csrf)
+        draft = self.draft(self.first, csrf, store)
+        return csrf, f'/stores/{store}/drafts/{draft["id"]}/photos'
+
+    def upload_review_frame(self, path, csrf, *, ruler=False, client=None):
+        image = Image.new('RGB', (400, 310), '#eeeeee')
+        draw = ImageDraw.Draw(image)
+        if ruler:
+            draw.rectangle((42, 105, 328, 167), fill='#f6db98')
+            for index in range(17):
+                x = 52 + 15 * index
+                draw.line((x, 138, x, 138 - (12 if index % 2 else 7)), fill='#141414', width=2)
+        else:
+            draw.rounded_rectangle((68, 65, 333, 250), 15, fill='#354466', outline='#111111', width=9)
+            draw.ellipse((168, 102, 252, 186), fill='#ddaa88', outline='#ffffff', width=4)
+        png = BytesIO()
+        image.save(png, 'PNG')
+        png.seek(0)
+        return (client or self.first).post(path, base_url=ORIGIN, headers={'X-CSRF-Token': csrf},
+                                          data={'photo': (png, 'frame.png')})
+
+    def test_offline_review_queues_new_album_and_is_private_after_restart(self):
+        csrf, path = self.review_fixture()
+        bob = self.account(self.second, BOB)
+        self.assertEqual(self.send(self.first, path + '/review', 'POST', {}).status_code, 403)
+        self.assertEqual(self.upload_review_frame(path, csrf, ruler=True).json['review']['state'], 'PENDING')
+        self.assertEqual(self.upload_review_frame(path, csrf).status_code, 201)
+        self.assertEqual(self.send(self.second, path + '/review', 'POST', {}, csrf=bob).status_code, 404)
+        self.assertEqual(self.send(self.second, path).status_code, 404)
+
+        reopened = create_app(self.config).extensions['vintage_workspace']
+        self.assertEqual(run_one(reopened, lambda: self.clock), 'READY')
+        self.assertIsNone(run_one(reopened, lambda: self.clock))
+        self.assertEqual(self.upload_review_frame(path, csrf).status_code, 200)
+        report = self.send(self.first, path).json['review']
+        self.assertEqual(report['state'], 'READY')
+        self.assertEqual([row['role'] for row in report['photos']], ['EVIDENCE_ONLY', 'EBAY_PRODUCT'])
+        self.assertEqual(report['suggested_main'], 2)
+        self.assertEqual(self.send(self.first, '/account/export').json['photo_reviews'][0]['result']['suggested_main'], 2)
+        self.assertEqual(self.send(self.second, '/account/export').json['photo_reviews'], [])
+        with reopened.connect(write=True) as db:
+            db.execute('DELETE FROM photo_reviews')
+        self.assertEqual(self.send(self.first, path).json['review']['state'], 'UNREQUESTED')
+        response = self.send(self.first, path + '/review', 'POST', {}, csrf=csrf)
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(run_one(reopened, lambda: self.clock), 'READY')
+
+    def test_old_photo_review_cannot_replace_new_album_and_retries_are_bounded(self):
+        csrf, path = self.review_fixture()
+        store = self.app.extensions['vintage_workspace']
+        self.upload_review_frame(path, csrf)
+
+        def add_photo(*_):
+            self.assertEqual(self.upload_review_frame(path, csrf, ruler=True).status_code, 201)
+            return {'kind': 'GENERAL_VIEW', 'score': 1, 'tone': {}}
+
+        with patch('workspace_photo_review.composition_and_tone', side_effect=add_photo):
+            self.assertEqual(run_one(store, lambda: self.clock), 'SUPERSEDED')
+        self.assertEqual(self.send(self.first, path).json['review']['state'], 'PENDING')
+        self.assertIsNotNone(_claim(store, self.clock))
+        self.assertIsNone(run_one(store, lambda: self.clock))
+        self.clock += LEASE_SECONDS
+        with patch('workspace_photo_review.composition_and_tone', side_effect=ValueError):
+            for _ in range(MAX_ATTEMPTS - 2):
+                self.assertEqual(run_one(store, lambda: self.clock), 'PENDING')
+            self.assertEqual(run_one(store, lambda: self.clock), 'FAILED')
+        self.assertIsNone(run_one(store, lambda: self.clock))
+        self.assertEqual(self.send(self.first, path + '/review', 'POST', {}, csrf=csrf).json['review']['state'],
+                         'FAILED')
 
     def test_parallel_charge_and_replay_produce_one_payment(self):
         csrf = self.account(self.first, ALICE)
@@ -332,12 +406,18 @@ class WorkspaceTests(unittest.TestCase):
     def test_export_delete_and_consistent_backup_exclude_foreign_rows(self):
         alice, bob = self.account(self.first, ALICE), self.account(self.second, BOB)
         store = self.store(self.first, alice)
-        self.draft(self.first, alice, store)
-        self.draft(self.second, bob, self.store(self.second, bob))
+        alice_draft = self.draft(self.first, alice, store)
+        bob_store = self.store(self.second, bob)
+        bob_draft = self.draft(self.second, bob, bob_store)
+        self.assertEqual(self.upload_review_frame(f'/stores/{store}/drafts/{alice_draft["id"]}/photos', alice).status_code, 201)
+        bob_album = f'/stores/{bob_store}/drafts/{bob_draft["id"]}/photos'
+        self.assertEqual(self.upload_review_frame(bob_album, bob, client=self.second).status_code, 201)
         self.checkout(self.first, alice)
         self.send(self.first, f'/stores/{store}/test-preparation', 'POST', {}, csrf=alice, key='test-usage-001')
         self.send(self.first, '/support', 'POST', {'detail': 'Test ticket'}, csrf=alice)
         storage = self.app.extensions['vintage_workspace']
+        self.assertIsNotNone(_claim(storage, self.clock))
+        self.assertIsNotNone(_claim(storage, self.clock))
         early = storage.backup(Path(self.temp.name) / 'before-erasure.sqlite')
         export = self.send(self.first, '/account/export')
         self.assertNotIn(BOB, export.get_data(as_text=True))
@@ -362,3 +442,7 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(rejected.status_code, 401)
         self.login(restored, BOB)
         self.assertEqual(len(self.send(restored, '/account/export').json['drafts']), 1)
+        recovered = restarted.extensions['vintage_workspace']
+        self.assertEqual(run_one(recovered, lambda: self.clock), 'READY')
+        self.assertIsNone(run_one(recovered, lambda: self.clock))
+        self.assertEqual(self.send(restored, bob_album).json['review']['suggested_main'], 1)

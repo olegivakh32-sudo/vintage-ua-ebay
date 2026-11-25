@@ -60,11 +60,11 @@ from identity_evidence import corroborated_value, identity_claims
 from market_evidence import comparable_reference
 from market_profit import RATE_DOCS, amount, currency_evidence, kyiv_today, official_usd_rate, projection
 from measurement_units import metric_value
-from mobile_photos import duplicate_photo_indices, image_sharpness, measurement_hint
+from mobile_photos import MEASUREMENT_HINT_VERSION, duplicate_photo_indices, image_sharpness, measurement_hint
 from owner_access import AUDIENCE, load_verifier, valid_pass
 from photo_assessment import (
     EDIT_FIELDS, EVIDENCE_SCENES, SCENE_TYPES, VISUAL_VERSION,
-    composition_and_tone, edit_settings as normalize_photo_edits, mild_white_balance,
+    composition_and_tone, edit_settings as normalize_photo_edits, mild_white_balance, suggested_photo_role,
 )
 from product_codes import BARCODE_HINT_VERSION, catalogue_hints, read_retail_codes, research_identifier
 
@@ -244,7 +244,7 @@ RESEARCH_SPEC_CACHE = {}
 PHOTO_ROLE_CACHE = {}
 EBAY_PHOTO_ROLES = frozenset({'EBAY_PRODUCT', 'EBAY_EVIDENCE'})
 PHOTO_REVIEW_VERSION = '2'
-PHOTO_HINT_VERSION = '4'
+PHOTO_HINT_VERSION = MEASUREMENT_HINT_VERSION
 
 # P026: per-LOT OpenAI usage/cost guard. Values are best-effort estimates from
 # Responses API usage fields; web-search calls are counted separately.
@@ -13946,20 +13946,19 @@ def _mobile_photo_assessments(items):
                 visual = {'kind': 'UNCERTAIN', 'tone': {}, 'score': -999.0}
             item.update(photo_visual=visual, photo_visual_version=VISUAL_VERSION)
         hint = hints[index]
-        row = {'photo': index, 'hint': hint, **visual, 'role': 'NEEDS_REVIEW'}
+        sharpness = item.get('photo_sharpness', 0)
+        role = suggested_photo_role(visual['kind'], hint, sharpness, index in duplicates)
+        row = {'photo': index, 'hint': hint, **visual, 'role': role}
         if hint in ('ruler', 'scale'):
-            row.update(role='EVIDENCE_ONLY', note={'ruler': 'Можлива лінійка', 'scale': 'Можливі ваги'}[hint])
+            row['note'] = {'ruler': 'Можлива лінійка', 'scale': 'Можливі ваги'}[hint]
         elif index in duplicates:
             row.update(note=f'Збігається з фото {duplicates[index]}', duplicate_of=duplicates[index])
         elif hint == 'display':
             row['note'] = 'Цифровий дисплей або напис · перевірте призначення'
         else:
             row['note'] = _PHOTO_OBSERVATIONS[visual['kind']]
-            if visual['kind'] in ('GENERAL_VIEW', 'GROUP_VIEW'):
-                if item.get('photo_sharpness', 0) >= .065:
-                    row['role'] = 'EBAY_PRODUCT'
-                else:
-                    row['note'] += ' · Перевірте різкість'
+            if visual['kind'] in ('GENERAL_VIEW', 'GROUP_VIEW') and role == 'NEEDS_REVIEW':
+                row['note'] += ' · Перевірте різкість'
         rows.append(row)
     return rows
 

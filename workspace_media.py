@@ -8,6 +8,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from mobile_photos import image_sharpness, measurement_hint
 from product_codes import catalogue_hints, read_retail_codes
 from workspace_db import WorkspaceError
+from workspace_photo_review import review_status
 
 MAX_PHOTO_BYTES = 10 * 1024 * 1024
 MAX_ACCOUNT_BYTES = 256 * 1024 * 1024
@@ -44,14 +45,14 @@ def prepare_photo(upload):
 
 def album(db, scope):
     rows = db.execute(
-        'SELECT slot, digest, hint, codes, sharpness FROM media WHERE account_id=? AND store_id=? AND draft_id=? ORDER BY slot',
+        'SELECT slot, digest, hint, codes FROM media WHERE account_id=? AND store_id=? AND draft_id=? ORDER BY slot',
         scope,
     ).fetchall()
-    candidates = [row for row in rows if not row['hint']]
-    main = max(candidates, key=lambda row: row['sharpness'])['slot'] if candidates else None
+    review = review_status(db, scope)
     return {
         'photos': [{'slot': row['slot'], 'sha256': row['digest'], 'hint': row['hint']} for row in rows],
-        'suggested_main': main,
+        'suggested_main': review.get('suggested_main'),
+        'review': review,
         'retail_codes': catalogue_hints((row['slot'], json.loads(row['codes'])) for row in rows),
     }
 

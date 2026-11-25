@@ -16,6 +16,14 @@ SCENE_TYPES = {'GENERAL_PRODUCT', 'FULL_SET', 'DETAIL', 'MARKINGS', 'DEFECT',
 EVIDENCE_SCENES = {'SCALE', 'RULER', 'PACKAGE', 'OTHER'}
 
 
+def suggested_photo_role(kind, hint, sharpness, duplicate=False):
+    if hint in ('ruler', 'scale'):
+        return 'EVIDENCE_ONLY'
+    if not hint and not duplicate and kind in ('GENERAL_VIEW', 'GROUP_VIEW') and sharpness >= .065:
+        return 'EBAY_PRODUCT'
+    return 'NEEDS_REVIEW'
+
+
 def edit_settings(values):
     result = {}
     for name, low, high in EDIT_FIELDS.values():

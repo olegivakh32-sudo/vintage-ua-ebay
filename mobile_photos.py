@@ -6,6 +6,7 @@ import re
 from PIL import Image, ImageFilter, ImageOps, ImageStat
 
 
+MEASUREMENT_HINT_VERSION = '5'
 _DARK_EDGE = re.compile(rb"[\xac-\xff][\x00-\x92]")
 
 
@@ -18,7 +19,9 @@ def measurement_hint(image, filename):
 
     mono = image.convert("L")
     mono.thumbnail((420, 420))
-    mono = ImageOps.autocontrast(mono, cutoff=1)
+    # Thin graduations can occupy less than one percent of a full frame.
+    # Preserve sparse dark ink when a colored ruler is against a bright background.
+    mono = ImageOps.autocontrast(mono, cutoff=(.15, 1))
     for angle in (0, 90, 15, -15, 30, -30, 45, -45, 60, -60, 75, -75):
         view = mono if angle == 0 else mono.rotate(angle, Image.Resampling.NEAREST, expand=True, fillcolor=128)
         if _has_ruler_ticks(view):

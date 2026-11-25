@@ -61,6 +61,15 @@ CREATE TABLE IF NOT EXISTS tickets (
     id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     detail TEXT NOT NULL, created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS photo_reviews (
+    account_id TEXT NOT NULL, store_id TEXT NOT NULL, draft_id TEXT NOT NULL,
+    album_key TEXT NOT NULL, queued_at INTEGER NOT NULL,
+    state TEXT NOT NULL DEFAULT 'PENDING' CHECK (state IN ('PENDING', 'RUNNING', 'READY', 'FAILED')),
+    attempts INTEGER NOT NULL DEFAULT 0, lease_token TEXT, lease_until INTEGER, result TEXT,
+    PRIMARY KEY (account_id, store_id, draft_id),
+    FOREIGN KEY (account_id, store_id, draft_id) REFERENCES drafts(account_id, store_id, id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS photo_review_queue ON photo_reviews(state, queued_at, lease_until);
 CREATE TABLE IF NOT EXISTS audit (
     id INTEGER PRIMARY KEY, account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     action TEXT NOT NULL, resource_id TEXT, created_at INTEGER NOT NULL
@@ -147,6 +156,7 @@ class WorkspaceDB:
             elif meta['restore_required']:
                 db.execute('DELETE FROM accounts WHERE id IN (SELECT account_id FROM privacy.erased)')
                 db.execute('DELETE FROM sessions')
+                db.execute("UPDATE photo_reviews SET lease_until=0 WHERE state='RUNNING'")
                 db.execute('UPDATE workspace_meta SET restore_required=0 WHERE id=1')
             self.lineage = meta['lineage'] if meta else lineage
 

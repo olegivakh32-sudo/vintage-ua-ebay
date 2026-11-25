@@ -8,6 +8,21 @@ let terms = '';
 let storeId = new URL(window.location.href).searchParams.get('shop') || '';
 let selectedDraft = null;
 
+async function fetchWithLimit(path, options, milliseconds = 15_000) {
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), milliseconds);
+    try {
+        const reply = await fetch(path, {...options, signal: controller.signal});
+        const data = await reply.json();
+        return {ok: reply.ok, status: reply.status, data};
+    } catch (error) {
+        if (controller.signal.aborted) throw new Error('Сервер довго відповідає. Оновіть стан перед повтором.');
+        throw error;
+    } finally {
+        clearTimeout(deadline);
+    }
+}
+
 async function api(path, method = 'GET', data, repeatable = false) {
     const headers = {};
     const options = { method, headers };
@@ -22,8 +37,8 @@ async function api(path, method = 'GET', data, repeatable = false) {
         if (!retryKeys.has(replayPath)) retryKeys.set(replayPath, crypto.randomUUID());
         headers['Idempotency-Key'] = retryKeys.get(replayPath);
     }
-    const response = await fetch(path, options);
-    const result = await response.json();
+    const response = await fetchWithLimit(path, options);
+    const result = response.data;
     if (replayPath && response.status < 500) retryKeys.delete(replayPath);
     if (!response.ok) throw new Error(result.error || 'Повторіть дію.');
     return result;
@@ -100,12 +115,25 @@ async function showAlbum() {
     const codes = data.retail_codes.status === 'CONFLICT' ? ' · кілька різних кодів' :
         data.retail_codes.status === 'UNIQUE' ? ' · код ' + data.retail_codes.candidates[0].code : '';
     byId('photo-hints').textContent = data.photos.length + ' із 24' + cover + codes;
+    const states = {
+        UNREQUESTED: '', PENDING: 'Фото в черзі на локальну перевірку.',
+        RUNNING: 'Триває локальна перевірка.', READY: 'Готовий попередній відбір фото.',
+        FAILED: 'Перевірка зупинилася після кількох спроб. Оригінали збережені.',
+    };
+    byId('photo-review-status').textContent = states[data.review.state];
+    const reviewButton = byId('photo-review');
+    reviewButton.hidden = !data.photos.length || !['UNREQUESTED', 'PENDING', 'RUNNING'].includes(data.review.state);
+    reviewButton.textContent = data.review.state === 'UNREQUESTED' ? 'Перевірити фото' : 'Оновити стан';
+    reviewButton.dataset.enqueue = data.review.state === 'UNREQUESTED' ? 'yes' : 'no';
+    const assessed = new Map((data.review.photos || []).map((frame) => [frame.slot, frame.role]));
+    const roles = {EVIDENCE_ONLY: 'Вимірювальний кадр', EBAY_PRODUCT: 'Для оголошення', NEEDS_REVIEW: 'Потрібна перевірка'};
     rows('photo-list', data.photos, (item, photo) => {
         const image = document.createElement('img');
         image.src = path + '/' + photo.slot + '/preview';
         image.alt = 'Фото №' + photo.slot;
         const original = document.createElement('a');
-        original.textContent = photo.hint ? 'Оригінал · службова підказка' : 'Оригінал';
+        const role = roles[assessed.get(photo.slot)];
+        original.textContent = role ? 'Оригінал · ' + role : 'Оригінал';
         original.href = path + '/' + photo.slot + '/original';
         item.append(image, original);
     });
@@ -189,11 +217,15 @@ byId('photo-upload').onsubmit = action(async (form) => {
     for (const file of images.slice(0, 24)) {
         const data = new FormData();
         data.append('photo', file);
-        const response = await fetch(path, {method: 'POST', headers: {'X-CSRF-Token': csrf}, body: data});
-        if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Фото не збережено.');
+        const response = await fetchWithLimit(path, {method: 'POST', headers: {'X-CSRF-Token': csrf}, body: data}, 120_000);
+        if (!response.ok) throw new Error(response.data.error || 'Фото не збережено.');
         if (selectedDraft && path === currentAlbum()) await showAlbum();
     }
     form.reset();
+});
+byId('photo-review').onclick = action(async (button) => {
+    if (button.dataset.enqueue === 'yes') await api(currentAlbum() + '/review', 'POST', {});
+    if (selectedDraft) await showAlbum();
 });
 byId('link-ebay').onclick = action(async () => {
     const state = await api(currentStore() + '/ebay', 'POST', {});
@@ -237,8 +269,8 @@ byId('erase').onsubmit = action(async (form) => {
         terms = legal.version;
         byId('tariffs').replaceChildren(...tariffs.plans.map((plan) => new Option(
             (plan.months === 1 ? 'Місяць' : 'Рік') + ' · ' + currency(plan.price_minor), plan.id)));
-        const lookup = await fetch('/session');
-        if (lookup.ok) await showWorkspace((await lookup.json()).csrf);
+        const lookup = await fetchWithLimit('/session');
+        if (lookup.ok) await showWorkspace(lookup.data.csrf);
     } catch (error) {
         notice.textContent = error.message;
     }
