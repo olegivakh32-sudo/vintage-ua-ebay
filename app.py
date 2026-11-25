@@ -63,6 +63,7 @@ from mobile_photos import duplicate_photo_indices, image_sharpness, measurement_
 from flask import (
     Flask,
     g,
+    has_request_context,
     redirect,
     request,
     send_file,
@@ -70,16 +71,36 @@ from flask import (
     Response,
     url_for,
 )
+from flask.sessions import SecureCookieSessionInterface
 
 APP_RELEASE = "P094 · Android 5"
+ACCEPTANCE_HOST = 'vintage-ua-ebay-p094-test.onrender.com'
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 250 * 1024 * 1024
 if os.environ.get('VINTAGE_SECURE_COOKIES') == '1':
     app.config.update(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_SAMESITE='Lax')
 
+
+def _acceptance_host():
+    return (has_request_context()
+            and request.host.casefold() in {ACCEPTANCE_HOST, ACCEPTANCE_HOST + ':443'})
+
+
+class AcceptanceCookiePolicy(SecureCookieSessionInterface):
+    def get_cookie_secure(self, app):
+        return _acceptance_host() or super().get_cookie_secure(app)
+
+    def get_cookie_samesite(self, app):
+        return 'Lax' if _acceptance_host() else super().get_cookie_samesite(app)
+
+
+app.session_interface = AcceptanceCookiePolicy()
+
+
 def _acceptance_service():
     return (os.environ.get('VINTAGE_ACCEPTANCE_SERVER') == '1'
-            or bool(os.environ.get('RENDER') and os.environ.get('RENDER_GIT_BRANCH') == 'p094-quality-validation'))
+            or bool(os.environ.get('RENDER') and os.environ.get('RENDER_GIT_BRANCH') == 'p094-quality-validation')
+            or _acceptance_host())
 
 
 def _paid_ai_enabled():

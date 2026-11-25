@@ -43,6 +43,22 @@ class AndroidTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(apk.data).hexdigest(),
                                  '6b8ac2eca9a7b188423255a46adb32634ea96738efd69ba3e1bdd575b1513b45')
 
+    def test_test_domain_uses_secure_cookies_and_blocks_paid_actions_without_platform_variables(self):
+        env = {'VINTAGE_ACCEPTANCE_SERVER': '0', 'RENDER': '', 'ALLOW_PAID_AI': '1', 'ENABLE_LIVE_PUBLISH': '1'}
+        origin = f'https://{m.ACCEPTANCE_HOST}'
+        with patch.dict(m.os.environ, env), patch.object(m, 'OPENAI_API_KEY', 'test-key'):
+            browser = m.app.test_client()
+            project = browser.get('/health', base_url=origin).json
+            self.assertFalse(project['paid_ai_enabled'])
+            self.assertFalse(project['live_publish_enabled'])
+            cookie = browser.get('/mobile', base_url=origin).headers['Set-Cookie']
+            self.assertIn('; Secure', cookie)
+            self.assertIn('; SameSite=Lax', cookie)
+            with browser.get('/mobile/android.apk', base_url=origin) as apk:
+                self.assertEqual(apk.status_code, 200)
+            impostor = f'{origin}.example'
+            self.assertEqual(browser.get('/mobile/android.apk', base_url=impostor).status_code, 404)
+
     @staticmethod
     def fixture_images():
         product = Image.new('RGB', (400, 220), 'white')
