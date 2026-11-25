@@ -1,0 +1,35 @@
+{
+  "A01": {
+    "reference_id": "CMA-119326",
+    "identity": ["teapot", "tea pot"],
+    "brand": ["Nathaniel Hurd"],
+    "category": {
+      "status": "REVIEW_COMPOSITION",
+      "rejected_id": "37998",
+      "source": "https://www.ebay.com/b/Antique-US-Sterling-Silver-Teapots-Coffee-Pots-Sets/37998/bn_16561856",
+      "reason": "The museum documents Colonial America, silver and wood. It does not specify sterling fineness on the public object page."
+    }
+  },
+  "A02": {
+    "reference_id": "RP-PICO2",
+    "identity": ["microcontroller board", "microcontroller development board", "development board"],
+    "model": ["Raspberry Pi Pico 2"],
+    "category": {
+      "id": "65507",
+      "path": "Business & Industrial > Electrical Equipment & Supplies > Electronic Components & Semiconductors > Semiconductors & Actives > Development Kits & Boards",
+      "source": "https://www.ebay.com/b/Raspberry-Pi-Development-Kits-Boards/65507/bn_117868551",
+      "checked_on": "2026-11-25"
+    }
+  },
+  "A03": {
+    "reference_id": "NINTENDO-SWITCH-LITE",
+    "identity": ["handheld game console", "handheld console", "portable game console", "Nintendo Switch Lite"],
+    "model": ["Nintendo Switch Lite"],
+    "category": {
+      "id": "139971",
+      "path": "Video Games & Consoles > Video Game Consoles",
+      "source": "https://www.ebay.com/b/Nintendo-Switch-Lite-Consoles/139971/bn_7116999664",
+      "checked_on": "2026-11-25"
+    }
+  }
+}

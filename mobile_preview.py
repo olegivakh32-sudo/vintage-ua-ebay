@@ -64,6 +64,9 @@ def preview_runtime(path, *, https_proxy=False):
             env['VINTAGE_OPERATOR_PASSWORD'] = password
         if https_proxy:
             env['VINTAGE_SECURE_COOKIES'] = '1'
+        for name in ('VINTAGE_HOLD_BACKUP_KEY', 'RENDER_GIT_COMMIT'):
+            if os.environ.get(name):
+                env[name] = os.environ[name]
         if 'PYTHONPATH' in os.environ:
             env['PYTHONPATH'] = os.environ['PYTHONPATH']
         yield env, lock.fileno()

@@ -13,13 +13,27 @@ import requests
 from ai_pilot import PilotLimits, run, visual_usage
 from product_evidence import recognition_route
 from test_mobile import m
-from visual_acceptance import evaluate
+from visual_acceptance import evaluate, outcome, REFERENCES
 
 
 MODEL = 'gpt-4o-mini-2024-07-18'
 
 
 class VisualAcceptanceTests(unittest.TestCase):
+    def test_public_category_requires_independent_type_and_exact_model(self):
+        expected = REFERENCES['A02']
+        case = dict(lot='A02', category=expected['category'], labels=expected,
+                    reference_id='RP-PICO2', offline='UNRESOLVED', offline_elapsed_ms=1661,
+                    license='CC BY-SA 4.0', photo_source='', fact_source='')
+        result = dict(mode='APPROVED_VISION_ONLY', identity='Microcontroller board',
+                      model='Raspberry Pi Pico 2', product_evidence={'type': [{'value': 'microcontroller board'}]})
+        row = outcome(case, result)
+        self.assertEqual(row['comparison']['category_id']['status'], 'PUBLIC_PATH_MATCH')
+        self.assertEqual(row['comparison']['category_id']['value'], '65507')
+        self.assertFalse(row['admitted'])
+        result['model'] += ' W'
+        self.assertEqual(outcome(case, result)['comparison']['category_id']['status'], 'PENDING_IDENTIFICATION')
+
     def test_reported_tokens_are_priced_at_standard_rate(self):
         response = {'model': MODEL, 'service_tier': 'default',
                     'usage': {'input_tokens': 128000, 'output_tokens': 2000}}

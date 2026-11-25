@@ -123,7 +123,9 @@ def basic_ebay_fee(path, fee_base):
         rate = Decimal('.1325')
     elif root == 'books & magazines':
         rate = Decimal('.153')
-    elif root in {'home & garden', 'cameras & photo', 'computers/tablets & networking'}:
+    elif root in {'home & garden', 'cameras & photo', 'computers/tablets & networking', 'video games & consoles'}:
+        rate = Decimal('.136')
+    elif root == 'business & industrial' and 'electronic components & semiconductors' in parts[1:]:
         rate = Decimal('.136')
     else:
         return None

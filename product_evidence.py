@@ -7,7 +7,7 @@ from measurement_units import metric_value
 
 FIELDS = ('type', 'brand', 'model', 'material', 'country', 'period', 'condition', 'defect', 'completeness',
           'marking', 'symbol', 'weight_kg', 'length_cm', 'width_cm', 'height_cm')
-VISUAL_FIELDS = frozenset(FIELDS[:11])
+VISUAL_FIELDS = frozenset((*FIELDS[:11], 'feature'))
 PHYSICAL_FIELDS = FIELDS[-4:]
 SELLER_SOURCES = {'SELLER_ENTERED', 'SELLER_VERIFIED', 'SELLER_EDITED'}
 UNKNOWN = {'unknown', 'unverified', 'not confirmed', 'not applicable', 'none', 'n/a', '—'}
@@ -34,7 +34,7 @@ def photo_numbers(values, photo_count):
 
 
 def build_product_evidence(observations, references, seller, measurement, photo_count):
-    facts = {field: [] for field in FIELDS}
+    facts = {field: [] for field in (*FIELDS, 'feature')}
     for row in observations[:36]:
         if not isinstance(row, dict):
             continue
@@ -44,7 +44,14 @@ def build_product_evidence(observations, references, seller, measurement, photo_
         basis = text_value(row.get('basis'), 300)
         if (isinstance(field, str) and field in VISUAL_FIELDS and value and photos and basis
                 and type(row.get('confidence')) is int and 90 <= row['confidence'] <= 100):
-            facts[field].append(dict(value=value, status='PHOTO_OBSERVATION', photos=photos, basis=basis))
+            entry = dict(value=value, status='PHOTO_OBSERVATION', photos=photos, basis=basis)
+            if field == 'feature':
+                name = text_value(row.get('name'), 50)
+                if not name:
+                    continue
+                entry['name'] = name
+            if entry not in facts[field]:
+                facts[field].append(entry)
     for reference in references:
         field = reference['field']
         if field in facts:

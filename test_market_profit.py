@@ -62,6 +62,12 @@ class MarketProfitTests(unittest.TestCase):
         self.assertEqual(profit.basic_ebay_fee('Home & Garden > Desk Lamps', 10), Decimal('1.66'))
         self.assertEqual(profit.basic_ebay_fee('Books & Magazines > Books', 100), Decimal('15.70'))
         self.assertEqual(profit.basic_ebay_fee('Cameras & Photo > Cameras', 7600), Decimal('1022.75'))
+        self.assertEqual(profit.basic_ebay_fee('Video Games & Consoles > Video Game Consoles', 100),
+                         Decimal('14.00'))
+        self.assertEqual(profit.basic_ebay_fee(
+            'Business & Industrial > Electrical Equipment & Supplies > Electronic Components & Semiconductors > Boards',
+            100), Decimal('14.00'))
+        self.assertIsNone(profit.basic_ebay_fee('Business & Industrial > Heavy Equipment', 100))
         self.assertIsNone(profit.basic_ebay_fee('Jewelry & Watches > Watches', 100))
         self.assertIsNone(profit.basic_ebay_fee('Coins & Paper Money > Bullion > Gold', 100))
         self.assertEqual(profit.olx_fee('300', business=True), Decimal(29))

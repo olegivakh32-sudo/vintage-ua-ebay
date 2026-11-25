@@ -1,0 +1,65 @@
+name: Approved three-image visual pilot
+
+on:
+  push:
+    tags: [p094-vision-pilot-0612]
+
+concurrency:
+  group: p094-vision-pilot-0612
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  pilot:
+    if: github.repository == 'olegivakh32-sudo/vintage-ua-ebay' && github.event.created && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: p094-vision-pilot
+    env:
+      PILOT_ROOT: ${{ runner.temp }}/vintage-approved-pilot
+      ALLOW_PAID_AI: '0'
+      ENABLE_LIVE_PUBLISH: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Prepare approved public originals
+        run: |
+          python3 -m venv .pilot-venv
+          .pilot-venv/bin/pip -q install -r requirements.txt
+          timeout 90s .pilot-venv/bin/python visual_acceptance.py "$PILOT_ROOT" --prepare > /dev/null
+      - name: Verify secret is configured
+        env:
+          OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: |
+          if [[ -z "$OPENAI_API_KEY" ]]; then
+            echo 'Missing environment secret P094_PILOT_OPENAI_API_KEY.'
+            exit 1
+          fi
+      - name: Reserve the one-time budget in GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref=refs/tags/p094-vision-pilot-0612-reserved -f sha="$GITHUB_SHA" > /dev/null
+      - name: Run the approved requests once
+        env:
+          APPROVE_AI_PILOT: '1'
+          OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: timeout 470s .pilot-venv/bin/python visual_acceptance.py "$PILOT_ROOT" --execute > /dev/null
+      - name: Save comparison and response usage
+        if: always()
+        run: |
+          if [[ -f "$PILOT_ROOT/A03/manifest.json" ]]; then
+            umask 077
+            .pilot-venv/bin/python visual_acceptance.py "$PILOT_ROOT" > "$RUNNER_TEMP/vintage-pilot-comparison.json"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: p094-vision-comparison
+          path: ${{ runner.temp }}/vintage-pilot-comparison.json
+          retention-days: 7
+          if-no-files-found: ignore

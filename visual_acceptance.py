@@ -3,9 +3,13 @@
 import argparse
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
+
+import requests
 
 from acceptance_offline import records
 from ai_pilot import (
@@ -14,10 +18,38 @@ from ai_pilot import (
 from recognition_benchmark import normalize
 
 
-COHORT = {'A01': 'CMA-119326', 'A02': 'RP-PICO2', 'A03': 'NINTENDO-SWITCH-LITE'}
 BUDGET = Decimal('0.0612')
 BASE = Path(__file__).resolve().parent
+REFERENCES = json.loads((BASE / 'visual_pilot_reference.json').read_text(encoding='utf-8'))
 FIELDS = ('identity', 'brand', 'model', 'material', 'period', 'condition', 'defects', 'category_id')
+
+
+def prepare(root):
+    """Fetch only the approved public originals and refuse a checksum change."""
+    pictures = {row['reference_id']: row for filename in ('benchmark_sources.csv', 'benchmark_licensed_photos.csv')
+                for row in records(BASE / filename)}
+    for lot, reference in REFERENCES.items():
+        picture = pictures[reference['reference_id']]
+        image_url = picture['image_url']
+        url = urlsplit(image_url)
+        if url.scheme != 'https' or url.netloc not in {'openaccess-cdn.clevelandart.org', 'upload.wikimedia.org'}:
+            raise ValueError(f'{lot}: unexpected photo origin')
+        with requests.get(image_url, stream=True, timeout=(5, 12), allow_redirects=False,
+                          headers={'User-Agent': 'Vintage-UA-eBay-acceptance/1.0 (public study)'}) as response:
+            if response.status_code != 200:
+                raise ValueError(f'{lot}: photo HTTP {response.status_code}')
+            sample = response.raw.read(10 * 1024 * 1024 + 1, decode_content=True)
+        if sha256(sample).hexdigest() != picture['sha256']:
+            raise ValueError(f'{lot}: public original checksum changed')
+        folder = root / lot
+        folder.mkdir(parents=True, mode=0o700, exist_ok=True)
+        with (folder / 'frame.jpg').open('xb') as stream:
+            stream.write(sample)
+        manifest = {'lot': lot, 'photos': ['frame.jpg'],
+                    'originals': [{'photo': 1, 'sha256': picture['sha256']}],
+                    'reference': {name: reference[name] for name in ('identity', 'model') if name in reference}}
+        with (folder / 'manifest.json').open('x', encoding='utf-8') as stream:
+            json.dump(manifest, stream)
 
 
 def cohort(root):
@@ -27,7 +59,8 @@ def cohort(root):
     baseline = json.loads((BASE / 'benchmark_offline_results.json').read_text(encoding='utf-8'))
     offline = {row['reference_id']: row for row in baseline['outcomes']}
     cases = []
-    for lot, ref in COHORT.items():
+    for lot, reference in REFERENCES.items():
+        ref = reference['reference_id']
         manifest = root / lot / 'manifest.json'
         data, photos = inputs(manifest)
         picture = (museum if ref in museum else modern)[ref]
@@ -38,7 +71,7 @@ def cohort(root):
             raise ValueError(f'{lot}: бракує незалежного еталона.')
         inspect_photos(photos)
         source = (museum if ref in museum else manufacturers)[ref]
-        labels = {name: list(values) for name, values in data['reference'].items()}
+        labels = {name: reference[name] for name in ('identity', 'model', 'brand') if name in reference}
         if ref in museum:
             labels['material'] = ['silver, wood', 'silver and wood', 'wood and silver']
             labels['period'] = [source['period']]
@@ -49,7 +82,8 @@ def cohort(root):
             'photo_source': picture.get('photo_source') or picture['catalog_url'],
             'fact_source': source.get('source_url') or source['catalog_url'],
             'offline': offline[ref]['result'], 'offline_elapsed_ms': offline[ref].get('elapsed_ms'),
-            'labels': labels, 'manifest': manifest,
+            'labels': labels, 'category': reference['category'], 'manifest': manifest,
+            'documented_features': source.get('confirmed_attributes') or source.get('catalog_dimensions'),
             'data': data, 'photos': photos, 'report': manifest.parent / 'vision-report.json',
         })
     return cases
@@ -76,6 +110,15 @@ def outcome(case, result):
         else:
             status = 'REQUIRES_INDEPENDENT_REVIEW'
         checks[field] = {'value': actual, 'status': status}
+    category = case.get('category')
+    if category:
+        category_status = category.get('status') or (
+            'PUBLIC_PATH_MATCH' if checks['identity']['status'] == 'MATCH'
+            and checks['model']['status'] == 'MATCH' else 'PENDING_IDENTIFICATION')
+        checks['category_id'] = {'value': category.get('id') if category_status == 'PUBLIC_PATH_MATCH' else None,
+                                 'status': category_status, 'reference': category}
+    checks['features'] = {'observed': result.get('product_evidence', {}).get('feature', []) if parsed else [],
+                          'documented_model_or_object': case.get('documented_features')}
     return {
         **{key: case[key] for key in ('lot', 'reference_id', 'offline', 'offline_elapsed_ms', 'license',
                                     'photo_source', 'fact_source')},
@@ -123,9 +166,13 @@ def evaluate(root, *, execute=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('root', type=Path)
-    parser.add_argument('--execute', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--execute', action='store_true')
+    mode.add_argument('--prepare', action='store_true')
     args = parser.parse_args()
     try:
+        if args.prepare:
+            prepare(args.root.resolve())
         print(json.dumps(evaluate(args.root.resolve(), execute=args.execute), ensure_ascii=False, indent=2))
     except (OSError, KeyError, ValueError, RuntimeError) as exc:
         parser.exit(2, f'{exc}\n')

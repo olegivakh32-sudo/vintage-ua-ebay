@@ -3086,7 +3086,7 @@ def _identity_claims_html(claims):
 def _product_evidence_html(evidence):
     labels = {'type':'Тип', 'brand':'Виробник', 'model':'Модель', 'material':'Матеріал',
               'country':'Країна', 'period':'Період', 'condition':'Стан', 'defect':'Дефект',
-              'completeness':'Комплектність', 'marking':'Напис', 'symbol':'Символ',
+              'completeness':'Комплектність', 'marking':'Напис', 'symbol':'Символ', 'feature':'Характеристика',
               'weight_kg':'Вага', 'length_cm':'Довжина', 'width_cm':'Ширина', 'height_cm':'Висота'}
     statuses = {'SELLER_VERIFIED':'Підтверджено продавцем', 'PHOTO_OBSERVATION':'Спостереження з фото',
                 'PHOTO_MEASUREMENT':'Показ із фото', 'SHIPPING_ESTIMATE':'Оцінка для доставки',
@@ -3096,6 +3096,8 @@ def _product_evidence_html(evidence):
     for field, label in labels.items():
         for record in evidence.get(field, []):
             value = f"{record['value']} {record.get('unit', '')}".strip()
+            if record.get('name'):
+                value = f"{record['name']} — {value}"
             photos = ', '.join(f'№{number}' for number in record.get('photos', []))
             summary = f"{label} · {value} · {statuses[record['status']]}"
             if photos:
@@ -4675,7 +4677,8 @@ PHOTO_SCENES_JSON: {{"1":["FULL_SET",95],"2":["SCALE",90]}}
 AUTO_FACTS_JSON: {{"materials":[],"materials_confidence":0,"material_evidence":"","tested_status":"Untested","completeness":"Unknown","brand":"","origin":"","marking_present":false,"brand_evidence":"","confidence":0,"object_type":"UNKNOWN","markings":[{{"photo":1,"literal":"","language":"","kind":"MAKER|MODEL_NUMBER|SERIAL|QUALITY_MARK|INSCRIPTION|UNKNOWN"}}],"symbols":[{{"photo":1,"description":""}}]}}
 SCOPE_JSON: {{"scope":"ONE_PHYSICAL_ITEM","physical_item_count":1,"confidence":0,"note":""}}
 PRODUCT_OBSERVATIONS_JSON: {{"fields":[{{"field":"type","value":"","photos":[1],"basis":"","confidence":0}}]}}
-For PRODUCT_OBSERVATIONS_JSON, use field names type, brand, model, material, country, period, condition, defect, completeness. Give type as a short generic English description of the object's intended use, without maker, model, marketing words or age. Record only directly visible clues with exact photo numbers and a concise basis describing what is visible. Write visible defects in English, without guessing functionality or hidden damage. A country/period/model requires the literal corresponding physical marking. Sealed-looking packaging alone is not proof of new, authentic or complete. For unknown fields omit the row. Measurements, symbols and transcriptions already have separate fields.
+For PRODUCT_OBSERVATIONS_JSON use fields type, brand, model, material, country, period, condition, defect, completeness and feature. Give type first, as a short generic English description of the object's intended use. Give up to five named feature rows using a separate "name" (e.g. Color, Connector, Closure) and "value". Prioritize features that distinguish variants. Use literal visible evidence and photo numbers; omit invisible specs or unreadable labels. Record visible defects without guessing functionality or hidden damage. A country/period/model requires a literal corresponding marking. Packaging alone is not proof of new, authentic or complete. Omit unknown rows. Keep evidence basis short and finish all machine-readable lines before optional prose.
+If the separate instruments measuring this item are readable, include one optional line PHYSICAL_READINGS_JSON: {{"scale":{{"source_photo":2,"raw_digits":"125.0","unit":"g","confidence":96,"visible":true}},"dimension_readings":[{{"source_photo":3,"axis":"length","start_cm":-0.3,"end_cm":8.2,"edges_visible":true,"scale_marks_visible":true,"confidence":96}}]}}. Use literal digits and units (g or kg), signed ruler endpoints in cm, and axis length, width or thickness. Omit unreadable values, instruments that are themselves for sale, and any estimated measures.
 For SCOPE_JSON, front/back/detail/scale views of one object are ONE_PHYSICAL_ITEM. Count separate cards, stickers, inserts and other loose pieces in the clearest complete overview, not across repeated photos. A collection sold as one lot is still MULTIPLE_PHYSICAL_ITEMS. If exact count is unclear use UNCERTAIN, never report one physical item merely because it is one sale lot. Use MULTIPLE_PHYSICAL_ITEMS only for truly separate physical objects.
 Use PHOTO_SCENES_JSON values [type, confidence (integer 0–100)]. Types: GENERAL_PRODUCT, FULL_SET, DETAIL, MARKINGS, DEFECT, SCALE, RULER, BARCODE, PACKAGE, OTHER, UNCERTAIN.
 FULL_SET requires that all parts of the offered lot are visible in this source photo. Compare against the other angles to distinguish a part or cropped view. A digital screen or numbers alone do not establish a weighing device. Read the unit and look for the weighing platform, controls and the item on it. Zoom mentally on graduation marks and edges to distinguish rulers from repeated patterns. A ruler/tape/caliper/scale used to measure the item, or a packing-only photo, MUST be EVIDENCE_ONLY. A measuring device sold as the item can be GENERAL_PRODUCT. Do not omit any source photo number.
@@ -4774,7 +4777,7 @@ Use only tested_status: Untested, Tested working, Tested not working, Not applic
     else:
         next_step = f"<form action='/picker/fast-research' method='post' style='margin-top:25px'>{hidden_field('analysis',analysis)}<button type='submit' style='font-size:20px;padding:14px 20px'>Продовжити до розпізнавання, ціни й вимірів</button></form>"
     # P024.7: machine-readable control lines are internal protocol, not seller-facing report text.
-    display_analysis=re.sub(r'(?m)^\s*(?:PHOTO_ROLES_JSON|PHOTO_SCENES_JSON|AUTO_FACTS_JSON|SCOPE_JSON|PRODUCT_OBSERVATIONS_JSON):.*(?:\n|$)', '', str(analysis or '')).strip()
+    display_analysis=re.sub(r'(?m)^\s*(?:PHOTO_ROLES_JSON|PHOTO_SCENES_JSON|AUTO_FACTS_JSON|SCOPE_JSON|PRODUCT_OBSERVATIONS_JSON|PHYSICAL_READINGS_JSON):.*(?:\n|$)', '', str(analysis or '')).strip()
     body=f"""<h2>{label} — Аналіз ШІ</h2><p style='color:green'><b>✓ Візуальний аналіз завершено</b></p>{compact}{_usage_summary_html(picker_id)}
     <details><summary><b>Переглянути звіт ШІ</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:10px'>{text_to_html(display_analysis)}</div></details>
     {next_step}"""
@@ -5026,7 +5029,49 @@ def _p0249_measurement_engine(picker_id, items, google_token, analysis_text="", 
     cached=MEASUREMENT_CACHE.get(picker_id)
     if _measurement_has_values(cached):
         return dict(cached)
+    first_pass = _complete_first_pass_measurements(picker_id, items, analysis_text)
+    if first_pass:
+        return first_pass
     return estimate_item_size_weight_from_photos(picker_id, list(items), google_token, analysis_text=analysis_text, research_context=research_context)
+
+
+def _complete_first_pass_measurements(picker_id, items, analysis):
+    """Reuse complete direct readings whose photo roles and instruments agree."""
+    data = _research_machine_json(analysis, 'PHYSICAL_READINGS_JSON')
+    roles = PHOTO_ROLE_CACHE.get(picker_id) or {}
+    scenes = _photo_model_scenes(picker_id, len(items), analysis)
+
+    def eligible(photo, scene):
+        return (type(photo) is int and 1 <= photo <= len(items)
+                and roles.get(photo) == 'EVIDENCE_ONLY' and scenes.get(photo) == scene)
+
+    scale = data.get('scale')
+    if (not isinstance(scale, dict) or scale.get('visible') is not True
+            or not eligible(scale.get('source_photo'), 'SCALE')
+            or type(scale.get('confidence')) is not int or not 90 <= scale['confidence'] <= 100):
+        return None
+    digits, unit = scale.get('raw_digits'), scale.get('unit')
+    if not isinstance(digits, str) or not re.fullmatch(r'[0-9]{1,6}(?:[.,][0-9]{1,4})?', digits) or unit not in ('g', 'kg'):
+        return None
+    try:
+        weight = metric_value(digits, unit, weight=True)
+    except ValueError:
+        return None
+    if weight is None or not .001 <= weight <= 50:
+        return None
+    readings = data.get('dimension_readings')
+    direct = [row for row in readings[:12] if isinstance(row, dict)
+              and eligible(row.get('source_photo'), 'RULER')
+              and row.get('edges_visible') is True and row.get('scale_marks_visible') is True
+              ] if isinstance(readings, list) else []
+    axes, evidence, conflicts = _p053_ruler_axes({'dimension_readings': direct}, len(items))
+    if set(axes) != {'length_cm', 'width_cm', 'height_cm'} or conflicts:
+        return None
+    confidence = min(scale['confidence'], *(record['confidence'] for record in evidence.values()))
+    return dict(axes, weight_kg=weight, confidence=confidence, weight_source='MEASURED_FROM_SCALE',
+                dimensions_source='MEASURED_FROM_RULER', mass_digits_text=digits, mass_unit_text=unit,
+                ruler_axis_evidence=evidence, vision_evidence={'scale': scale, 'dimension_readings': direct},
+                measurement_note='Direct physical readings from the initial photo analysis.')
 
 
 def _p0249_orchestrator_record(picker_id, identification, market, measurement, structure):

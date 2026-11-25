@@ -17,6 +17,42 @@ def observed(field, value, photo=1):
 
 
 class ProductEvidenceTests(unittest.TestCase):
+    def test_named_features_require_literal_support_and_dedupe(self):
+        literal = {**observed('feature', 'Black'), 'name': 'Color'}
+        evidence = build_product_evidence([literal, literal, observed('feature', 'Wireless'),
+                                          {**literal, 'photos': [2]}], [], {}, {}, 1)
+        self.assertEqual(evidence['feature'], [{
+            'name': 'Color', 'value': 'Black', 'basis': literal['basis'],
+            'status': 'PHOTO_OBSERVATION', 'photos': [1],
+        }])
+        self.assertIn('Color — Black', m._product_evidence_html(evidence))
+
+    def test_complete_direct_readings_skip_separate_measurement_call(self):
+        picker = 'direct-reading-fixture'
+        photos = [{}] * 5
+        roles = {i: 'EVIDENCE_ONLY' for i in range(2, 6)}
+        scenes = {'2': ['SCALE', 96], **{str(i): ['RULER', 96] for i in range(3, 6)}}
+        scale = dict(source_photo=2, raw_digits='125,0', unit='g', confidence=95, visible=True)
+        readings = [
+            dict(source_photo=i, axis=axis, start_cm=-.3, end_cm=end, edges_visible=True,
+                 scale_marks_visible=True, confidence=96)
+            for i, axis, end in ((3, 'length', 8.2), (4, 'width', 4.7), (5, 'thickness', .7))
+        ]
+        def text(rows):
+            return ('PHOTO_SCENES_JSON: ' + json.dumps(scenes) + '\nPHYSICAL_READINGS_JSON: '
+                    + json.dumps(dict(scale=scale, dimension_readings=rows)))
+        with (patch.dict(m.PHOTO_ROLE_CACHE, {picker: roles}),
+              patch.object(m, 'estimate_item_size_weight_from_photos', return_value={'fallback': True}) as separate):
+            measured = m._p0249_measurement_engine(picker, photos, None, analysis_text=text(readings))
+            separate.assert_not_called()
+            self.assertEqual([measured[field] for field in ('weight_kg', 'length_cm', 'width_cm', 'height_cm')],
+                             [.125, 8.5, 5., 1.])
+            self.assertEqual(measured['ruler_axis_evidence']['length_cm']['source_photo'], 3)
+            readings[0]['source_photo'] = 2
+            self.assertEqual(m._p0249_measurement_engine(picker, photos, None, analysis_text=text(readings)),
+                             {'fallback': True})
+            separate.assert_called_once()
+
     def test_catalogue_requires_exact_variant_and_marks_conflicting_photos(self):
         catalogue = Catalogue.read(Path(__file__).with_name('benchmark_product_sources.csv'))
         watch, = catalogue.match([(1, 'CASIO\nMODEL F-91W-1')])

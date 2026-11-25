@@ -45,4 +45,13 @@ timeout 110s .venv/bin/python acceptance_offline.py \
   --museum-dir /private/museum --modern-dir /private/licensed --out /private/result.json
 ```
 
-Прогін перевіряє фактичний локальний воркер фото. Оцінка відсутності збігів тут описує цей воркер. Повний товарний цикл, підтвердження категорії та ринкових даних мають окремі критерії. Підготовлений режим `ai_pilot.py --vision-only` дозволяє суху перевірку фотографії, еталона й ліміту. З дозволом власника, окремим ключем і `--execute --report` це один платний запит до $0,0204 на лот. Для трьох фото ліміт $0,0612.
+Прогін перевіряє фактичний локальний воркер фото. Оцінка відсутності збігів тут описує цей воркер. Повний товарний цикл, підтвердження категорії й ринкових даних мають окремі критерії.
+
+## Захищений одноразовий пілот трьох кадрів
+
+1. Адміністратор репозиторію відкриває **Settings → Environments → New environment** і створює `p094-vision-pilot`. [Налаштування репозиторію](https://github.com/olegivakh32-sudo/vintage-ua-ebay/settings/environments)
+2. У **Deployment branches and tags** виберіть **Selected branches and tags**. Додайте правило типу **Tag** з точним іменем `p094-vision-pilot-0612`. [Документація GitHub](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
+3. У розділі **Environment secrets** натисніть **Add environment secret**, введіть ім’я `P094_PILOT_OPENAI_API_KEY` і збережіть ключ як значення. Повідомте про готовність секрету. [Документація секретів GitHub](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets)
+4. Після підтвердження оператор один раз ставить тег `p094-vision-pilot-0612` на перевірений коміт гілки `p094-quality-validation`. Workflow заново звіряє SHA-256 трьох публічних фото, створює постійний у GitHub резерв `p094-vision-pilot-0612-reserved` перед запитами і записує зведення в артефакт `p094-vision-comparison`. Обидва теги зберігаються. Інші способи платного запуску цього набору після резервування закриті умовами пілота. [Workflow](.github/workflows/visual-pilot.yml)
+
+Тестовий вебпроцес із `mobile_preview.py` навмисно ізолює ключі OpenAI та інтеграцій. Він приймає тільки окремий ключ підпису HOLD і метадані ревізії за явним списком змінних. Запис `openai_configured=false` означає, що ключа немає у вебпроцесі. Безкоштовний Render не надає оболонки для окремої команди. [Обмеження Render Free](https://render.com/docs/free)

@@ -26,6 +26,7 @@ class PreviewStorageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as container, patch.dict('os.environ', {
             'OPENAI_API_KEY': 'fixture', 'EBAY_REFRESH_TOKEN': 'fixture',
             'GOOGLE_CLIENT_SECRET': 'fixture', 'ALLOW_PAID_AI': '1', 'ENABLE_LIVE_PUBLISH': '1',
+            'VINTAGE_HOLD_BACKUP_KEY': 'fixture-backup', 'RENDER_GIT_COMMIT': 'fixture-commit',
         }):
             root = Path(container) / 'preview'
             with preview_runtime(root) as (initial, _):
@@ -39,6 +40,8 @@ class PreviewStorageTests(unittest.TestCase):
                 self.assertEqual(draft.read_text(), '{"sku":"LOT-004"}')
                 self.assertEqual(restarted['ALLOW_PAID_AI'], '0')
                 self.assertEqual(restarted['ENABLE_LIVE_PUBLISH'], '0')
+                self.assertEqual(restarted['VINTAGE_HOLD_BACKUP_KEY'], 'fixture-backup')
+                self.assertEqual(restarted['RENDER_GIT_COMMIT'], 'fixture-commit')
                 self.assertTrue({'OPENAI_API_KEY', 'EBAY_REFRESH_TOKEN', 'GOOGLE_CLIENT_SECRET'}.isdisjoint(restarted))
 
     def test_double_start_is_rejected_while_storage_is_owned(self):
