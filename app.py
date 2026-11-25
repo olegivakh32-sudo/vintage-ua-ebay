@@ -13518,7 +13518,8 @@ def mobile_home():
     export = ('<a href="/mobile/acceptance-package">Завантажити пакет для перевірки</a>'
               if str(pid or '').startswith('mobile-') and os.environ.get('VINTAGE_OPERATOR_PASSWORD') else '')
     controls = ('<div class="mobile-actions"><a href="/picker/editor">Редактор фото</a>'
-                '<a href="/picker/items">Поточний лот</a>' + export + '</div>'
+                '<a href="/picker/items">Поточний лот</a>'
+                '<a href="/mobile/acceptance-check">Локальна перевірка фото</a>' + export + '</div>'
                 f'<form id="mobile-prepare" method="post" action="/mobile/prepare-stage">'
                 f'<input type="hidden" name="hold_csrf" value="{csrf}">'
                 '<input type="hidden" name="stage" value="photos">'
@@ -13592,6 +13593,42 @@ def mobile_prepare_stage():
                     'open': '/picker/resume-measurements'}, response.status_code
         return {'open': '/picker/review-final-draft'}
     return {'error': 'Почніть підготовку з фото лота.'}, 409
+
+
+@app.route('/mobile/acceptance-check')
+def mobile_acceptance_check():
+    picker_id = session.get('picker_session_id')
+    photos = PHOTO_CACHE.get(picker_id) or []
+    if not str(picker_id or '').startswith('mobile-') or not 1 <= len(photos) <= 24:
+        return page('Перевірка фото', '<h2>Спочатку завантажте фото</h2><a href="/mobile">До завантаження</a>'), 409
+    rows = [{'photo': index, 'hint': _mobile_evidence_hint(item)}
+            for index, item in enumerate(photos, 1)]
+    duplicates = duplicate_photo_indices({index: item.get('photo_fingerprint')
+                                          for index, item in enumerate(photos, 1)})
+    scores = {}
+    hints = {'ruler': 'Можлива лінійка', 'scale': 'Можливі ваги', 'display': 'Можливий цифровий дисплей'}
+    for row, item in zip(rows, photos):
+        index = row['photo']
+        if row['hint'] in hints:
+            row['note'] = hints[row['hint']]
+        elif index in duplicates:
+            row['note'] = f'Збігається з кадром №{duplicates[index]}'
+        else:
+            try:
+                score = _auto_main_score(_mobile_local_bytes(item))
+            except (OSError, ValueError):
+                score = -999.0
+            if score > -999.0:
+                scores[index] = score
+            row['note'] = 'Кандидат для оголошення' if score > -999.0 else 'Кадр потребує перевірки'
+    main = max(scores, key=scores.__getitem__) if scores else None
+    if request.accept_mimetypes.best == 'application/json':
+        return {'lot': _current_lot_label(), 'photos': rows, 'suggested_main': main}
+    summary = f'Попередня обкладинка — кадр №{main}.' if main else 'Кадр для попередньої обкладинки не визначено.'
+    observations = ''.join(f"<li>Фото №{row['photo']} — {row['note']}</li>" for row in rows)
+    return page('Локальна перевірка фото', '<h2>Локальна перевірка фото</h2>'
+                '<p>Попередній відбір за виглядом кадрів. Для остаточного відбору перевірте редактор.</p>'
+                f'<p>{summary}</p><ul>{observations}</ul><p><a href="/mobile">До фото лота</a></p>')
 
 
 @app.route('/mobile/acceptance-package')

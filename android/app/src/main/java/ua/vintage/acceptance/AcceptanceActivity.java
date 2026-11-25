@@ -1,6 +1,5 @@
 package ua.vintage.acceptance;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
@@ -21,12 +20,14 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
 import androidx.core.content.FileProvider;
 
 import java.io.File;
 import java.io.IOException;
 
-public final class AcceptanceActivity extends Activity {
+public final class AcceptanceActivity extends ComponentActivity {
     private static final int PHOTO_REQUEST = 1;
     private final Uri testOrigin = Uri.parse(BuildConfig.TEST_ORIGIN);
     private WebView web;
@@ -47,6 +48,16 @@ public final class AcceptanceActivity extends Activity {
         });
         screen.addView(web);
         setContentView(screen);
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (web.canGoBack()) {
+                    web.goBack();
+                } else {
+                    finish();
+                }
+            }
+        });
 
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -177,15 +188,6 @@ public final class AcceptanceActivity extends Activity {
     protected void onSaveInstanceState(Bundle state) {
         web.saveState(state);
         super.onSaveInstanceState(state);
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (web.canGoBack()) {
-            web.goBack();
-        } else {
-            super.onBackPressed();
-        }
     }
 
     @Override

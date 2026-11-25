@@ -87,6 +87,21 @@ class AndroidTests(unittest.TestCase):
             draw.line((x, 65, x, 73), fill=0, width=2)
         self.assertIsNone(measurement_hint(stripes, 'IMG_003.jpg'))
 
+    def test_offline_acceptance_check_suggests_cover_without_approving_roles(self):
+        product, ruler = self.fixture_images()
+        files = []
+        for index, image in enumerate((ruler, product), 1):
+            source = BytesIO()
+            image.save(source, 'JPEG')
+            files.append((BytesIO(source.getvalue()), f'IMG_{index}.jpg'))
+        self.assertEqual(self.client.post('/mobile/upload', data={'hold_csrf': self.csrf, 'photos': files}).status_code, 303)
+        result = self.client.get('/mobile/acceptance-check', headers={'Accept':'application/json'}).json
+        self.assertEqual(result['photos'][0]['hint'], 'ruler')
+        self.assertEqual(result['suggested_main'], 2)
+        with self.client.session_transaction() as session:
+            self.assertFalse(session['photo_editor_approved'])
+            self.assertNotIn(session['picker_session_id'], m.PHOTO_ROLE_CACHE)
+
     def test_missing_ai_key_shows_navigation_without_losing_photos(self):
         self.client.post('/mobile/upload', data={
             'hold_csrf': self.csrf, 'photos': (self._jpeg(), 'IMG_01.jpg'),
