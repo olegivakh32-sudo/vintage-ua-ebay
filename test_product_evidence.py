@@ -182,6 +182,37 @@ class ProductEvidenceTests(unittest.TestCase):
         conflict = catalogue.match([(1, 'CASIO F-91W-1'), (2, 'STANLEY\n33-425')])
         self.assertEqual({row['status'] for row in conflict}, {'CONTESTED'})
 
+    def test_single_item_can_join_exact_markings_across_source_photos(self):
+        catalogue = Catalogue.read(Path(__file__).with_name('benchmark_product_sources.csv'))
+        marks = [(3, 'CASIO'), (20, 'MODEL F-91W-1')]
+        lead, = catalogue.match(marks, include_leads=True)
+        self.assertEqual(lead['status'], 'CATALOGUE_LEAD')
+        match, = catalogue.match(marks, include_leads=True, single_item=True)
+        self.assertEqual((match['status'], match['photos']), ('CATALOGUE_CANDIDATE', [3, 20]))
+        self.assertFalse(catalogue.match([(3, 'CASIO'), (20, 'MODEL F-91W-1A')],
+                                         include_leads=True, single_item=True))
+
+    def test_existing_research_call_uses_label_outside_representative_24_photos(self):
+        scenes = {str(slot): [scene, 96] for slot, scene in
+                  {1: 'GENERAL_PRODUCT', 2: 'SCALE', 16: 'DETAIL', 23: 'MARKINGS'}.items()}
+        facts = {'markings': [{'photo': 23, 'literal': 'ZX-20', 'kind': 'MODEL_NUMBER'}]}
+        analysis = ('PHOTO_SCENES_JSON ' + json.dumps(scenes) + '\nAUTO_FACTS_JSON ' + json.dumps(facts))
+        with (
+            patch.dict('os.environ', {'VINTAGE_PRODUCT_CATALOGUE': '', 'VINTAGE_WORKSPACE_CATALOGUE': ''}),
+            patch.object(m, 'google_photo_to_data_url', return_value='data:image/jpeg;base64,AA==') as image,
+            patch.object(m, 'call_openai', return_value='') as request,
+        ):
+            m._p026_combined_research_engine('fixture', analysis, [{} for _ in range(24)], [1, 2, 3, 12, 24], {})
+        request.assert_called_once()
+        payload = request.call_args.args[0]
+        self.assertEqual(payload['reasoning']['effort'], 'medium')
+        content = payload['input'][0]['content']
+        self.assertIn('ZX-20', content[0]['text'])
+        self.assertEqual([part['text'] for part in content[1:] if part['type'] == 'input_text'],
+                         ['SOURCE PHOTO #1', 'SOURCE PHOTO #23', 'SOURCE PHOTO #16', 'SOURCE PHOTO #3', 'SOURCE PHOTO #12'])
+        self.assertEqual(image.call_args_list[1].args[1], 1536)
+        self.assertTrue(image.call_args_list[1].kwargs['prefer_original'])
+
     def test_conflicts_and_shipping_estimates_remain_out_of_public_aspects(self):
         measurement = {
             'weight_kg': .15, 'weight_source': 'MEASURED_FROM_SCALE',

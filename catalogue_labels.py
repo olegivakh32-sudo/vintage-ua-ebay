@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from urllib.parse import urlsplit
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from measurement_units import metric_value
 
@@ -59,11 +59,17 @@ class Catalogue:
             raise ValueError('Catalogue has no model records')
         return cls(sha256(raw).hexdigest(), tuple(entries))
 
-    def match(self, observations, *, include_leads=False):
+    def match(self, observations, *, include_leads=False, single_item=False):
         matches = {}
         leads = {}
-        for photo, text in observations:
-            lines = [_words(line) for line in text.splitlines() if line.strip()]
+        observed = [(photo, [_words(line) for line in text.splitlines() if line.strip()])
+                    for photo, text in observations]
+        mark_photos = {}
+        if single_item and include_leads:
+            for photo, lines in observed:
+                for line in lines:
+                    mark_photos.setdefault(line, set()).add(photo)
+        for photo, lines in observed:
             full = ' '.join(lines)
             for entry in self.entries:
                 brand, model = _words(entry['brand']), _words(entry['model'])
@@ -74,15 +80,16 @@ class Catalogue:
                                for line in lines)
                 has_suffix = (include_leads and len(suffix) >= 4 and any(ch.isdigit() for ch in suffix)
                               and any(line in {suffix, f'model {suffix}'} for line in lines))
-                if brand_seen and (has_full or has_suffix):
+                related_brand_photos = mark_photos.get(brand, set())
+                if (brand_seen or related_brand_photos) and (has_full or has_suffix):
                     bucket = matches
                 elif has_suffix or (include_leads and has_full):
                     bucket = leads
                 else:
                     continue
                 result = bucket.setdefault(entry['reference_id'], {**entry, 'photos': []})
-                if photo not in result['photos']:
-                    result['photos'].append(photo)
+                result['photos'] = sorted(set(result['photos']) | {photo} |
+                                          (set() if brand_seen else related_brand_photos))
         unresolved = leads.keys() - matches.keys()
         if include_leads and unresolved:
             # A different possible model in the same album suspends exact-match enrichment.
@@ -106,8 +113,10 @@ def read_label_texts(frames):
     for slot, preview in frames[:4]:
         try:
             with Image.open(BytesIO(preview)) as image:
-                sample = image.convert('L')
-                sample.thumbnail((1350, 1350))
+                if image.format in ('JPEG', 'MPO'):
+                    image.draft('L', (1350, 1350))
+                image.thumbnail((1350, 1350))
+                sample = ImageOps.exif_transpose(image).convert('L')
                 picture = BytesIO()
                 sample.save(picture, 'PNG')
             reply = subprocess.run([binary, 'stdin', 'stdout', '-l', 'eng', '--psm', '11'],
