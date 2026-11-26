@@ -46,12 +46,17 @@ def blind_jpeg(raw):
     return output.getvalue()
 
 
-def prepare(manifest, destination, cache=None):
+def prepare(manifest, destination, cache=None, *, selected_lots=()):
     rows = json.loads(manifest.read_text(encoding='utf-8'))
+    selected = set(selected_lots)
+    if len(selected) != len(selected_lots):
+        raise ValueError('Duplicate lot selection')
     ids = set()
     tasks = []
     for row in rows:
         lot, photos = row['lot'], row['photos']
+        if selected and lot not in selected:
+            continue
         if not re.fullmatch(r'MV-[0-9]{3}', lot) or lot in ids or not 2 <= len(photos) <= 24:
             raise ValueError('Invalid or duplicate multi-view lot')
         ids.add(lot)
@@ -59,8 +64,8 @@ def prepare(manifest, destination, cache=None):
         if len(set(hashes)) != len(hashes) or not all(re.fullmatch(r'[a-f0-9]{64}', value) for value in hashes):
             raise ValueError('Invalid or duplicate image')
         tasks.extend((f'{lot}/{number:02d}.jpg', photo) for number, photo in enumerate(photos, 1))
-    if not tasks:
-        raise ValueError('Empty cohort')
+    if not tasks or selected - ids:
+        raise ValueError('Empty cohort or selected lot missing from the manifest')
 
     def encode(task):
         name, photo = task
@@ -81,9 +86,10 @@ def main():
     parser.add_argument('manifest', type=Path)
     parser.add_argument('archive', type=Path)
     parser.add_argument('--cache', type=Path, help='Optional local copies keyed by original SHA-256.')
+    parser.add_argument('--lot', action='append', default=[], help='Select one frozen lot ID, repeat to select more.')
     args = parser.parse_args()
     try:
-        print(json.dumps(prepare(args.manifest, args.archive, args.cache)))
+        print(json.dumps(prepare(args.manifest, args.archive, args.cache, selected_lots=args.lot)))
     except (OSError, KeyError, ValueError, requests.RequestException) as error:
         parser.exit(2, f'{error}\n')
 

@@ -273,6 +273,7 @@ _MODEL_PRICING_PER_M = {
     "gpt-5.6-sol": (4.0, 20.0),
     "gpt-5.6-terra": (2.0, 12.0),
     "gpt-5.6-luna": (0.20, 1.20),
+    "gpt-6-luna": (0.10, 0.50),
 }
 
 def _current_usage_record(picker_id_override=None):
@@ -4692,6 +4693,13 @@ def _refresh_ebay_photo_order(items, picker_id=None):
 # STEP 1 — VISUAL ANALYSIS
 # =========================================================
 
+def _recognition_luna_model():
+    if (os.environ.get('VINTAGE_RESEARCH_ROUTE') == 'hybrid'
+            and os.environ.get('VINTAGE_EXPERIMENT_VISION_MODEL') == 'gpt-6-luna'):
+        return 'gpt-6-luna'
+    return 'gpt-5.6-luna'
+
+
 @app.route(
     "/picker/analyze",
     methods=["POST"],
@@ -4727,12 +4735,12 @@ def picker_analyze():
                     content.append({"type":"input_text","text":f"SOURCE PHOTO #{i} — role classification/low detail"})
                     content.append({"type":"input_image","image_url":google_photo_to_data_url(items[i-1],640),"detail":"low"})
             analysis = normalize_visual_analysis(call_openai({
-                "model": "gpt-5.6-luna", "input": [{"role": "user", "content": content}],
+                "model": _recognition_luna_model(), "input": [{"role": "user", "content": content}],
                 "reasoning": {"effort": "low"}, "max_output_tokens": output_cap, "store": False, "text": VISUAL_TEXT,
             }, timeout=120), count)
             parsed_roles=_photo_roles_from_analysis(analysis,len(items))
-            # Reliability fallback only when the cheap pass violates the structured contract.
-            if parsed_roles is None:
+            # Keep the experimental first-pass result attributable to its chosen model.
+            if parsed_roles is None and os.environ.get('VINTAGE_RESEARCH_ROUTE') != 'hybrid':
                 analysis = normalize_visual_analysis(call_openai({
                     "model": "gpt-5.6-sol", "input": [{"role": "user", "content": content}],
                     "reasoning": {"effort": "low"}, "max_output_tokens": output_cap, "store": False, "text": VISUAL_TEXT,
@@ -5019,7 +5027,7 @@ def _p026_combined_research_engine(label, analysis, items, used_indices, structu
     model, effort, tool_limits, search_strategy = 'gpt-5.6-sol', 'medium' if deepen else 'low', {}, ''
     if os.environ.get('VINTAGE_RESEARCH_ROUTE') == 'hybrid':
         if _hybrid_catalogue_route(matches, photo_facts, barcodes, structure):
-            model, effort, tool_limits = 'gpt-5.6-luna', 'low', {'max_tool_calls': 2}
+            model, effort, tool_limits = _recognition_luna_model(), 'low', {'max_tool_calls': 2}
             search_strategy = ('Start with the exact photographed make and model, official specifications and a '
                                'separate corroborating record. Search for comparables once the variant is supported.')
         else:

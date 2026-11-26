@@ -219,16 +219,17 @@ class ProductEvidenceTests(unittest.TestCase):
         catalogue = [dict(status='CATALOGUE_CANDIDATE', brand='Acme', model='Acme ZX-20', type=kind)]
         one = dict(scope='ONE_PHYSICAL_ITEM', physical_item_count=1, source='SELLER')
         cases = [
-            ('hybrid', facts, 'UNIQUE', one, 'gpt-5.6-luna', 2),
-            ('hybrid', facts + [{**observed('model', 'ZX-20A'), 'confidence': 85}], 'UNIQUE', one, 'gpt-5.6-terra', 4),
-            ('hybrid', facts, 'CONFLICT', one, 'gpt-5.6-terra', 4),
-            ('hybrid', facts, 'NONE', {}, 'gpt-5.6-terra', 4),
-            ('', facts, 'UNIQUE', one, 'gpt-5.6-sol', None),
+            ('hybrid', '', facts, 'UNIQUE', one, 'gpt-5.6-luna', 2),
+            ('hybrid', 'gpt-6-luna', facts, 'UNIQUE', one, 'gpt-6-luna', 2),
+            ('hybrid', '', facts + [{**observed('model', 'ZX-20A'), 'confidence': 85}], 'UNIQUE', one, 'gpt-5.6-terra', 4),
+            ('hybrid', '', facts, 'CONFLICT', one, 'gpt-5.6-terra', 4),
+            ('hybrid', '', facts, 'NONE', {}, 'gpt-5.6-terra', 4),
+            ('', 'gpt-6-luna', facts, 'UNIQUE', one, 'gpt-5.6-sol', None),
         ]
-        for mode, observations, barcode, structure, model, tool_calls in cases:
+        for mode, vision_model, observations, barcode, structure, model, tool_calls in cases:
             with (
                 self.subTest(mode=mode, model=model, barcode=barcode, observations=len(observations)),
-                patch.dict('os.environ', {'VINTAGE_RESEARCH_ROUTE': mode}),
+                patch.dict('os.environ', {'VINTAGE_RESEARCH_ROUTE': mode, 'VINTAGE_EXPERIMENT_VISION_MODEL': vision_model}),
                 patch.object(m, '_picker_catalogue_matches', return_value=catalogue),
                 patch.object(m, '_mobile_catalogue_hints', return_value={
                     'status': barcode, 'candidates': [{'code': '12345670', 'photos': [1]}],
@@ -237,12 +238,30 @@ class ProductEvidenceTests(unittest.TestCase):
                 patch.object(m, 'call_openai', return_value='') as request,
             ):
                 analysis = 'PRODUCT_OBSERVATIONS_JSON ' + json.dumps({'fields': observations})
+                expected_visual = vision_model if mode and vision_model else 'gpt-5.6-luna'
+                self.assertEqual(m._recognition_luna_model(), expected_visual)
                 m._p026_combined_research_engine('fixture', analysis, [{}], [1], structure)
                 request.assert_called_once()
                 payload = request.call_args.args[0]
                 self.assertEqual(payload['model'], model)
                 self.assertEqual(payload.get('max_tool_calls'), tool_calls)
                 self.assertEqual(payload['tools'], [{'type': 'web_search'}])
+
+    def test_experimental_visual_pass_records_incomplete_roles_without_a_second_call(self):
+        picker = 'vision-route-fixture'
+        with (
+            m.app.test_request_context('/picker/analyze', method='POST'),
+            patch.dict('os.environ', {'VINTAGE_RESEARCH_ROUTE': 'hybrid', 'VINTAGE_EXPERIMENT_VISION_MODEL': 'gpt-6-luna'}),
+            patch.dict(m.PHOTO_CACHE, {picker: [{}]}),
+            patch.object(m, '_paid_ai_enabled', return_value=True),
+            patch.object(m, 'google_photo_to_data_url', return_value='data:image/jpeg;base64,AA=='),
+            patch.object(m, 'call_openai', return_value='{}') as request,
+        ):
+            m.session['picker_session_id'] = picker
+            response = m.app.make_response(m.picker_analyze())
+            self.assertEqual(response.status_code, 422)
+            request.assert_called_once()
+            self.assertEqual(request.call_args.args[0]['model'], 'gpt-6-luna')
 
     def test_conflicts_and_shipping_estimates_remain_out_of_public_aspects(self):
         measurement = {
