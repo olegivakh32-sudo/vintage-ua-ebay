@@ -22,6 +22,8 @@ from unittest.mock import patch
 from PIL import Image, ImageOps
 import requests
 
+from visual_protocol import VISUAL_TEXT, visual_response_issue
+
 
 # Public Standard Responses prices in USD per million tokens, checked 2026-11-24.
 # Charge the entire model context at the input rate plus the full output cap.
@@ -80,17 +82,21 @@ class PilotLimits:
             raise RuntimeError('Наступний запит перевищив би ліміт витрат пілота.')
 
         content = payload['input']
+        strict_visual = not research and payload.get('text') == VISUAL_TEXT
         if isinstance(content, list):
             images = [item for message in content for item in message.get('content', [])
                       if item.get('type') == 'input_image']
             if len(images) > 24:
                 raise RuntimeError('Запит містить понад 24 фото.')
             if images and model.startswith('gpt-4o-mini'):
-                content = fit_4o_mini_vision(content, context - output_cap)
+                schema_budget = len(json.dumps(VISUAL_TEXT).encode()) if strict_visual else 0
+                content = fit_4o_mini_vision(content, context - output_cap - schema_budget)
         request = {
             'model': model, 'input': content, 'max_output_tokens': output_cap,
             'store': False, 'service_tier': 'default', 'truncation': 'disabled',
         }
+        if strict_visual:
+            request['text'] = VISUAL_TEXT
         if research:
             request['reasoning'] = {'effort': 'low'}
             request['instructions'] = (
@@ -196,6 +202,9 @@ def visual_usage(response_data, expected_model):
     status = response_data.get('status')
     if status in ('completed', 'incomplete', 'failed', 'cancelled', 'in_progress', 'queued'):
         metrics['response_status'] = status
+    issue = visual_response_issue(response_data)
+    if issue:
+        metrics['response_issue'] = issue
     input_details = usage.get('input_tokens_details')
     cached = input_details.get('cached_tokens') if isinstance(input_details, dict) else None
     if type(cached) is int and 0 <= cached <= input_tokens:

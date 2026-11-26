@@ -78,6 +78,10 @@ from product_evidence import (
     build_product_evidence, draft_from_evidence, photo_type, recognition_route, specific_violations,
 )
 
+from visual_protocol import (
+    VISUAL_FORMAT_NAME, VISUAL_PROMPT, VISUAL_TEXT, machine_object, normalize_visual_analysis, visual_response_issue,
+)
+
 from flask import (
     Flask,
     g,
@@ -1985,25 +1989,20 @@ def ebay_inventory_locations():
 # =========================================================
 
 def extract_openai_text(data):
-    direct = data.get("output_text")
-
-    if direct:
+    direct = data.get("output_text") if isinstance(data, dict) else None
+    if isinstance(direct, str) and direct.strip():
         return direct
-
-    texts = []
-
-    for item in data.get("output", []):
-        if item.get("type") != "message":
+    output = data.get("output") if isinstance(data, dict) else None
+    messages = []
+    for item in output if isinstance(output, list) else []:
+        if not isinstance(item, dict) or item.get("type") != "message":
             continue
-
-        for content in item.get("content", []):
-            if content.get("type") == "output_text":
-                text = content.get("text")
-
-                if text:
-                    texts.append(text)
-
-    return "\n".join(texts)
+        content = item.get("content")
+        if isinstance(content, list):
+            messages.append("".join(part['text'] for part in content
+                                    if isinstance(part, dict) and part.get('type') == 'output_text'
+                                    and isinstance(part.get('text'), str)))
+    return "\n".join(messages).strip()
 
 
 def _web_search_source_urls(response):
@@ -2183,7 +2182,9 @@ def _p054_openai_request(payload, timeout=180, usage_picker_id=None, final_draft
                 u = data.get("usage") or {}
                 in_tok = int(u.get("input_tokens") or u.get("prompt_tokens") or 0)
                 out_tok = int(u.get("output_tokens") or u.get("completion_tokens") or 0)
-                web_calls = sum(1 for x in (data.get("output") or []) if str(x.get("type") or "") == "web_search_call")
+                output = data.get("output")
+                web_calls = sum(1 for x in output if isinstance(x, dict) and x.get("type") == "web_search_call") \
+                    if isinstance(output, list) else 0
                 model = str(data.get("model") or payload.get("model") or "").strip()
                 in_rate, out_rate = next(
                     (rates for name,rates in _MODEL_PRICING_PER_M.items() if model.startswith(name)),
@@ -2198,6 +2199,10 @@ def _p054_openai_request(payload, timeout=180, usage_picker_id=None, final_draft
                 AI_USAGE_CACHE[picker_id] = usage_rec
             except Exception:
                 pass
+            if (payload.get('text') or {}).get('format', {}).get('name') == VISUAL_FORMAT_NAME:
+                issue = visual_response_issue(data)
+                if issue:
+                    raise RuntimeError(f'Visual response unavailable ({issue}). Usage retained.')
             result=extract_openai_text(data)
             if not result:
                 raise RuntimeError("AI response uncertain: HTTP success with no usable text. Usage retained; no automatic repeat.")
@@ -2636,35 +2641,8 @@ def _extract_json_object(text):
 
 def _auto_facts_from_analysis(analysis):
     """Read machine-readable facts from Step 1 without requiring JSON to be the final text."""
-    text = str(analysis or "")
-    obj = None
-    marker = re.search(r"AUTO_FACTS_JSON\s*:\s*", text, re.I)
-    if marker:
-        tail = text[marker.end():]
-        start = tail.find("{")
-        if start >= 0:
-            depth = 0
-            in_string = False
-            escape = False
-            for idx, ch in enumerate(tail[start:], start=start):
-                if in_string:
-                    if escape:
-                        escape = False
-                    elif ch == "\\":
-                        escape = True
-                    elif ch == '"':
-                        in_string = False
-                    continue
-                if ch == '"':
-                    in_string = True
-                elif ch == "{":
-                    depth += 1
-                elif ch == "}":
-                    depth -= 1
-                    if depth == 0:
-                        obj = _extract_json_object(tail[start:idx+1])
-                        break
-    if not isinstance(obj, dict):
+    obj = _research_machine_json(analysis, 'AUTO_FACTS_JSON')
+    if not obj:
         return {"materials": [], "materials_confidence": 0, "material_evidence": "", "material_source": "UNKNOWN", "tested_status": "Untested", "completeness": "Unknown", "brand": "", "origin": "", "marking_present": False, "brand_evidence": "", "confidence": 0}
     object_type = str(obj.get('object_type') or '').strip()
     markings = obj.get('markings')
@@ -2738,15 +2716,7 @@ def _auto_facts_from_analysis(analysis):
 
 
 def _research_machine_json(text, prefix):
-    text=str(text or '')
-    for match in re.finditer(re.escape(prefix),text,re.I):
-        raw=text[match.end():].lstrip(" \t\r\n:*_=\"")
-        raw=re.sub(r"^```(?:json)?\s*","",raw,flags=re.I)
-        try:
-            value,_=json.JSONDecoder().raw_decode(raw)
-            if isinstance(value,dict):return value
-        except (ValueError,TypeError):continue
-    return {}
+    return machine_object(text, prefix)
 
 
 def _merge_research_facts(base_facts, identification="", market=""):
@@ -4547,13 +4517,8 @@ def _photo_roles_from_analysis(text, total):
     contract is missing/truncated/malformed. The AI must return exactly one valid role
     for every source photo before Photo Editor/eBay can continue.
     """
-    text=str(text or '')
-    m=re.search(r'PHOTO_ROLES_JSON\s*:\s*', text, re.I)
-    if not m:
-        return None
     try:
-        obj, _ = json.JSONDecoder().raw_decode(text[m.end():].lstrip())
-        raw = obj.get('roles') if isinstance(obj, dict) else None
+        raw = _research_machine_json(text, 'PHOTO_ROLES_JSON').get('roles')
         if not isinstance(raw, dict):
             return None
         allowed=EBAY_PHOTO_ROLES | {'EVIDENCE_ONLY', 'NEEDS_REVIEW'}
@@ -4570,15 +4535,8 @@ def _photo_roles_from_analysis(text, total):
 
 def _scope_from_analysis(text):
     """Parse sellable physical count from Stage A so a separate AI classifier is normally unnecessary."""
-    raw=str(text or "")
-    m=re.search(r"SCOPE_JSON\s*:\s*", raw, re.I)
-    if not m:
-        return None
-    try:
-        obj,_=json.JSONDecoder().raw_decode(raw[m.end():].lstrip())
-    except Exception:
-        return None
-    if not isinstance(obj,dict):
+    obj = _research_machine_json(text, 'SCOPE_JSON')
+    if not obj:
         return None
     scope=str(obj.get("scope") or "UNCERTAIN").strip().upper()
     if scope not in {"ONE_PHYSICAL_ITEM","MULTIPLE_PHYSICAL_ITEMS","UNCERTAIN"}:
@@ -4647,56 +4605,7 @@ def picker_analyze():
         # Keep room for close-ups while showing suspect measuring devices at higher detail.
         used_indices = list(dict.fromkeys([*hinted[:3], *used_indices]))[:6]
     if not analysis:
-        prompt = f"""MASTER AI OPERATING SPEC — STAGE A: SELLER-PHOTO EVIDENCE EXTRACTION
-You are the evidence analyst for Vintage UA eBay Machine. Current lot: {label}. This is ONE seller lot intended for eBay.com.
-
-BUSINESS GOAL: create a truthful, high-converting listing while minimizing false facts, wasted API calls, returns, policy risk and seller time. This stage does NOT research the web and does NOT price the item. It extracts evidence from seller photos for the next research stage.
-
-INPUT LIMIT: there are {count} seller photos total. You receive all source photos, including {len(used_indices)} representative originals at high detail. Use low-detail photos for role classification and only record markings that are visibly legible at the supplied resolution.
-
-MANDATORY EVIDENCE PROCEDURE:
-1. OBJECT: determine the broad object type first. Do not force a subtype/mechanism unless visible evidence supports it.
-2. MARKINGS/OCR: inspect every received image for stamped, embossed, engraved, printed or cast text, logos, numbers, symbols, price marks, quality/state marks and model-like codes.
-3. For EACH unclear marking, explicitly list 2-6 plausible readings when possible. Distinguish Cyrillic/Latin/look-alike characters (К/K, И/N, П/P, З/3, О/0, etc.). For each marking cite the source photo number, preserve the visible script, spelling, line order and punctuation, and indicate unreadable characters with [?]. List inferred readings separately from the literal transcription. If photos disagree, report the discrepancy.
-4. A visible word is NOT automatically a brand. Classify each mark as one of: MAKER_CANDIDATE, MODEL_CANDIDATE, SERIAL/PRODUCTION, PRICE, QUALITY/STATE, DECORATIVE/INSCRIPTION, UNKNOWN.
-5. CONSTRUCTION: record distinctive features useful for exact-match research: body/spool/frame shape, perforation pattern, handle count/shape, knobs, screws, buttons, feet/mounts, hinges, locks, mechanism, decoration and unusual geometry.
-6. MATERIALS: only materials visually supported. If exact alloy/polymer/wood species is unknown, use the broader truthful class. Put a material in AUTO_FACTS_JSON only when the broad class is visually supported with materials_confidence >=70; otherwise leave materials empty.
-7. CONDITION: describe visible wear/defects only. Separate scratches, corrosion/oxidation, chips, cracks, deformation, missing parts and coating loss. Do not infer hidden defects.
-8. FUNCTION: photographs do not prove function. Default Untested unless seller evidence explicitly establishes otherwise. Untested MUST NOT become Repair/Parts/Not Working.
-9. COMPLETENESS: do not call Complete unless the expected parts are visibly established. Otherwise Unknown.
-10. MEASUREMENTS: read a ruler only when scale endpoints and object edges are sufficiently clear. Label approximate readings as approximate. Never invent precision.
-11. WEIGHT: a readable digital scale photo is authoritative physical evidence. Convert grams to kg exactly (example 92.5 g = 0.0925 kg). Never replace readable scale evidence with internet/AI estimates.
-12. ORIGIN/PERIOD: visual style alone is not proof of country or date. Keep unknown unless a direct visible mark supports it.
-13. SELLER-VERIFIED evidence, when later supplied, overrides uncertain AI OCR.
-14. UNKNOWN is preferable to a fabricated fact. Confidence must reflect evidence and must never be inflated to satisfy listing readiness.
-15. PHOTO ROLE SPLIT: classify EVERY supplied photo by its source photo number. Use EBAY_PRODUCT for normal buyer-facing item photos; EVIDENCE_ONLY for scale/weight, ruler/tape/caliper/measurement, packing-only or internal workflow photos that should never be published; EBAY_EVIDENCE for buyer-useful close-ups such as maker marks, serials, defects or construction details that are both evidence and useful listing photos. An external ruler, tape, caliper or scale photo is always EVIDENCE_ONLY even if the item occupies most of the image. Look around the entire frame, including cropped scale displays, measurement ticks at steep angles, and measuring tools at the margins. If unsure whether a measuring tool is visible, use NEEDS_REVIEW. A scale or ruler that is itself the product may be EBAY_PRODUCT when shown on its own; an external device measuring that product is evidence only.
-
-OUTPUT ORDER IS CRITICAL. Before any prose, output these machine-readable lines, with one role and one scene for EVERY source photo number:
-PHOTO_ROLES_JSON: {{"roles":{{"1":"EBAY_PRODUCT","2":"EVIDENCE_ONLY"}}}}
-PHOTO_SCENES_JSON: {{"1":["FULL_SET",95],"2":["SCALE",90]}}
-AUTO_FACTS_JSON: {{"materials":[],"materials_confidence":0,"material_evidence":"","tested_status":"Untested","completeness":"Unknown","brand":"","origin":"","marking_present":false,"brand_evidence":"","confidence":0,"object_type":"UNKNOWN","markings":[{{"photo":1,"literal":"","language":"","kind":"MAKER|MODEL_NUMBER|SERIAL|QUALITY_MARK|INSCRIPTION|UNKNOWN"}}],"symbols":[{{"photo":1,"description":""}}]}}
-SCOPE_JSON: {{"scope":"ONE_PHYSICAL_ITEM","physical_item_count":1,"confidence":0,"note":""}}
-PRODUCT_OBSERVATIONS_JSON: {{"fields":[{{"field":"type","value":"","photos":[1],"basis":"","confidence":0}}]}}
-For PRODUCT_OBSERVATIONS_JSON use fields type, brand, model, material, country, period, condition, defect, completeness and feature. Give type first, as a short generic English description of the object's intended use. Give up to five named feature rows using a separate "name" (e.g. Color, Connector, Closure) and "value". Prioritize features that distinguish variants. Use literal visible evidence and photo numbers; omit invisible specs or unreadable labels. Record visible defects without guessing functionality or hidden damage. A country/period/model requires a literal corresponding marking. Packaging alone is not proof of new, authentic or complete. Omit unknown rows. Keep evidence basis short and finish all machine-readable lines before optional prose.
-If the separate instruments measuring this item are readable, include one optional line PHYSICAL_READINGS_JSON: {{"scale":{{"source_photo":2,"raw_digits":"125.0","unit":"g","confidence":96,"visible":true}},"dimension_readings":[{{"source_photo":3,"axis":"length","start_cm":-0.3,"end_cm":8.2,"edges_visible":true,"scale_marks_visible":true,"confidence":96}}]}}. Use literal digits and units (g or kg), signed ruler endpoints in cm, and axis length, width or thickness. Omit unreadable values, instruments that are themselves for sale, and any estimated measures.
-For SCOPE_JSON, front/back/detail/scale views of one object are ONE_PHYSICAL_ITEM. Count separate cards, stickers, inserts and other loose pieces in the clearest complete overview, not across repeated photos. A collection sold as one lot is still MULTIPLE_PHYSICAL_ITEMS. If exact count is unclear use UNCERTAIN, never report one physical item merely because it is one sale lot. Use MULTIPLE_PHYSICAL_ITEMS only for truly separate physical objects.
-Use PHOTO_SCENES_JSON values [type, confidence (integer 0–100)]. Types: GENERAL_PRODUCT, FULL_SET, DETAIL, MARKINGS, DEFECT, SCALE, RULER, BARCODE, PACKAGE, OTHER, UNCERTAIN.
-FULL_SET requires that all parts of the offered lot are visible in this source photo. Compare against the other angles to distinguish a part or cropped view. A digital screen or numbers alone do not establish a weighing device. Read the unit and look for the weighing platform, controls and the item on it. Zoom mentally on graduation marks and edges to distinguish rulers from repeated patterns. A ruler/tape/caliper/scale used to measure the item, or a packing-only photo, MUST be EVIDENCE_ONLY. A measuring device sold as the item can be GENERAL_PRODUCT. Do not omit any source photo number.
-
-Then return IN UKRAINIAN using EXACTLY these sections:
-1. ЩО ЦЕ
-2. МАРКУВАННЯ / OCR-КАНДИДАТИ
-3. УНІКАЛЬНІ КОНСТРУКТИВНІ ОЗНАКИ
-4. КРАЇНА / ПЕРІОД
-5. МАТЕРІАЛИ
-6. КОМПЛЕКТНІСТЬ / ПРАЦЕЗДАТНІСТЬ
-7. СТАН І ДЕФЕКТИ
-8. ФІЗИЧНІ ДОКАЗИ РОЗМІРУ / ВАГИ
-9. НЕПІДТВЕРДЖЕНЕ
-10. ПОШУКОВІ КЛЮЧІ ДЛЯ RESEARCH
-11. ВПЕВНЕНІСТЬ
-
-Use only tested_status: Untested, Tested working, Tested not working, Not applicable. Use only completeness: Unknown, Complete, Incomplete. Give object_type as a short English phrase describing visible object function; use UNKNOWN when ambiguous. Add up to six literal markings with source photo numbers; preserve uncertain characters as [?] and put alternatives in prose only. Describe up to six clearly visible non-text symbols in symbols, with their photo number and literal shape, count and arrangement. Keep inferred historical meaning out of this field. Fill brand only when a maker/brand name is CLEARLY legible on the physical item. origin must be blank unless directly supported by a visible origin mark. confidence 0-100. Do not repeat the machine-readable lines at the end. Do not research market prices in this stage."""
+        prompt = f"{VISUAL_PROMPT}\nLot {label}, {count} seller photos, {len(used_indices)} at high detail."
         content=[{"type":"input_text","text":prompt}]
         try:
             for i in range(1, len(items)+1):
@@ -4706,11 +4615,17 @@ Use only tested_status: Untested, Tested working, Tested not working, Not applic
                 else:
                     content.append({"type":"input_text","text":f"SOURCE PHOTO #{i} — role classification/low detail"})
                     content.append({"type":"input_image","image_url":google_photo_to_data_url(items[i-1],640),"detail":"low"})
-            analysis=call_openai({"model":"gpt-5.6-luna","input":[{"role":"user","content":content}],"reasoning":{"effort":"low"},"max_output_tokens":2000,"store":False},timeout=120)
+            analysis = normalize_visual_analysis(call_openai({
+                "model": "gpt-5.6-luna", "input": [{"role": "user", "content": content}],
+                "reasoning": {"effort": "low"}, "max_output_tokens": 2000, "store": False, "text": VISUAL_TEXT,
+            }, timeout=120), count)
             parsed_roles=_photo_roles_from_analysis(analysis,len(items))
             # Reliability fallback only when the cheap pass violates the structured contract.
             if parsed_roles is None:
-                analysis=call_openai({"model":"gpt-5.6-sol","input":[{"role":"user","content":content}],"reasoning":{"effort":"low"},"max_output_tokens":2000,"store":False},timeout=150)
+                analysis = normalize_visual_analysis(call_openai({
+                    "model": "gpt-5.6-sol", "input": [{"role": "user", "content": content}],
+                    "reasoning": {"effort": "low"}, "max_output_tokens": 2000, "store": False, "text": VISUAL_TEXT,
+                }, timeout=150), count)
                 parsed_roles=_photo_roles_from_analysis(analysis,len(items))
             if parsed_roles is None:
                 return page("Перевірка фото", "<h2>ШІ повернув неповний розподіл фото</h2>"
@@ -7010,7 +6925,6 @@ def final_listing(automatic_revision=None):
     if other and form.get("confirm_material_other") == "yes" and not _uncertain_material:
         materials.append(other)
     materials=list(dict.fromkeys(materials))
-    confirmed_material=", ".join(materials)
     kind = str(_research_machine_json(identification, 'IDENTITY_JSON').get('type') or '')
     default_test_status = 'Not applicable' if automatic and _p081_passive(kind) else 'Untested'
     seller_tested_status = form.get('seller_tested_status', default_test_status).strip() or default_test_status
@@ -7048,10 +6962,16 @@ def final_listing(automatic_revision=None):
         product_evidence = build_product_evidence(
             observed, _structured_identity_claims(identification, market, photo_count),
             {'brand':seller_brand, 'country':seller_origin, 'marking':seller_verified_marking,
-             'material':confirmed_material if not automatic else '', 'condition':seller_declared_condition,
+             'material':', '.join(materials) if not automatic else '', 'condition':seller_declared_condition,
              'completeness':seller_completeness},
             _p062_measurement_public_meta(accepted), photo_count,
         )
+        if automatic and not materials:
+            materials, _ = _canonical_auto_materials([row['value'] for row in product_evidence.get('material', [])
+                                                     if row['status'] == 'PHOTO_OBSERVATION'])
+            if materials:
+                material_source = 'SELLER_PHOTO'
+    confirmed_material = ', '.join(materials)
     label=_current_lot_label()
     _draft_sig_payload={
         "analysis":analysis,"identification":identification,"market":market,

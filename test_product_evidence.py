@@ -8,6 +8,7 @@ from catalogue_labels import Catalogue
 from ebay_sandbox_probe import SANDBOX, probe
 from product_evidence import build_product_evidence, specific_violations
 from test_mobile import m
+from visual_protocol import normalize_visual_analysis
 from workspace_ebay import TOKEN_API
 
 
@@ -123,6 +124,72 @@ class ProductEvidenceTests(unittest.TestCase):
             self.assertEqual(draft['product_evidence']['model'][1]['status'], 'HYPOTHESIS')
             self.assertEqual(m._draft_primary_type(draft), 'Digital Single Lens Reflex Camera')
             self.assertIn('Докази щодо характеристик', m.review_final_draft())
+
+    def test_visual_fields_flow_to_card_with_direct_readings_across_categories(self):
+        picker = 'visual-to-draft-fixture'
+        photos = [{} for _ in range(5)]
+        roles = {i: 'EVIDENCE_ONLY' if i > 1 else 'EBAY_PRODUCT' for i in range(1, 6)}
+        frames = [
+            dict(photo=i, role=role, scene='GENERAL_PRODUCT' if i == 1 else 'SCALE' if i == 2 else 'RULER',
+                 confidence=96) for i, role in roles.items()
+        ]
+        physical = {
+            'scale': dict(source_photo=2, raw_digits='125,0', unit='g', confidence=95, visible=True),
+            'dimension_readings': [
+                dict(source_photo=i, axis=axis, start_cm=-.3, end_cm=end, edges_visible=True,
+                     scale_marks_visible=True, confidence=96)
+                for i, axis, end in ((3, 'length', 18.2), (4, 'width', 9.7), (5, 'thickness', 2.7))
+            ],
+        }
+        scope = dict(scope='ONE_PHYSICAL_ITEM', physical_item_count=1, confidence=96, note='')
+        for kind, material, expected_material, leaf, parent, incompatible in (
+            ('Digital Single Lens Reflex Camera', 'Metal', 'Metal', 'Digital Cameras',
+             'Cameras & Photo > Cameras', 'Dolls & Bears > Doll Accessories'),
+            ('Cabin Air Filter', 'Paper', 'Paper/Cardboard', 'Cabin Air Filters',
+             'eBay Motors > Car Parts', 'Home & Garden > Household Supplies'),
+            ('Running Shoe', 'Fabric and Rubber', 'Fabric/Textile, Rubber', 'Running Shoes',
+             "Clothing, Shoes & Accessories > Women's Shoes", 'Dolls & Bears > Doll Accessories'),
+        ):
+            with self.subTest(kind=kind):
+                report = dict(photos=frames, observations=[
+                    observed('type', kind), observed('material', material),
+                    observed('brand', 'Fixture Maker'), observed('model', 'FM-621'),
+                    observed('condition', 'USED'), observed('defect', 'Small scratch near edge'),
+                    observed('material', 'Wood', 6), observed('material', 'Plastic or Rubber'),
+                ], scope=scope, facts={'object_type': kind, 'materials': []}, physical=physical)
+                analysis = normalize_visual_analysis(json.dumps(report), len(photos))
+                identification = 'IDENTITY_JSON ' + json.dumps({'type': kind})
+                with (
+                    m.app.test_request_context('/picker/final-listing', method='POST', data={'hold_csrf': 'fixture'}),
+                    patch.dict(m.ANALYSIS_CACHE, {picker: analysis}),
+                    patch.dict(m.IDENTIFICATION_CACHE, {picker: identification}),
+                    patch.dict(m.PHOTO_CACHE, {picker: photos}), patch.dict(m.PHOTO_ROLE_CACHE, {picker: roles}),
+                    patch.dict(m.MEASUREMENT_CACHE), patch.dict(m.LOT002_DRAFT_CACHE),
+                    patch.dict(m.MARKET_CACHE, {picker: 'PRICE_JSON {"normal":25}'}),
+                    patch.dict(m.ITEM_STRUCTURE_CACHE, {picker: m._scope_from_analysis(analysis)}),
+                    patch.object(m, '_save_active_lot_checkpoint', return_value=True),
+                    patch.object(m, 'call_openai', side_effect=AssertionError('Unexpected paid call')),
+                ):
+                    m.session.update(picker_session_id=picker, hold_csrf='fixture', current_lot_number=51)
+                    m.MEASUREMENT_CACHE[picker] = m._complete_first_pass_measurements(picker, photos, analysis)
+                    response = m.app.make_response(m.final_listing(automatic_revision=m._measurement_revision(picker)))
+                    self.assertEqual(response.status_code, 303, re.findall(r'<h2>.*?</h2>', response.get_data(as_text=True)))
+                    draft = m.LOT002_DRAFT_CACHE[picker]
+                    self.assertIn(kind, draft['title'])
+                    specifics = draft['item_specifics']
+                    self.assertEqual(specifics['Material'], expected_material)
+                    self.assertEqual(specifics['Item Weight'], '0.125 kg')
+                    self.assertEqual([specifics['Item ' + label] for label in ('Length', 'Width', 'Height')],
+                                     ['18.5 cm', '10 cm', '3 cm'])
+                    self.assertIn('Small scratch near edge', draft['description'])
+                    self.assertFalse({'Brand', 'Model', 'Condition'} & specifics.keys())
+                    card = m.review_final_draft()
+                    for value in ('Fixture Maker', 'FM-621', 'USED', '0.125 kg', '18.5 cm'):
+                        self.assertIn(value, card)
+                    snapshot = dict(draft, category_id='123', category_path_category_id='123',
+                                    category_guard_version='P057')
+                    self.assertTrue(m._p057_category_snapshot_check(dict(snapshot, category_path=f'{parent} > {leaf}'))[0])
+                    self.assertFalse(m._p057_category_snapshot_check(dict(snapshot, category_path=f'{incompatible} > {leaf}'))[0])
 
     def test_sandbox_probe_is_dry_by_default_and_scoped_to_sandbox(self):
         transport = Mock()

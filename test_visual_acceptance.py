@@ -15,12 +15,121 @@ from ai_pilot import PilotLimits, run, visual_evidence_diagnostics, visual_usage
 from product_evidence import recognition_route
 from test_mobile import m
 from visual_acceptance import evaluate, main, outcome, REFERENCES
+from visual_protocol import VISUAL_TEXT, machine_object, normalize_visual_analysis
 
 
 MODEL = 'gpt-4o-mini-2024-07-18'
 
 
 class VisualAcceptanceTests(unittest.TestCase):
+    def test_legacy_fenced_and_keyed_json_checkpoint_blocks(self):
+        roles = {'roles': {'1': 'EBAY_PRODUCT'}}
+        tag = 'PHOTO_ROLES_JSON'
+        for source in (
+            f'**{tag}**: ```json\n{json.dumps(roles)}\n```',
+            json.dumps({tag: roles, 'summary': 'Локальна перевірка'}),
+        ):
+            with self.subTest(source=source):
+                analysis = normalize_visual_analysis(source, 1)
+                self.assertEqual(m._photo_roles_from_analysis(analysis, 1), {1: 'EBAY_PRODUCT'})
+        broken = 'AUTO_FACTS_JSON: {\nSCOPE_JSON: {"scope":"ONE_PHYSICAL_ITEM"}'
+        self.assertEqual(machine_object(broken, 'AUTO_FACTS_JSON'), {})
+        self.assertEqual(m._scope_from_analysis(broken)['physical_item_count'], 1)
+
+    def test_invalid_structured_photo_numbers_and_observation_shapes_are_rejected(self):
+        photos = [{'photo': 1, 'role': 'EBAY_PRODUCT', 'scene': 'FULL_SET', 'confidence': 96}]
+        for report, count in (
+            ({'photos': photos * 2, 'observations': []}, 2),
+            ({'photos': photos, 'observations': {}}, 1),
+            ({'photos': photos, 'observations': []}, 2),
+        ):
+            with self.subTest(report=report, count=count), self.assertRaises(ValueError):
+                normalize_visual_analysis(json.dumps(report), count)
+
+    def test_http_200_structured_visual_contract_survives_usage_guard_and_checkpoint(self):
+        report = {
+            'photos': [{'photo': 1, 'role': 'EBAY_PRODUCT', 'scene': 'FULL_SET', 'confidence': 97}],
+            'observations': [
+                {'field': field, 'value': value, 'photos': [source], 'basis': basis,
+                 'confidence': 96, 'name': None}
+                for field, value, source, basis in (
+                    ('type', 'Electric Kettle', 1, 'Jug with heating base and on switch'),
+                    ('brand', 'North', 1, 'Clear NORTH maker label'),
+                    ('model', 'K400', 1, 'Clear K400 on the model label'),
+                    ('material', 'Metal', 1, 'Exposed brushed metal body'),
+                    ('defect', 'Scuff near handle', 1, 'Light worn patch near handle'),
+                    ('country', 'Fictional', 2, 'Missing frame'),
+                    ('period', '1990s', 1, ''),
+                )
+            ],
+            'scope': {'scope': 'ONE_PHYSICAL_ITEM', 'physical_item_count': 1, 'confidence': 96, 'note': ''},
+            'facts': {
+                'object_type': 'Electric Kettle', 'brand': 'North', 'origin': '', 'confidence': 96,
+                'materials': ['Metal'], 'materials_confidence': 96, 'material_evidence': 'Brushed body',
+                'tested_status': 'Untested', 'completeness': 'Unknown', 'marking_present': True,
+                'brand_evidence': 'NORTH on the label', 'symbols': [],
+                'markings': [{'photo': 1, 'literal': 'NORTH K400', 'language': 'English', 'kind': 'MODEL_NUMBER'}],
+            },
+            'physical': {'scale': None, 'dimension_readings': []},
+            'summary': 'Електричний чайник. Видима потертість біля ручки.',
+        }
+        raw = json.dumps(report, ensure_ascii=False)
+        boundary = raw.index('K400') + 1  # Split inside a JSON string.
+        body = {'status': 'completed', 'output_text': [], 'output': [
+            None, {'type': 'reasoning'}, {'type': 'message', 'content': [
+                {'type': 'output_text', 'text': raw[:boundary]},
+                {'type': 'output_text', 'text': raw[boundary:]},
+            ]},
+        ]}
+        result, payload = self._mock_visual_response(body)
+        self.assertEqual(payload['text'], VISUAL_TEXT)
+        self.assertEqual(payload['max_output_tokens'], 2000)
+        self.assertFalse(payload['store'])
+        self.assertEqual(payload['input'][0]['content'][-1]['detail'], 'high')
+        self.assertEqual(result['usage']['calls'], 1)
+        self.assertEqual(result['stage_http']['visual'], 200)
+        self.assertEqual(result['evidence_diagnostics']['observations_accepted'], 5)
+        self.assertEqual(result['photo_roles'], {1: 'EBAY_PRODUCT'})
+        self.assertEqual(result['main_photo'], 1)
+        for field, value in {'identity':'Electric Kettle', 'brand':'North', 'model':'K400',
+                             'material':'Metal', 'defects':'Scuff near handle', 'ocr':'NORTH K400'}.items():
+            self.assertEqual(result[field], value)
+        self.assertIsNone(result['country'])
+        self.assertIsNone(result['period'])
+
+    def test_incomplete_and_refused_http_200_keep_usage_without_retry(self):
+        for status, kind, issue in (('incomplete', 'output_text', 'incomplete_max_output_tokens'),
+                                    ('completed', 'refusal', 'refused')):
+            with self.subTest(status=status, kind=kind):
+                report, _ = self._mock_visual_response({
+                    'status': status, 'incomplete_details': {'reason': 'max_output_tokens'},
+                    'output': [{'type': 'message', 'content': [{'type': kind, 'text': '{"photos": ['}]}],
+                })
+                self.assertEqual(report['request_metrics']['http_status'], 200)
+                self.assertEqual(report['request_metrics']['response_issue'], issue)
+                self.assertEqual(report['usage']['output_tokens'], 20)
+                self.assertEqual(report['stage_http']['visual'], 502)
+                self.assertEqual(report['evidence_diagnostics']['status'], 'NO_CACHED_ANALYSIS')
+                self.assertFalse(report['product_evidence'])
+
+    def _mock_visual_response(self, body):
+        response = requests.Response()
+        response.status_code = 200
+        response._content = json.dumps(dict(body, model=MODEL, usage={
+            'input_tokens': 4000, 'output_tokens': 20,
+        })).encode()
+        with TemporaryDirectory() as tmp:
+            image = Path(tmp) / 'frame.jpg'
+            Image.new('RGB', (320, 320), 'tan').save(image)
+            limits = PilotLimits(Decimal('.0204'), vision_only=True)
+            with (patch.dict('sys.modules', {'app': m}), patch.object(m, 'OPENAI_API_KEY', 'fixture'),
+                  patch.object(m, 'OPENAI_CREDITS_EXHAUSTED', False),
+                  patch.object(requests.Session, 'request', return_value=response) as transport):
+                report = run({'lot': 'fixture'}, [image], limits)
+            transport.assert_called_once()
+            self.assertFalse(transport.call_args.kwargs['allow_redirects'])
+        return report, transport.call_args.kwargs['json']
+
     def test_diagnostics_distinguish_missing_unreadable_and_rejected_evidence(self):
         marker = 'PRODUCT_OBSERVATIONS_JSON:'
         for analysis, observations, evidence, expected in (
