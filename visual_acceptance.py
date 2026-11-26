@@ -132,6 +132,7 @@ def outcome(case, result):
                                     'photo_source', 'fact_source')},
         'vision': 'PARSED' if parsed else 'NO_RESULT' if attempted else 'NOT_RUN',
         'visual_stage_http': (result.get('stage_http') or {}).get('visual'),
+        'evidence_diagnostics': result.get('evidence_diagnostics'),
         'visual_evidence': evidence,
         'physical_readings': result.get('physical_readings') or {},
         'processing_elapsed_ms': result.get('processing_elapsed_ms'),
@@ -160,7 +161,9 @@ def evaluate(root, *, execute=False):
             limits = PilotLimits(VISION_MAXIMUM, vision_only=True)
             result = execute_pilot(case['manifest'], case['report'], case['data'], case['photos'], limits)
             metrics = result.get('request_metrics') or {}
-            if (not metrics.get('standard_cost_usd') or not result.get('product_evidence')
+            # A metered response without accepted evidence is a result for that photo.
+            # Continue to the next distinct photo without repeating the request.
+            if (not metrics.get('standard_cost_usd')
                     or metrics.get('response_status') not in (None, 'completed')
                     or (result.get('stage_http') or {}).get('visual') != 200):
                 break

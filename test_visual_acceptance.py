@@ -11,7 +11,7 @@ from unittest.mock import patch
 from PIL import Image
 import requests
 
-from ai_pilot import PilotLimits, run, visual_usage
+from ai_pilot import PilotLimits, run, visual_evidence_diagnostics, visual_usage
 from product_evidence import recognition_route
 from test_mobile import m
 from visual_acceptance import evaluate, main, outcome, REFERENCES
@@ -21,6 +21,19 @@ MODEL = 'gpt-4o-mini-2024-07-18'
 
 
 class VisualAcceptanceTests(unittest.TestCase):
+    def test_diagnostics_distinguish_missing_unreadable_and_rejected_evidence(self):
+        marker = 'PRODUCT_OBSERVATIONS_JSON:'
+        for analysis, observations, evidence, expected in (
+            ('AUTO_FACTS_JSON: {}', {}, {}, 'MISSING_BLOCK'),
+            (marker + ' {', {}, {}, 'UNREADABLE_BLOCK'),
+            (marker + ' {"fields": []}', {'fields': []}, {}, 'EMPTY_BLOCK'),
+            (marker, {'fields': [{'confidence': 60}]}, {}, 'ALL_OBSERVATIONS_REJECTED'),
+            (marker, {'fields': [{'confidence': 95}]}, {'type': [{}]}, 'EVIDENCE_ACCEPTED'),
+        ):
+            with self.subTest(expected=expected):
+                result = visual_evidence_diagnostics(analysis, observations, evidence, 'teapot')
+                self.assertEqual(result['status'], expected)
+
     def test_execution_reports_partial_run_but_exits_unsuccessfully(self):
         report = {
             'requests_sent': 1, 'priced_requests': 0, 'standard_cost_usd': None,
@@ -150,28 +163,34 @@ class VisualAcceptanceTests(unittest.TestCase):
             self.assertEqual(third['vision'], 'NOT_RUN')
             self.assertFalse(any(row['admitted'] for row in result['cases']))
 
-    def test_metered_response_does_not_continue_after_a_failed_visual_stage(self):
-        with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            cases = [dict(lot=f'A0{i}', manifest=root / f'input-{i}.json',
-                          report=root / f'report-{i}.json', data={}, photos=[],
-                          labels={'identity': ['teapot']}, reference_id=str(i), license='CC0',
-                          photo_source='', fact_source='', offline='UNRESOLVED',
-                          offline_elapsed_ms=1000) for i in range(1, 4)]
-            first = {'mode': 'APPROVED_VISION_ONLY', 'product_evidence': {'type': [{'value': 'Teapot'}]},
-                     'stage_http': {'visual': 409},
-                     'request_metrics': {'sent': True, 'http_status': 200, 'standard_cost_usd': '0.002'}}
+    def test_metered_abstention_continues_but_failed_visual_stage_stops(self):
+        for visual_status, expected_calls in ((200, 3), (409, 1)):
+            with self.subTest(visual_status=visual_status), TemporaryDirectory() as tmp:
+                self._check_metered_abstention(tmp, visual_status, expected_calls)
 
-            def send(_manifest, report, _data, _photos, _limits):
-                report.write_text(json.dumps(first))
-                return first
+    def _check_metered_abstention(self, tmp, visual_status, expected_calls):
+        root = Path(tmp)
+        cases = [dict(lot=f'A0{i}', manifest=root / f'input-{i}.json',
+                      report=root / f'report-{i}.json', data={}, photos=[],
+                      labels={'identity': ['teapot']}, reference_id=str(i), license='CC0',
+                      photo_source='', fact_source='', offline='UNRESOLVED',
+                      offline_elapsed_ms=1000) for i in range(1, 4)]
+        first = {'mode': 'APPROVED_VISION_ONLY', 'product_evidence': {},
+                 'stage_http': {'visual': visual_status},
+                 'request_metrics': {'sent': True, 'http_status': 200, 'standard_cost_usd': '0.002',
+                                     'response_status': 'completed'}}
 
-            with (patch('visual_acceptance.cohort', return_value=cases),
-                  patch('visual_acceptance.execute_pilot', side_effect=send) as execute,
-                  patch('visual_acceptance.datetime') as clock,
-                  patch.dict('os.environ', {'OPENAI_API_KEY': 'fixture', 'APPROVE_AI_PILOT': '1'})):
-                clock.now.return_value = datetime(2026, 11, 26, tzinfo=timezone.utc)
-                result = evaluate(root, execute=True)
-            execute.assert_called_once()
-            self.assertEqual(result['cases'][0]['visual_stage_http'], 409)
-            self.assertEqual(result['cases'][1]['vision'], 'NOT_RUN')
+        def send(_manifest, report, _data, _photos, _limits):
+            report.write_text(json.dumps(first))
+            return first
+
+        with (patch('visual_acceptance.cohort', return_value=cases),
+              patch('visual_acceptance.execute_pilot', side_effect=send) as execute,
+              patch('visual_acceptance.datetime') as clock,
+              patch.dict('os.environ', {'OPENAI_API_KEY': 'fixture', 'APPROVE_AI_PILOT': '1'})):
+            clock.now.return_value = datetime(2026, 11, 26, tzinfo=timezone.utc)
+            result = evaluate(root, execute=True)
+        self.assertEqual([call.args[0] for call in execute.call_args_list],
+                         [case['manifest'] for case in cases[:expected_calls]])
+        self.assertEqual(result['cases'][0]['visual_stage_http'], visual_status)
+        self.assertEqual(result['cases'][1]['vision'], 'NO_RESULT' if visual_status == 200 else 'NOT_RUN')

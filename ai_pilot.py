@@ -204,6 +204,28 @@ def visual_usage(response_data, expected_model):
     return metrics
 
 
+def visual_evidence_diagnostics(analysis, observations, evidence, candidate_type):
+    """Record the stage at which usable photo evidence was lost."""
+    from product_evidence import text_value
+
+    fields = observations.get('fields')
+    accepted = sum(len(rows) for rows in evidence.values())
+    if 'PRODUCT_OBSERVATIONS_JSON' not in analysis.upper():
+        status = 'MISSING_BLOCK' if analysis else 'NO_CACHED_ANALYSIS'
+    elif not isinstance(fields, list):
+        status = 'UNREADABLE_BLOCK'
+    elif not fields:
+        status = 'EMPTY_BLOCK'
+    elif not accepted:
+        status = 'ALL_OBSERVATIONS_REJECTED'
+    else:
+        status = 'EVIDENCE_ACCEPTED'
+    return {'status': status, 'analysis_chars': len(analysis),
+            'observations_received': len(fields) if isinstance(fields, list) else None,
+            'observations_accepted': accepted,
+            'unverified_type_candidate': text_value(candidate_type) or None}
+
+
 def run(data, photos, limits):
     import app as vintage
 
@@ -359,6 +381,9 @@ def run(data, photos, limits):
         }
         if limits.vision_only:
             report['product_evidence'] = visual_facts
+            report['evidence_diagnostics'] = visual_evidence_diagnostics(
+                analysis, visual_observations, visual_facts, facts.get('object_type')
+            )
             report['physical_readings'] = vintage._research_machine_json(analysis, 'PHYSICAL_READINGS_JSON')
             report['request_metrics'] = limits.response_metrics
             for field in ('brand', 'model', 'country', 'material', 'period'):
