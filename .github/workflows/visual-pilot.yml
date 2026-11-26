@@ -1,8 +1,7 @@
 name: Approved three-image visual pilot
 
 on:
-  push:
-    tags: [p094-vision-pilot-0612]
+  workflow_dispatch:
 
 concurrency:
   group: p094-vision-pilot-0612
@@ -13,7 +12,8 @@ permissions:
 
 jobs:
   pilot:
-    if: github.repository == 'olegivakh32-sudo/vintage-ua-ebay' && github.event.created && github.run_attempt == 1
+    # The protected tag must be explicitly approved before a paid pilot.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     environment: p094-vision-pilot
