@@ -213,6 +213,37 @@ class ProductEvidenceTests(unittest.TestCase):
         self.assertEqual(image.call_args_list[1].args[1], 1536)
         self.assertTrue(image.call_args_list[1].kwargs['prefer_original'])
 
+    def test_experimental_research_route_requires_consistent_exact_photo_and_catalogue_identity(self):
+        kind = 'Film Camera'
+        facts = [observed('type', kind), observed('brand', 'Acme'), observed('model', 'ZX-20')]
+        catalogue = [dict(status='CATALOGUE_CANDIDATE', brand='Acme', model='Acme ZX-20', type=kind)]
+        one = dict(scope='ONE_PHYSICAL_ITEM', physical_item_count=1, source='SELLER')
+        cases = [
+            ('hybrid', facts, 'UNIQUE', one, 'gpt-5.6-luna', 2),
+            ('hybrid', facts + [{**observed('model', 'ZX-20A'), 'confidence': 85}], 'UNIQUE', one, 'gpt-5.6-terra', 4),
+            ('hybrid', facts, 'CONFLICT', one, 'gpt-5.6-terra', 4),
+            ('hybrid', facts, 'NONE', {}, 'gpt-5.6-terra', 4),
+            ('', facts, 'UNIQUE', one, 'gpt-5.6-sol', None),
+        ]
+        for mode, observations, barcode, structure, model, tool_calls in cases:
+            with (
+                self.subTest(mode=mode, model=model, barcode=barcode, observations=len(observations)),
+                patch.dict('os.environ', {'VINTAGE_RESEARCH_ROUTE': mode}),
+                patch.object(m, '_picker_catalogue_matches', return_value=catalogue),
+                patch.object(m, '_mobile_catalogue_hints', return_value={
+                    'status': barcode, 'candidates': [{'code': '12345670', 'photos': [1]}],
+                }),
+                patch.object(m, 'google_photo_to_data_url', return_value='data:image/jpeg;base64,AA=='),
+                patch.object(m, 'call_openai', return_value='') as request,
+            ):
+                analysis = 'PRODUCT_OBSERVATIONS_JSON ' + json.dumps({'fields': observations})
+                m._p026_combined_research_engine('fixture', analysis, [{}], [1], structure)
+                request.assert_called_once()
+                payload = request.call_args.args[0]
+                self.assertEqual(payload['model'], model)
+                self.assertEqual(payload.get('max_tool_calls'), tool_calls)
+                self.assertEqual(payload['tools'], [{'type': 'web_search'}])
+
     def test_conflicts_and_shipping_estimates_remain_out_of_public_aspects(self):
         measurement = {
             'weight_kg': .15, 'weight_source': 'MEASURED_FROM_SCALE',
