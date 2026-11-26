@@ -1,0 +1,123 @@
+[
+  {
+    "lot": "MV-101",
+    "identity": [
+      "plate"
+    ],
+    "material": [
+      "salt-glazed stoneware"
+    ],
+    "reference_id": "CMA-160422",
+    "title": "Plate",
+    "source": "https://clevelandart.org/art/1998.257",
+    "licence": "CC0",
+    "credit": "The Cleveland Museum of Art",
+    "checked": "2026-11-26",
+    "documentary_dimensions": "Diameter: 30.5 cm (12 in.); Overall: 4.3 cm (1 11/16 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1998.257/1998.257_web.jpg",
+        "sha256": "c3d4453358a9252ab24fa82ca967a0dd09e416a08c68d02e757e18800c66cfa4"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1998.257/1998.257_alt0_web.jpg",
+        "sha256": "f12216693fe4165525bd62423334a299c22dd4f58503c07edc4a01274f4cb6ee"
+      }
+    ],
+    "period": [
+      "c. 1760",
+      "circa 1760",
+      "1760s",
+      "18th century"
+    ],
+    "country": [
+      "England",
+      "United Kingdom"
+    ],
+    "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "MV-102",
+    "identity": [
+      "single-board computer"
+    ],
+    "brand": [
+      "Raspberry Pi"
+    ],
+    "model": [
+      "Raspberry Pi 4 Model B",
+      "4 Model B"
+    ],
+    "source": "https://www.raspberrypi.com/products/raspberry-pi-4-model-b/specifications/",
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "credit": "Michael H. (Laserlicht) / Wikimedia Commons",
+    "checked": "2026-11-26",
+    "photos": [
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/1/10/Raspberry_Pi_4_Model_B_-_Top.jpg",
+        "source": "https://commons.wikimedia.org/wiki/File:Raspberry_Pi_4_Model_B_-_Top.jpg",
+        "sha256": "293403aa695936632b6133215786a156a5d31a9c29b3cd66a25500df25459d2d"
+      },
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/f/f1/Raspberry_Pi_4_Model_B_-_Side.jpg",
+        "source": "https://commons.wikimedia.org/wiki/File:Raspberry_Pi_4_Model_B_-_Side.jpg",
+        "sha256": "0131559626309e4c995f85e1a19d89c804e241e23a0af5a94a66cabe9863a085"
+      }
+    ],
+    "documentary_notes": "Capacity of the pictured board is unresolved. Nominal specifications cover multiple RAM variants."
+  },
+  {
+    "lot": "MV-103",
+    "identity": [
+      "video game controller",
+      "Nintendo GameCube controller"
+    ],
+    "brand": [
+      "Nintendo"
+    ],
+    "model": [
+      "DOL-003"
+    ],
+    "source": "https://www.nintendo.com/eu/media/downloads/support_1/wii_21/Wii_HW_System_Setup_MAN_BUN_UKV_3_NFRP.pdf",
+    "licence": "Public Domain dedication by author",
+    "credit": "Evan-Amos / Wikimedia Commons",
+    "checked": "2026-11-26",
+    "photos": [
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/4/41/Gamecube-controller-breakdown.jpg",
+        "source": "https://commons.wikimedia.org/wiki/File:Gamecube-controller-breakdown.jpg",
+        "sha256": "4384403a7ba80c194f5158d7b27a91443bd04694eb2e1dc122fdd7f1f1adc53a",
+        "crop": [
+          0,
+          0,
+          1605,
+          1190
+        ]
+      },
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/4/41/Gamecube-controller-breakdown.jpg",
+        "source": "https://commons.wikimedia.org/wiki/File:Gamecube-controller-breakdown.jpg",
+        "sha256": "4384403a7ba80c194f5158d7b27a91443bd04694eb2e1dc122fdd7f1f1adc53a",
+        "crop": [
+          0,
+          1200,
+          1605,
+          2400
+        ]
+      },
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/4/41/Gamecube-controller-breakdown.jpg",
+        "source": "https://commons.wikimedia.org/wiki/File:Gamecube-controller-breakdown.jpg",
+        "sha256": "4384403a7ba80c194f5158d7b27a91443bd04694eb2e1dc122fdd7f1f1adc53a",
+        "crop": [
+          1640,
+          0,
+          2500,
+          1190
+        ]
+      }
+    ],
+    "documentary_notes": "The three files show distinct views from one montage. Cable and connector are outside the frame; specimen completeness and function are unresolved."
+  }
+]

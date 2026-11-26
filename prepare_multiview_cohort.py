@@ -35,11 +35,16 @@ def image_bytes(url, expected, cache=None):
     return raw
 
 
-def blind_jpeg(raw):
+def blind_jpeg(raw, crop=None):
     with Image.open(BytesIO(raw)) as frame:
         if frame.format != 'JPEG' or frame.width * frame.height > 64_000_000:
             raise ValueError('Unsupported image for comparison')
         frame = ImageOps.exif_transpose(frame).convert('RGB')
+        if crop is not None:
+            if (not isinstance(crop, list) or len(crop) != 4 or any(type(edge) is not int for edge in crop)
+                    or not 0 <= crop[0] < crop[2] <= frame.width or not 0 <= crop[1] < crop[3] <= frame.height):
+                raise ValueError('Crop is outside the source photograph')
+            frame = frame.crop(crop)
         frame.thumbnail((2000, 2000))
         output = BytesIO()
         frame.save(output, 'JPEG', quality=95)
@@ -60,8 +65,8 @@ def prepare(manifest, destination, cache=None, *, selected_lots=()):
         if not re.fullmatch(r'MV-[0-9]{3}', lot) or lot in ids or not 2 <= len(photos) <= 24:
             raise ValueError('Invalid or duplicate multi-view lot')
         ids.add(lot)
-        hashes = [photo['sha256'] for photo in photos]
-        if len(set(hashes)) != len(hashes) or not all(re.fullmatch(r'[a-f0-9]{64}', value) for value in hashes):
+        keys = [(photo['sha256'], tuple(photo.get('crop') or ())) for photo in photos]
+        if len(set(keys)) != len(keys) or not all(re.fullmatch(r'[a-f0-9]{64}', value) for value, _ in keys):
             raise ValueError('Invalid or duplicate image')
         tasks.extend((f'{lot}/{number:02d}.jpg', photo) for number, photo in enumerate(photos, 1))
     if not tasks or selected - ids:
@@ -69,7 +74,7 @@ def prepare(manifest, destination, cache=None, *, selected_lots=()):
 
     def encode(task):
         name, photo = task
-        return name, blind_jpeg(image_bytes(photo['url'], photo['sha256'], cache))
+        return name, blind_jpeg(image_bytes(photo['url'], photo['sha256'], cache), photo.get('crop'))
 
     with ThreadPoolExecutor(max_workers=5) as pool:
         prepared = list(pool.map(encode, tasks))

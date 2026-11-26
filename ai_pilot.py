@@ -239,7 +239,7 @@ def visual_evidence_diagnostics(analysis, observations, evidence, candidate_type
             'unverified_type_candidate': text_value(candidate_type) or None}
 
 
-def run(data, photos, limits):
+def run(data, photos, limits, *, live_web=None):
     import app as vintage
 
     client = vintage.app.test_client()
@@ -250,6 +250,8 @@ def run(data, photos, limits):
         if method.upper() != 'POST' or url != vintage.OPENAI_URL:
             raise RuntimeError('Зовнішній запит поза межами пілота.')
         kwargs['allow_redirects'] = False
+        if live_web is not None:
+            return live_web.send(actual_request, session, kwargs)
         if not limits.vision_only:
             return actual_request(session, method, url, *args, **kwargs)
         if limits.response_metrics is not None:
@@ -275,7 +277,7 @@ def run(data, photos, limits):
 
     def bounded_api(payload, timeout, usage_picker_id, final_draft_slot):
         picker, _ = vintage._current_usage_record(usage_picker_id)
-        bounded = limits.bound(payload, data.get('sources', []))
+        bounded = live_web.bind(data['lot'], payload) if live_web is not None else limits.bound(payload, data.get('sources', []))
         return actual_api(bounded, timeout, picker, final_draft_slot)
 
     taxonomy = data.get('taxonomy') or {}
@@ -297,7 +299,7 @@ def run(data, photos, limits):
         result._content = json.dumps(body).encode()
         return result
 
-    with tempfile.TemporaryDirectory(prefix='vintage-ai-pilot-') as tmp, patch.dict(os.environ, {
+    with ExitStack() as optional, tempfile.TemporaryDirectory(prefix='vintage-ai-pilot-') as tmp, patch.dict(os.environ, {
         'ALLOW_PAID_AI': '1', 'ENABLE_LIVE_PUBLISH': '0', 'ENABLE_BRAND_RESCAN': '0', 'HOLD_QUEUE_DIR': tmp,
         'VINTAGE_OPERATOR_PASSWORD': '', 'VINTAGE_ACCEPTANCE_SERVER': '0', 'RENDER': '',
     }), patch.object(vintage, 'ACTIVE_LOT_CHECKPOINT_DIR', tmp), patch.object(
@@ -305,6 +307,14 @@ def run(data, photos, limits):
     ), patch.object(requests.Session, 'request', request_guard), patch.dict(vintage._MODEL_PRICING_PER_M, {
         model: (float(rate), float(out)) for model, (_, rate, out) in PILOT_MODELS.items()
     }):
+        if live_web is not None:
+            optional.enter_context(patch.dict(os.environ, {
+                'VINTAGE_RESEARCH_ROUTE': 'hybrid', 'VINTAGE_EXPERIMENT_VISION_MODEL': 'gpt-6-luna',
+                'VINTAGE_PRODUCT_CATALOGUE': '', 'VINTAGE_WORKSPACE_CATALOGUE': '',
+            }))
+            # This cohort lacks instrument photos. Direct readings still pass through the
+            # normal measurement code. The optional paid measurement engine stays disabled.
+            optional.enter_context(patch.object(vintage, 'estimate_item_size_weight_from_photos', return_value={}))
         client.get('/mobile')
         with client.session_transaction() as session:
             csrf = session['hold_csrf']
@@ -325,7 +335,7 @@ def run(data, photos, limits):
         stage_bc = prepare('research') if stage_a.status_code == 200 and not limits.vision_only else None
         identification = vintage.IDENTIFICATION_CACHE.get(picker, '')
         market = vintage.MARKET_CACHE.get(picker, '')
-        if market:
+        if market and live_web is None:
             sources = [row['url'] for row in data.get('sources', [])
                        if isinstance(row, dict) and vintage._p054_source_host(row.get('url'))]
             market += '\nWEB_TOOL_SOURCES_JSON ' + json.dumps({'urls': sources})
@@ -335,7 +345,7 @@ def run(data, photos, limits):
         facts = vintage.AUTO_FACT_CACHE.get(picker, {})
         draft = {}
         stage_d = None
-        if analysis and identification and market:
+        if analysis and identification and market and (live_web is None or (stage_bc and stage_bc.status_code == 200)):
             stage_d = prepare('draft')
             draft = vintage.LOT002_DRAFT_CACHE.get(picker, {})
         kind = str(identity.get('type') or '')
@@ -351,7 +361,7 @@ def run(data, photos, limits):
         category_draft['visual_object_type'] = facts.get('object_type') or ''
         category_id, category_note = None, None
         with vintage.app.test_request_context(), patch.object(vintage, '_lot002_request', recorded_taxonomy):
-            if kind and kind.upper() != 'UNKNOWN' and not limits.vision_only:
+            if kind and kind.upper() != 'UNKNOWN' and not limits.vision_only and taxonomy:
                 try:
                     candidate, label = vintage._current_category('recorded', category_draft['title'], category_draft)
                     category_draft.update(category_id=candidate, category_name=label)
@@ -363,6 +373,15 @@ def run(data, photos, limits):
         with client.session_transaction() as session:
             order = session.get('photo_order', [])
         evidence = draft.get('product_evidence') or visual_facts
+        review = None
+        if live_web is not None and analysis:
+            evidence, observations, references = vintage._product_evidence_for_review(
+                analysis, identification, market, vintage.PHOTO_CACHE.get(picker, []), {}, measurement)
+            evidence = evidence or {}
+            candidates = vintage._research_machine_json(market, 'CATEGORY_CANDIDATE_JSON')
+            review = {'title': draft.get('title'), 'evidence': evidence, 'observations': observations,
+                      'reference_decisions': references, 'market_check': vintage._market_price_quality(market),
+                      'unverified_category': candidates, 'draft_status': 'DRAFT' if draft else 'HOLD'}
         observed = {
             field: list(dict.fromkeys(row['value'] for row in evidence.get(field, [])
                                       if row['status'] in {'PHOTO_OBSERVATION', 'SELLER_VERIFIED'}))
@@ -376,7 +395,7 @@ def run(data, photos, limits):
             'defects': '\n'.join(observed['defect']) or None,
             'ocr': '\n'.join(dict.fromkeys(mark['literal'] for mark in facts.get('markings', []))),
             'category_id': category_id, 'admitted': False,
-            'category_source': None if limits.vision_only else 'recorded_taxonomy',
+            'category_source': 'recorded_taxonomy' if taxonomy and not limits.vision_only else None,
             'category_note': category_note,
             'stage_http': {'visual': stage_a.status_code, 'research': stage_bc.status_code if stage_bc else None,
                            'draft': stage_d.status_code if stage_d else None},
@@ -405,6 +424,8 @@ def run(data, photos, limits):
                 report[field] = next(iter(options)) if len(options) == 1 else None
         report['reference'] = data.get('reference', {})
         report['comparison'] = compare_reference(report['reference'], report)
+        if review is not None:
+            report['review_card'] = review
         return report
 
 

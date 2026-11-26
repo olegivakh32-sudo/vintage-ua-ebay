@@ -1,0 +1,48 @@
+{
+  "mode": "LOCAL_OCR_ONLY",
+  "archive_sha256": "c362598737440888911cde10a9a508367236d16495338aff4b814a747b14764f",
+  "api_usd": 0,
+  "lots": [
+    {
+      "lot": "MV-101",
+      "n_photos": 2,
+      "ocr_ms": 2326,
+      "ocr": [
+        {
+          "photo": 1,
+          "text": "Pep\n\nlary\n\nKaas\n\n~~\n\nae\n\nie]\n\nae f\n\n“am\n\na\n\net\n\neo\n\nOr\n\n~\n\nie\n\nay,\n\n+s\n\n=\n\ni\n\n—\n\n~~\n\noe\n\ne*®\n\nee\n\nee\n\n+4\n\nat\n\net\n\nef\n\n94%\n\nost\n\n+e\n\naA\n\noe\n\noF"
+        },
+        {
+          "photo": 2,
+          "text": "ot\n\na\n\naa\n\nout\n\n2s\n\naay\n\ngot\n\naa\n\nlead\n\neet\n\n“hy\n\n“s Ou\n\net\n\na?\n\n5%\n\nNG\n\n9?\n\nOP a's\n\nat\n\nra\n\n4\n\n4 gf\n\n“a\n\na)\n\nAig?\n\nC Vel\n\nrr)\n\nwa*\n\naA\n\n“«4\n\nAAPA\n\naan\n\nTae»\n\naa\n\naam\n\nre\n\n“a\n\n=”\n\na*\n\nPaw ae\n\noa"
+        }
+      ]
+    },
+    {
+      "lot": "MV-102",
+      "n_photos": 2,
+      "ocr_ms": 3238,
+      "ocr": [
+        {
+          "photo": 2,
+          "text": "|\n\nti,\n\nBe\n\nty\n\neg!\n\n—<S\n\na”\n\noS\n\nae\n\nC @\n\n6\n\nJp\n\nA.\n\nA"
+        }
+      ]
+    },
+    {
+      "lot": "MV-103",
+      "n_photos": 3,
+      "ocr_ms": 1145,
+      "ocr": [
+        {
+          "photo": 1,
+          "text": "NINTENDO\n\nGAMECUBE\n\n©"
+        },
+        {
+          "photo": 2,
+          "text": "Blt\n\n©\n\nt"
+        }
+      ]
+    }
+  ]
+}

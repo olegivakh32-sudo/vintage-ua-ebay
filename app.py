@@ -3205,6 +3205,24 @@ def _structured_identity_claims(identification, market, photo_count, *, decision
     return identity_claims(records, known_urls, photo_count, _p054_source_host, decisions=decisions)
 
 
+def _product_evidence_for_review(analysis, identification, market, items, seller, measurements):
+    product_observations = _research_machine_json(analysis, 'PRODUCT_OBSERVATIONS_JSON')
+    if 'fields' not in product_observations:
+        return None, [], []
+    facts = _auto_facts_from_analysis(analysis)
+    observed = list(product_observations['fields']) if isinstance(product_observations['fields'], list) else []
+    for field, key, value_key in (('marking', 'markings', 'literal'), ('symbol', 'symbols', 'description')):
+        observed.extend({'field':field, 'value':record[value_key], 'photos':[record['photo']],
+                         'basis':'Visible transcription from the visual report', 'confidence':90}
+                        for record in facts.get(key, []) if '[?]' not in record[value_key])
+    assessed = assess_photo_observations(observed, len(items), summary_type=facts.get('object_type', ''))
+    reference_decisions = []
+    references = _structured_identity_claims(identification, market, len(items), decisions=reference_decisions)
+    references.extend(catalogue_claims(_picker_catalogue_matches(analysis, items)))
+    return (build_product_evidence(observed, references, seller, _p062_measurement_public_meta(measurements),
+                                   len(items), assessed=assessed), assessed[1], reference_decisions)
+
+
 def _reference_measurements_from_consensus(specs):
     """P023.5 HARD GUARD: only exact-model-confirmed research may prefill measurements.
 
@@ -7130,28 +7148,13 @@ def final_listing(automatic_revision=None):
         ), 409
     seller_brand=brand_candidate if brand_confirmed else ""
     seller_origin = form.get('seller_origin', '').strip()
-    product_observations = _research_machine_json(analysis, 'PRODUCT_OBSERVATIONS_JSON')
-    product_evidence, observation_decisions, reference_decisions = None, [], []
-    if 'fields' in product_observations:
-        items = PHOTO_CACHE.get(picker_id) or []
-        photo_count = len(items)
-        facts = _auto_facts_from_analysis(analysis)
-        observed = list(product_observations['fields']) if isinstance(product_observations['fields'], list) else []
-        for field, key, value_key in (('marking', 'markings', 'literal'), ('symbol', 'symbols', 'description')):
-            observed.extend({'field':field, 'value':record[value_key], 'photos':[record['photo']],
-                             'basis':'Visible transcription from the visual report', 'confidence':90}
-                            for record in facts.get(key, []) if '[?]' not in record[value_key])
-        assessed = assess_photo_observations(observed, photo_count, summary_type=facts.get('object_type', ''))
-        observation_decisions = assessed[1]
-        references = _structured_identity_claims(identification, market, photo_count, decisions=reference_decisions)
-        references.extend(catalogue_claims(_picker_catalogue_matches(analysis, items)))
-        product_evidence = build_product_evidence(
-            observed, references,
-            {'brand':seller_brand, 'country':seller_origin, 'marking':seller_verified_marking,
-             'material':', '.join(materials) if not automatic else '', 'condition':seller_declared_condition,
-             'completeness':seller_completeness},
-            _p062_measurement_public_meta(accepted), photo_count, assessed=assessed,
-        )
+    product_evidence, observation_decisions, reference_decisions = _product_evidence_for_review(
+        analysis, identification, market, PHOTO_CACHE.get(picker_id) or [],
+        {'brand': seller_brand, 'country': seller_origin, 'marking': seller_verified_marking,
+         'material': ', '.join(materials) if not automatic else '', 'condition': seller_declared_condition,
+         'completeness': seller_completeness}, accepted,
+    )
+    if product_evidence is not None:
         if automatic and not materials:
             materials, _ = _canonical_auto_materials([row['value'] for row in product_evidence.get('material', [])
                                                      if row['status'] == 'PHOTO_OBSERVATION'])
