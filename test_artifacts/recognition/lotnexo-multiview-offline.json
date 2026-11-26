@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-26",
+  "revision": "f847854a6f100c7363f4c62659e803ce25b34091",
+  "mode": "local_photo_worker",
+  "archive_sha256": "fc05438f43f39f6676867f0580c6459e48a7f444832bf7d826d638a36ca9857f",
+  "elapsed_seconds_including_archive_verification": 18.0,
+  "objects": 10,
+  "photos": 25,
+  "unresolved": 10,
+  "admitted": 0,
+  "critical_categories": null,
+  "cost_usd": 0,
+  "predictions": [
+    {"lot": "MV-001", "photos": 2, "recognition_route": "REVIEW_PHOTOS", "main_photo": null, "admitted": false},
+    {"lot": "MV-002", "photos": 2, "recognition_route": "REVIEW_PHOTOS", "main_photo": null, "admitted": false},
+    {"lot": "MV-003", "photos": 2, "recognition_route": "VISUAL_REVIEW", "main_photo": 2, "admitted": false},
+    {"lot": "MV-004", "photos": 3, "recognition_route": "REVIEW_PHOTOS", "main_photo": null, "admitted": false},
+    {"lot": "MV-005", "photos": 3, "recognition_route": "REVIEW_PHOTOS", "main_photo": null, "admitted": false},
+    {"lot": "MV-006", "photos": 2, "recognition_route": "REVIEW_PHOTOS", "main_photo": null, "admitted": false},
+    {"lot": "MV-007", "photos": 2, "recognition_route": "REVIEW_PHOTOS", "main_photo": null, "admitted": false},
+    {"lot": "MV-008", "photos": 2, "recognition_route": "VISUAL_REVIEW", "main_photo": 1, "admitted": false},
+    {"lot": "MV-009", "photos": 5, "recognition_route": "REVIEW_PHOTOS", "main_photo": null, "admitted": false},
+    {"lot": "MV-010", "photos": 2, "recognition_route": "VISUAL_REVIEW", "main_photo": 1, "admitted": false}
+  ]
+}

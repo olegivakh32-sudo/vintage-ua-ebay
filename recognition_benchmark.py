@@ -15,6 +15,7 @@ FIELDS = ("identity", "brand", "model", "ocr", "period", "material", "country",
           "condition", "completeness", "defects", "category_id")
 MEASUREMENTS = ("weight_kg", "length_cm", "width_cm", "height_cm")
 PHOTO_FIELDS = ("product_photos", "evidence_photos")
+PARITY_FIELDS = ("identity", "brand", "model", "material", "condition", "defects", *MEASUREMENTS, "category_id")
 MINIMUM_OBJECTS = 50
 UNRESOLVED_IDENTITIES = {"", "unknown", "unresolved", "невідомо", "не визначено"}
 
@@ -128,6 +129,7 @@ def score(reference, predictions, *, minimum_admission_rate=None, allow_partial_
 
     fields = (*FIELDS, *MEASUREMENTS, *PHOTO_FIELDS, "main_photo", "title_terms", "seo_passed")
     metrics = {field: {"correct": 0, "labelled": 0} for field in fields}
+    unknown_by_field = dict.fromkeys(fields, 0)
     admitted = 0
     abstained = 0
     critical_categories = []
@@ -141,25 +143,32 @@ def score(reference, predictions, *, minimum_admission_rate=None, allow_partial_
             if field not in label:
                 continue
             accepted = {normalize(value, field) for value in label[field]}
-            checks[field] = normalize(result.get(field) or "", field) in accepted
+            prediction = normalize(result.get(field) or "", field)
+            unknown_by_field[field] += int(prediction in UNRESOLVED_IDENTITIES)
+            checks[field] = prediction in accepted
         for field, expected in label.get("measurement", {}).items():
             value = result.get("measurement", {}).get(field)
+            unknown_by_field[field] += int(value is None)
             checks[field] = value is not None and (
                 abs(Decimal(str(value)) - Decimal(str(expected["value"]))) <= Decimal(str(expected["tolerance"]))
             )
         for field in PHOTO_FIELDS:
             if field in label:
+                unknown_by_field[field] += int(field not in result)
                 checks[field] = field in result and set(result[field]) == set(label[field])
         if label.get("main_photo") is not None:
+            unknown_by_field["main_photo"] += int(result.get("main_photo") is None)
             checks["main_photo"] = result.get("main_photo") == label["main_photo"]
         if "title_terms" in label:
             title = (result.get("title") or "").strip()
             normalized = normalize(title, "title")
+            unknown_by_field["title_terms"] += int(not title)
             checks["title_terms"] = 0 < len(title) <= 80 and all(
                 re.search(r"(?<!\w)" + re.escape(normalize(term, "title")) + r"(?!\w)", normalized)
                 for term in label["title_terms"]
             )
         if label.get("seo_passed") is not None:
+            unknown_by_field["seo_passed"] += int(result.get("seo_passed") is None)
             checks["seo_passed"] = result.get("seo_passed") is label["seo_passed"]
         errors = [field for field, correct in checks.items() if not correct]
         for field, correct in checks.items():
@@ -188,6 +197,7 @@ def score(reference, predictions, *, minimum_admission_rate=None, allow_partial_
         "minimum_admission_rate": minimum_admission_rate,
         "missing_predictions": sorted(labels.keys() - results.keys()),
         "fields": metrics,
+        "unknown_by_field": unknown_by_field,
         "identity_abstentions": abstained,
         "identity_abstention_rate": abstained / total,
         "identity_target_met": identity_target_met,
@@ -205,20 +215,47 @@ def score(reference, predictions, *, minimum_admission_rate=None, allow_partial_
     }
 
 
+def compare_systems(reference, lotnexo, chatgpt, *, minimum_admission_rate=None):
+    """Compare field-by-field against one locked reference set."""
+    ours = score(reference, lotnexo, minimum_admission_rate=minimum_admission_rate,
+                 allow_partial_categories=True)
+    theirs = score(reference, chatgpt, allow_partial_categories=True)
+    unlabelled = [field for field in PARITY_FIELDS if not ours["fields"][field]["labelled"]]
+    fields = {}
+    for field in (*FIELDS, *MEASUREMENTS):
+        measured, baseline = ours["fields"][field], theirs["fields"][field]
+        count = measured["labelled"]
+        fields[field] = {
+            "labelled": count, "lotnexo_correct": measured["correct"], "chatgpt_correct": baseline["correct"],
+            "lotnexo_unknown": ours["unknown_by_field"][field],
+            "chatgpt_unknown": theirs["unknown_by_field"][field],
+            "at_least_baseline": measured["correct"] >= baseline["correct"] if count else None,
+        }
+    complete = (ours["objects"] >= MINIMUM_OBJECTS and not unlabelled
+                and not ours["missing_predictions"] and not theirs["missing_predictions"])
+    meets_baseline = all(result["at_least_baseline"] for result in fields.values() if result["labelled"]) if complete else None
+    return {"lotnexo": ours, "chatgpt": theirs, "paired_fields": fields, "unlabelled_fields": unlabelled,
+            "meets_chatgpt_baseline": meets_baseline,
+            "passed": ours["passed"] and meets_baseline is True}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("reference", type=Path)
     parser.add_argument("predictions", type=Path)
     parser.add_argument("--min-admission-rate", type=float, help="Threshold agreed before acceptance (0 < rate <= 1)")
+    parser.add_argument("--chatgpt-predictions", type=Path, help="Score the frozen photo pairs against this baseline.")
     args = parser.parse_args()
     try:
         manifest = args.reference.suffix.casefold() == ".csv"
-        report = score(
-            cohort_references(args.reference) if manifest else json.loads(args.reference.read_text(encoding="utf-8")),
-            json.loads(args.predictions.read_text(encoding="utf-8")),
-            minimum_admission_rate=args.min_admission_rate,
-            allow_partial_categories=manifest,
-        )
+        reference = cohort_references(args.reference) if manifest else json.loads(args.reference.read_text(encoding="utf-8"))
+        predictions = json.loads(args.predictions.read_text(encoding="utf-8"))
+        if args.chatgpt_predictions:
+            chatgpt = json.loads(args.chatgpt_predictions.read_text(encoding="utf-8"))
+            report = compare_systems(reference, predictions, chatgpt, minimum_admission_rate=args.min_admission_rate)
+        else:
+            report = score(reference, predictions, minimum_admission_rate=args.min_admission_rate,
+                           allow_partial_categories=manifest)
     except (OSError, ValueError) as exc:
         parser.exit(2, f"{exc}\n")
     print(json.dumps(report, ensure_ascii=False, indent=2))

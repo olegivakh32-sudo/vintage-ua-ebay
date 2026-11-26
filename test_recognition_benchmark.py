@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from recognition_benchmark import cohort_references, score
+from recognition_benchmark import MEASUREMENTS, cohort_references, compare_systems, score
 
 
 class RecognitionBenchmarkTests(unittest.TestCase):
@@ -107,3 +107,24 @@ class RecognitionBenchmarkTests(unittest.TestCase):
         self.assertEqual(report['fields']['length_cm']['labelled'], 0)
         self.assertEqual(report['fields']['category_id']['labelled'], 0)
         self.assertFalse(report['passed'])
+
+    def test_paired_comparison_requires_complete_pairs_and_counts_unknowns_by_field(self):
+        attributes = dict(brand='Brand', model='Model 2', material='metal', condition='USED', defects='cracked cap')
+        measurements = dict.fromkeys(MEASUREMENTS, 2)
+        self.reference[0].update({field: [value] for field, value in attributes.items()})
+        self.reference[0]['measurement'] = {field: {'value': value, 'tolerance': .1}
+                                            for field, value in measurements.items()}
+        self.predictions[0].update(attributes, measurement=measurements)
+        chatgpt = [prediction.copy() for prediction in self.predictions]
+        self.predictions[0]['model'] = None
+        report = compare_systems(self.reference, self.predictions, chatgpt, minimum_admission_rate=.8)
+        self.assertTrue(report['lotnexo']['passed'])
+        self.assertEqual(report['paired_fields']['model'], {
+            'labelled': 1, 'lotnexo_correct': 0, 'chatgpt_correct': 1,
+            'lotnexo_unknown': 1, 'chatgpt_unknown': 0, 'at_least_baseline': False,
+        })
+        self.assertFalse(report['passed'])
+        self.assertIsNone(compare_systems(self.reference, self.predictions, chatgpt[:-1])['meets_chatgpt_baseline'])
+        self.assertIsNone(compare_systems(self.reference[:1], self.predictions[:1], chatgpt[:1])['meets_chatgpt_baseline'])
+        self.predictions[0]['model'] = 'Model 2'
+        self.assertTrue(compare_systems(self.reference, self.predictions, chatgpt, minimum_admission_rate=.8)['passed'])
