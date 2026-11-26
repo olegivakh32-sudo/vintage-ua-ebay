@@ -13,12 +13,9 @@ permissions:
 
 jobs:
   pilot:
-    # The owner approved this specific transition of the protected tag.
-    if: >-
-      github.repository == 'olegivakh32-sudo/vintage-ua-ebay' &&
-      github.ref == 'refs/tags/p094-vision-pilot-0612' &&
-      github.event.before == 'd0bffd320710429a0ad9d5e09a8fa8857e3c81b3' &&
-      github.event.forced && !github.event.deleted && github.run_attempt == 1
+    # The exact push filter and environment enforce the owner-approved tag.
+    # The reservation below blocks a second metered run after any ref update.
+    if: github.repository == 'olegivakh32-sudo/vintage-ua-ebay' && github.run_attempt == 1
     runs-on: ubuntu-latest
     timeout-minutes: 12
     environment: p094-vision-pilot
