@@ -174,3 +174,17 @@ def mild_white_balance(image):
                             for level in range(256)])
              for channel, observed in zip(image.split(), background)]
     return Image.merge('RGB', bands)
+
+
+def research_photo_indices(representative, count, scenes, label_slots, *, limit=5):
+    """Keep a product overview, label views and evidence of construction or wear."""
+    product_slots = [slot for slot in range(1, count + 1) if scenes.get(slot) not in EVIDENCE_SCENES]
+    fallback = [slot for slot in representative if slot in product_slots]
+    overview = [slot for slot in dict.fromkeys([*fallback, *product_slots])
+                if scenes.get(slot) in {'FULL_SET', 'GENERAL_PRODUCT'}]
+    labels = [slot for slot in dict.fromkeys([*label_slots, *product_slots])
+              if slot in product_slots and (slot in label_slots or scenes.get(slot) in {'MARKINGS', 'BARCODE'})]
+    details = [slot for slot in product_slots if scenes.get(slot) in {'DETAIL', 'DEFECT'}]
+    first = (overview or fallback or product_slots)[:1]
+    ordered = dict.fromkeys([*first, *labels[:3], *details[:1], *overview, *fallback, *product_slots])
+    return list(ordered)[:limit]
