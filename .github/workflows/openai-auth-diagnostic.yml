@@ -1,0 +1,28 @@
+name: OpenAI authentication diagnosis without generation
+
+on:
+  push:
+    tags: [p094-vision-pilot-0612]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.repository == 'olegivakh32-sudo/vintage-ua-ebay' && github.event.created && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: p094-vision-pilot
+    env:
+      ALLOW_PAID_AI: '0'
+      ENABLE_LIVE_PUBLISH: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install diagnostic dependencies
+        run: python3 -m pip install --quiet -r requirements.txt
+      - name: Check GitHub secret format and OpenAI authorization
+        env:
+          OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: timeout 45s python3 openai_auth_diagnostic.py
