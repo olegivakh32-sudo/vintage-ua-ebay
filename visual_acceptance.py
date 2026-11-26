@@ -133,6 +133,8 @@ def outcome(case, result):
         'vision': 'PARSED' if parsed else 'NO_RESULT' if attempted else 'NOT_RUN',
         'visual_stage_http': (result.get('stage_http') or {}).get('visual'),
         'visual_evidence': evidence,
+        'physical_readings': result.get('physical_readings') or {},
+        'processing_elapsed_ms': result.get('processing_elapsed_ms'),
         'ocr': result.get('ocr') if parsed else None,
         'sent': attempted, 'metrics': metrics, 'comparison': checks, 'admitted': False,
     }

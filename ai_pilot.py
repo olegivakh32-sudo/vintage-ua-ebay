@@ -359,6 +359,7 @@ def run(data, photos, limits):
         }
         if limits.vision_only:
             report['product_evidence'] = visual_facts
+            report['physical_readings'] = vintage._research_machine_json(analysis, 'PHYSICAL_READINGS_JSON')
             report['request_metrics'] = limits.response_metrics
             for field in ('brand', 'model', 'country', 'material', 'period'):
                 options = {row['value'] for row in visual_facts.get(field, [])}
@@ -473,6 +474,7 @@ def execute_pilot(manifest, report, data, photos, limits):
     gaps = acceptance_gaps(data, photos, limits.vision_only)
     if gaps:
         raise ValueError(' '.join(gaps))
+    started = monotonic()
     inspect_photos(photos)
     claim_run(manifest, report, data)
 
@@ -493,6 +495,7 @@ def execute_pilot(manifest, report, data, photos, limits):
         reserve_report('interrupted')
         raise
     result['mode'] = 'APPROVED_VISION_ONLY' if limits.vision_only else 'APPROVED_PILOT'
+    result['processing_elapsed_ms'] = round((monotonic() - started) * 1000)
     write_report(report, result)
     return result
 
