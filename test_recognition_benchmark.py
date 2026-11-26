@@ -1,6 +1,7 @@
 import unittest
+from pathlib import Path
 
-from recognition_benchmark import score
+from recognition_benchmark import cohort_references, score
 
 
 class RecognitionBenchmarkTests(unittest.TestCase):
@@ -86,3 +87,23 @@ class RecognitionBenchmarkTests(unittest.TestCase):
             score(self.reference + self.reference[:1], self.predictions)
         with self.assertRaisesRegex(ValueError, "outside reference"):
             score(self.reference, self.predictions + [{"lot": "extra", "admitted": False}])
+
+    def test_partial_cohort_never_passes_without_complete_category_validation(self):
+        self.reference[0].pop("category_id")
+        with self.assertRaisesRegex(ValueError, "category_id"):
+            score(self.reference, self.predictions, minimum_admission_rate=.8)
+        report = score(self.reference, self.predictions, minimum_admission_rate=.8, allow_partial_categories=True)
+        self.assertTrue(report["identity_target_met"])
+        self.assertFalse(report["passed"])
+        self.assertEqual(report["fields"]["category_id"], {"correct": 49, "labelled": 49})
+        self.assertEqual(report["admitted_without_category_reference"], ["0"])
+
+    def test_frozen_manifest_scores_real_types_without_ascribing_nominal_measurements(self):
+        reference = cohort_references(Path(__file__).with_name('benchmark_acceptance_cohort.csv'))
+        self.assertGreaterEqual(len(reference), 50)
+        report = score(reference, [], allow_partial_categories=True)
+        self.assertEqual(report['objects'], 57)
+        self.assertEqual(report['fields']['model']['labelled'], 5)
+        self.assertEqual(report['fields']['length_cm']['labelled'], 0)
+        self.assertEqual(report['fields']['category_id']['labelled'], 0)
+        self.assertFalse(report['passed'])

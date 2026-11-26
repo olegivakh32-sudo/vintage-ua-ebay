@@ -430,8 +430,10 @@ class AndroidTests(unittest.TestCase):
             'PHOTO_ROLES_JSON: {"roles":{"1":"EBAY_PRODUCT","2":"EVIDENCE_ONLY","3":"EVIDENCE_ONLY"}}\n'
             'AUTO_FACTS_JSON: {"object_type":"Pocket Watch","materials":["Metal"],"materials_confidence":95,'
             '"markings":[{"photo":1,"literal":"СД[?]"}],"symbols":[{"photo":1,"description":"star"}]}\n'
+            'PRODUCT_OBSERVATIONS_JSON {"fields":[]}\n'
             'SCOPE_JSON: {"scope":"ONE_PHYSICAL_ITEM","physical_item_count":1,"confidence":95}',
             '=== IDENTIFICATION ===\nIDENTITY_JSON {"type":"Pocket Watch","material":"Metal","period":"1980s"}\n'
+            'IDENTITY_CLAIMS_JSON {"claims":[{"field":"length_cm","value":17,"specimen_basis":"PACKAGE","photos":[1]}]}\n'
             '=== MARKET ===\nPRICE_JSON {"normal":25}\n'
             'MARKET_COMPS_JSON {"comparables":[{"url":"https://example.org/watch","status":"ACTIVE",'
             '"price_usd":25,"currency":"USD","match_evidence":"Same case style and size"}]}',
@@ -474,6 +476,7 @@ class AndroidTests(unittest.TestCase):
         self.assertIn('Pocket Watch', report['draft']['title'])
         self.assertEqual(report['draft']['measurement_source']['weight_source'], 'MEASURED_FROM_SCALE')
         self.assertEqual(report['draft']['material_evidence_source'], 'SELLER_PHOTO')
+        self.assertEqual(report['draft']['reference_decisions'][0]['reasons'], ['WRONG_MEASUREMENT_SCOPE'])
         comparisons = report['comparison']['verified_comparisons']
         self.assertTrue(all(comparisons.values()), comparisons)
         self.assertTrue(report['comparison']['title_required_terms'])

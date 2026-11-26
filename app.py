@@ -3062,7 +3062,7 @@ _PRODUCT_FIELD_LABELS = {'type':'Тип', 'brand':'Виробник', 'model':'�
               'weight_kg':'Вага', 'length_cm':'Довжина', 'width_cm':'Ширина', 'height_cm':'Висота'}
 
 
-def _product_evidence_html(evidence):
+def _product_evidence_html(evidence, *, show_unknown=False):
     statuses = {'SELLER_VERIFIED':'Підтверджено продавцем', 'PHOTO_OBSERVATION':'Спостереження з фото',
                 'PHOTO_CANDIDATE':'Потребує перевірки', 'PHOTO_SURFACE_NOTE':'У межах видимого кадру',
                 'CATALOGUE_REFERENCE':'Довідка виробника для моделі',
@@ -3088,10 +3088,17 @@ def _product_evidence_html(evidence):
             notes += [reference.get('excerpt') for reference in record.get('references', [])]
             detail = ' · '.join(html.escape(note) for note in notes if note)
             rows.append(f'<li>{html.escape(summary)} {detail} {links}</li>')
-    return '<details><summary>Докази щодо характеристик</summary><ul>' + ''.join(rows) + '</ul></details>' if rows else ''
+    missing = []
+    if show_unknown:
+        missing = [_PRODUCT_FIELD_LABELS[field] for field in
+                   ('type', 'brand', 'model', 'material', 'condition', 'weight_kg', 'length_cm', 'width_cm', 'height_cm')
+                   if not any(record['status'] != 'PHOTO_SURFACE_NOTE' for record in evidence.get(field, []))]
+    unknown = f'<p>Невідомо · {html.escape(", ".join(missing))}</p>' if missing else ''
+    lines = '<ul>' + ''.join(rows) + '</ul>' if rows else ''
+    return '<details><summary>Докази щодо характеристик</summary>' + lines + unknown + '</details>' if lines or unknown else ''
 
 
-def _observation_diagnostics_html(decisions):
+def _observation_diagnostics_html(decisions, *, heading='Перевірка спостережень ШІ'):
     reasons = {
         'ROW_LIMIT': 'за межею обробки', 'INVALID_ROW': 'пошкоджений запис',
         'UNKNOWN_FIELD': 'невідоме поле', 'MISSING_OR_INVALID_VALUE': 'відсутнє або некоректне значення',
@@ -3100,15 +3107,30 @@ def _observation_diagnostics_html(decisions):
         'INVALID_CONFIDENCE': 'некоректна оцінка моделі', 'MISSING_FEATURE_NAME': 'немає назви характеристики',
         'BELOW_CONFIRMATION_THRESHOLD': 'нижче порога підтвердження',
         'ABSENCE_IS_SURFACE_NOTE': 'примітку перенесено в огляд поверхні', 'DUPLICATE': 'дублікат',
+        'CLAIM_LIMIT': 'за межею перевірки джерел', 'INVALID_CLAIM': 'пошкоджена довідкова характеристика',
+        'INVALID_CLAIMS_BLOCK': 'список довідкових характеристик не прочитано',
+        'WRONG_MEASUREMENT_SCOPE': 'у джерелі немає габаритів самого виробу або ваги нетто',
+        'INVALID_MEASUREMENT': 'некоректний показ виміру',
+        'TOO_FEW_INDEPENDENT_SOURCES': 'бракує незалежних джерел', 'NO_PRIMARY_SOURCE': 'бракує першоджерела',
+        'SOURCE_CONTRADICTION': 'джерело суперечить доказам', 'CONFLICTING_CLAIM_VALUES': 'джерела дають різні значення',
+        'SOURCE_LIMIT': 'за межею перевірки', 'INVALID_SOURCE': 'некоректне джерело',
+        'NONEXACT_SOURCE': 'аналог або невстановлений варіант', 'INCOMPLETE_CITATION': 'бракує даних цитати',
+        'URL_NOT_IN_SEARCH_RESULTS': 'посилання відсутнє у результатах пошуку',
+        'DUPLICATE_SOURCE': 'повтор домену або документа',
     }
     rows = []
     for decision in decisions:
-        if not decision['reasons']:
+        rejected_sources = [source for source in decision.get('sources', [])
+                            if source['reason'] != 'ACCEPTED_CITATION']
+        if not decision['reasons'] and not rejected_sources:
             continue
         label = _PRODUCT_FIELD_LABELS.get(decision['field'], 'Невідоме поле')
-        note = ', '.join(reasons.get(code, 'потребує перевірки') for code in decision['reasons'])
-        rows.append(f"<li>№{decision['index']} {label} · {note}</li>")
-    return '<details><summary>Перевірка спостережень ШІ</summary><ul>' + ''.join(rows) + '</ul></details>' if rows else ''
+        notes = [reasons.get(code, 'потребує перевірки') for code in decision['reasons']]
+        notes.extend(f"Джерело {source['index']} — {reasons.get(source['reason'], 'потребує перевірки')}"
+                     for source in rejected_sources)
+        note = f"№{decision['index']} {label} · " + ' · '.join(notes)
+        rows.append(f"<li>{html.escape(note)}</li>")
+    return f'<details><summary>{html.escape(heading)}</summary><ul>' + ''.join(rows) + '</ul></details>' if rows else ''
 
 
 def _consensus_specs_from_research(identification, market, photo_count=0):
@@ -3120,10 +3142,12 @@ def _consensus_specs_from_research(identification, market, photo_count=0):
     """
     text = str(identification or "") + "\n" + str(market or "")
     data = _research_machine_json(text,"AUTO_SPECS_JSON")
+    decisions = []
+    claims = _structured_identity_claims(identification, market, photo_count, decisions=decisions)
     if not data or not isinstance(data, dict):
-        return {}
+        return {'identity_claims': claims, 'reference_decisions': decisions} if claims or decisions else {}
     out = {"raw": data, "source": "REFERENCE_ANALOG_CONSENSUS"}
-    out['identity_claims'] = _structured_identity_claims(identification, market, photo_count)
+    out.update(identity_claims=claims, reference_decisions=decisions)
     try:
         out["match_count"] = max(0, int(data.get("match_count") or 0))
     except Exception:
@@ -3161,10 +3185,21 @@ def _consensus_specs_from_research(identification, market, photo_count=0):
     return out
 
 
-def _structured_identity_claims(identification, market, photo_count):
+def _research_source_urls(identification, market):
+    cited = [_reported_web_source_urls(block) for block in (identification, market)]
+    if all(urls is None for urls in cited):
+        return None
+    return set().union(*(urls for urls in cited if urls is not None))
+
+
+def _structured_identity_claims(identification, market, photo_count, *, decisions=None):
     claim_data = _research_machine_json(identification, 'IDENTITY_CLAIMS_JSON')
-    known_urls = set(_reported_web_source_urls(identification) or []) | set(_reported_web_source_urls(market) or [])
-    return identity_claims(claim_data.get('claims'), known_urls, photo_count, _p054_source_host)
+    records = claim_data.get('claims')
+    if (decisions is not None and not isinstance(records, list)
+            and 'IDENTITY_CLAIMS_JSON' in str(identification or '').upper()):
+        decisions.append(dict(index=0, field=None, status='REJECTED', reasons=['INVALID_CLAIMS_BLOCK']))
+    known_urls = _research_source_urls(identification, market) or set()
+    return identity_claims(records, known_urls, photo_count, _p054_source_host, decisions=decisions)
 
 
 def _reference_measurements_from_consensus(specs):
@@ -3314,7 +3349,7 @@ def _p054_reference_evidence(identification, market, physical):
     URLs and visual matches are returned by the research model. This local resolver
     does not independently fetch/authenticate the pages or prove their independence.
     """
-    source_urls = _reported_web_source_urls(market)
+    source_urls = _research_source_urls(identification, market)
     raw=_research_machine_json(str(identification)+'\n'+str(market),'SPECS_EVIDENCE_JSON')
     records=raw.get('sources') if isinstance(raw.get('sources'),list) else []
     accepted={}; rejected=[]
@@ -3350,10 +3385,24 @@ def _p054_reference_evidence(identification, market, physical):
         else:dims=None
         if reason:
             rejected.append({'url':url,'reason':reason});continue
-        item={'url':url,'host':host,'confidence':conf,'dimensions':dims,'net_weight_kg':net}
+        if not dims and not net:
+            rejected.append({'url': url, 'reason': 'no documented net weight or complete dimensions'})
+            continue
+        document = rec.get('document_id')
+        item={'url':url,'host':host,'confidence':conf,'dimensions':dims,'net_weight_kg':net,
+              'document_id': catalog_key(document) if isinstance(document, str) else ''}
         if host not in accepted or conf>accepted[host]['confidence']:
             accepted[host]=item
-    sources=list(accepted.values()); estimates={}; conflicts=[]
+    sources, documents = [], set()
+    for item in accepted.values():
+        document = item['document_id']
+        if document and document in documents:
+            rejected.append({'url': item['url'], 'reason': 'same underlying reference document'})
+            continue
+        sources.append(item)
+        if document:
+            documents.add(document)
+    estimates={}; conflicts=[]
     dim_sources=[s for s in sources if s['dimensions']]
     if len(dim_sources)>=2:
         for i,key in enumerate(('length_cm','width_cm','height_cm')):
@@ -3392,7 +3441,7 @@ def _p069_shipping_analog_fill(physical,identification,market):
         conf=(out.get('ruler_axis_evidence') or {}).get(key,{}).get('confidence',out.get('confidence',0))
         if value and (origin in manual or (origin in {'MEASURED_FROM_RULER','PARTIAL_MEASURED_FROM_RULER'} and (_p054_positive(conf,101) or 0)>=90)):
             anchors[key]=value
-    source_urls = _reported_web_source_urls(market)
+    source_urls = _research_source_urls(identification, market)
     raw=_research_machine_json(str(identification)+'\n'+str(market),'SHIPPING_ANALOGS_JSON')
     records=raw.get('sources') if isinstance(raw.get('sources'),list) else []
     accepted={};rejected=[]
@@ -3427,8 +3476,10 @@ def _p069_shipping_analog_fill(physical,identification,market):
     sources=[];seen=set()
     for item in accepted.values():
         # Also reject duplicate underlying listings reported on different domains.
-        identity=item['source_item_id'].casefold()
-        if identity in seen:continue
+        identity=catalog_key(item['source_item_id'])
+        if identity in seen:
+            rejected.append({'url': item['url'], 'reason': 'same underlying reference document'})
+            continue
         seen.add(identity);sources.append(item)
     ranges={};filled=[];conflicts=[]
     for key in ('weight_kg',)+axes:
@@ -3607,10 +3658,37 @@ def _p054_evidence_html(measurement):
         url=html.escape(s['url'],quote=True)
         dims=' × '.join(f'{v:g}' for v in s['dimensions'])+' cm' if s.get('dimensions') else '—'
         rows.append(f'<tr><td><a href="{url}" target="_blank" rel="noopener noreferrer">{html.escape(s["host"])}</a></td><td>{html.escape(dims)}</td><td>{html.escape(str(s.get("net_weight_kg") or "—"))}</td></tr>')
-    if not rows and not evidence.get('rejected'):return analog_html
+    rejected = list(evidence.get('rejected') or []) + list(
+        (measurement.get('shipping_analog_diagnostics') or {}).get('rejected') or [])
+    if not rows and not rejected:
+        return analog_html
+    reason_labels = {
+        'URL absent from web search metadata': 'посилання відсутнє у результатах пошуку',
+        'same underlying reference document': 'копія того самого документа або оголошення',
+        'no documented net weight or complete dimensions': 'бракує документованої ваги нетто або повних габаритів',
+        'variant match not established at 90%': 'не підтверджено збіг варіанта',
+        'insufficient physical feature match': 'недостатній збіг фізичних ознак',
+        'physical analog match below 90%': 'недостатній збіг аналога',
+        'type, construction or material match missing': 'не збігається тип, конструкція або матеріал',
+        'requires closed single-item dimensions': 'потрібні габарити одного виробу у складеному стані',
+        'source contradicts seller evidence': 'джерело суперечить доказам продавця',
+        'net weight contradicts seller scale': 'вага нетто суперечить показу ваг',
+        'dimensions contradict measured seller evidence': 'габарити суперечать вимірам продавця',
+        'reference net weight contradicts physical weight': 'довідкова вага суперечить фактичній',
+        'no comparable measured size anchor': 'бракує зіставного виміряного розміру',
+        'dimensions conflict with physical anchor': 'габарити аналога суперечать вимірам',
+        'reference axes not largest to smallest': 'осі аналога подано в невідповідному порядку',
+        'invalid source URL': 'некоректне посилання',
+        'missing source URL or item identity': 'бракує посилання або ідентифікатора предмета',
+    }
+    reasons = list(dict.fromkeys(reason_labels.get(record.get('reason'), 'потрібна перевірка джерела')
+                                 for record in rejected))
+    diagnostic = '<ul>' + ''.join(f'<li>{html.escape(reason)}</li>' for reason in reasons) + '</ul>' if reasons else ''
     notice='Довідкові оцінки для доставки. Зіставлення джерел повідомлено AI; сторінки цим кодом незалежно не перевірені.'
     if evidence.get('conflicts'):notice+=' Суперечливі характеристики не підставлено.'
-    return analog_html+'<details><summary>Джерела характеристик і зіставлення</summary><p>'+notice+'</p><table><tr><th>Джерело</th><th>Габарити</th><th>Нетто, кг</th></tr>'+''.join(rows)+'</table><p>Відхилено джерел: '+str(len(evidence.get('rejected') or []))+'</p></details>'
+    table = '<table><tr><th>Джерело</th><th>Габарити</th><th>Нетто, кг</th></tr>' + ''.join(rows) + '</table>' if rows else ''
+    return (analog_html + '<details><summary>Джерела характеристик і зіставлення</summary><p>' + notice
+            + '</p>' + table + f'<p>Відхилено джерел: {len(rejected)}</p>' + diagnostic + '</details>')
 
 
 def _market_bin_price(market_text):
@@ -4726,7 +4804,7 @@ def picker_analyze():
     observations = _research_machine_json(analysis, 'PRODUCT_OBSERVATIONS_JSON').get('fields')
     visual_evidence, decisions = assess_photo_observations(observations if isinstance(observations, list) else [], count)
     body=f"""<h2>{label} — Аналіз ШІ</h2><p style='color:green'><b>✓ Візуальний аналіз завершено</b></p>{compact}{_usage_summary_html(picker_id)}
-    {_product_evidence_html(visual_evidence)}{_observation_diagnostics_html(decisions)}
+    {_product_evidence_html(visual_evidence, show_unknown=isinstance(observations, list))}{_observation_diagnostics_html(decisions)}
     <details><summary><b>Переглянути звіт ШІ</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:10px'>{text_to_html(display_analysis)}</div></details>
     {next_step}"""
     return page(label+" Аналіз ШІ",body)
@@ -4931,8 +5009,8 @@ MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd"
 UA_MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_uah":null,"currency":"UAH","match_evidence":"","sale_evidence":"","sold_date":"","checked_on":""}}]}}
 Use the exact page URL from web search. For SOLD, record the visible sale evidence, omitting unverified sales.
 Then concise Ukrainian sections: confirmed sold comps, active comps, closest comparable + differences, price logic, recommended prices, evidence-safe eBay title, category/type suggestion, safe item specifics, market confidence, sources.
-SPECS_EVIDENCE_JSON {{"sources":[{{"url":"","title":"","same_variant":false,"confidence":0,"matched_features":[],"contradictions":[],"weight_basis":"NET|GROSS|UNKNOWN","weight_kg":null,"length_cm":null,"width_cm":null,"height_cm":null}}]}}
-For SPECS_EVIDENCE_JSON inspect up to 6 primary source pages, including Ukraine/Violity and eBay where available. Record only actually observed specifications, source URL, NET versus GROSS mass, and visual matching features using shape, decoration, hinge, latch, interior, construction, material, mechanism, dimensions. Use literal feature tokens: shape+construction+material/mechanism/dimensions may describe objects without decoration or hinges. Compare competing variants/materials; a similar caption is insufficient. same_variant does NOT mean a proven maker/model. Unknown model number must not prevent recording a defensible matching-variant reference. Record contradictions explicitly, especially different alloy, construction, and net mass. Never call independent sources when the same listing is syndicated. If no defensible sources exist return sources=[]. Existing AUTO_SPECS_JSON exact-model guard remains for identity claims.
+SPECS_EVIDENCE_JSON {{"sources":[{{"url":"","title":"","document_id":"","same_variant":false,"confidence":0,"matched_features":[],"contradictions":[],"weight_basis":"NET|GROSS|UNKNOWN","weight_kg":null,"length_cm":null,"width_cm":null,"height_cm":null}}]}}
+For SPECS_EVIDENCE_JSON inspect up to 6 primary source pages, including Ukraine/Violity and eBay where available. Record only actually observed specifications, source URL, NET versus GROSS mass, and visual matching features using shape, decoration, hinge, latch, interior, construction, material, mechanism, dimensions. Use literal feature tokens: shape+construction+material/mechanism/dimensions may describe objects without decoration or hinges. Compare competing variants/materials; a similar caption is insufficient. same_variant does NOT mean a proven maker/model. Unknown model number must not prevent recording a defensible matching-variant reference. Record contradictions explicitly, especially different alloy, construction, and net mass. Use the same document_id for mirrors of the same manual, catalogue record or listing. If no defensible sources exist return sources=[]. Existing AUTO_SPECS_JSON exact-model guard remains for identity claims.
 Reference dimensions/weight outside an exact model are candidate estimates, never measured facts. Keep the scope to this existing research call; no separate measurement or extra paid research step.
 SHIPPING_ANALOGS_JSON {{"sources":[{{"url":"","source_item_id":"","physical_type_match":false,"construction_match":false,"material_match":false,"size_state":"CLOSED","quantity":1,"confidence":0,"contradictions":[],"weight_basis":"NET|GROSS|UNKNOWN","weight_kg":null,"length_cm":null,"width_cm":null,"height_cm":null}}]}}
 Use the same source pages already inspected for market/identification whenever possible; report concise source records within the current response budget. As part of THIS SAME web research, seek actually documented NET weight and CLOSED storage dimensions for physically comparable single items when photos lack scale/thickness evidence. Exact maker/model may remain unknown. Inspect at least two genuinely different source listings/manual records when available; assign the SAME source_item_id to syndications of one underlying listing. Do not invent confidence or data to reach a threshold. physical_type_match, construction_match and material_match must follow seller evidence, not similar titles. Record differences/contradictions. Keep dimensions largest/middle/smallest for the CLOSED single item; unknown axes remain null and partial dimensions are useful. Do not use open-tool length, blade length, packaged/GROSS mass, sets, or averages guessed from general knowledge. This block is for labelled shipping estimates only, never public identity or specifications. If no defensible records exist return sources=[].
@@ -5334,7 +5412,7 @@ def fast_research(known_analysis=None):
             "<b>Working material:</b> not yet proven by seller photos. Research-only material remains a hypothesis and will not auto-publish.</p>"
         )
     auto_specs_html = ""
-    if consensus_specs:
+    if consensus_specs.get('raw'):
         rows=[]
         display_keys=("type","material","brand","model","country","period","weight_kg","length_cm","width_cm","height_cm") if consensus_specs.get("exact_model_confirmed") else ("type","material")
         for k in display_keys:
@@ -5346,7 +5424,8 @@ def fast_research(known_analysis=None):
             + ("<p style='background:#fff3cd;padding:10px;border-radius:8px'><b>ANALOG HYPOTHESES — RESEARCH ONLY.</b> Corroborated analog estimates may fill shipping fields; they do not establish item identity or verified measurements. Material auto-fill comes only from seller-photo evidence; research may only corroborate it.</p>" if not consensus_specs.get('exact_model_confirmed') else "<p><small>Exact-model reference may prefill specs; physical seller evidence still wins.</small></p>")
             + ("<table><tr><th>Parameter</th><th>Consensus</th></tr>"+"".join(rows)+"</table>" if rows else "<p>No safe consensus parameters extracted.</p>") + "</details>")
     claims = (consensus_specs.get('identity_claims') or []) + catalogue_claims(_picker_catalogue_matches(analysis, items))
-    claims_html = _identity_claims_html(claims)
+    claims_html = _identity_claims_html(claims) + _observation_diagnostics_html(
+        consensus_specs.get('reference_decisions') or [], heading='Перевірка довідкових джерел')
     _measurement_status = _p055_measurement_status(visual_estimate, missing_measurements)
     body=f"""<h2>{label} — Fast Research Complete</h2><p style='color:green'><b>✓ Identification Engine + Market Engine completed; {_measurement_status}</b></p>{_usage_summary_html(picker_id)}
     <p><b>Selected listing price ({html.escape(price_label)}):</b> {('$'+html.escape(price)) if price else 'REVIEW REQUIRED — no price auto-accepted'}<br><small>{tier_line}</small></p>{price_warning}{working_material_html}{auto_specs_html}<p><b>Physical-item check:</b> {html.escape(scope)} ({scope_conf}%) — {html.escape(str(structure.get('source') or 'AI'))}</p>
@@ -6985,7 +7064,7 @@ def final_listing(automatic_revision=None):
     seller_brand=brand_candidate if brand_confirmed else ""
     seller_origin = form.get('seller_origin', '').strip()
     product_observations = _research_machine_json(analysis, 'PRODUCT_OBSERVATIONS_JSON')
-    product_evidence, observation_decisions = None, []
+    product_evidence, observation_decisions, reference_decisions = None, [], []
     if 'fields' in product_observations:
         items = PHOTO_CACHE.get(picker_id) or []
         photo_count = len(items)
@@ -6997,7 +7076,7 @@ def final_listing(automatic_revision=None):
                             for record in facts.get(key, []) if '[?]' not in record[value_key])
         assessed = assess_photo_observations(observed, photo_count)
         observation_decisions = assessed[1]
-        references = _structured_identity_claims(identification, market, photo_count)
+        references = _structured_identity_claims(identification, market, photo_count, decisions=reference_decisions)
         references.extend(catalogue_claims(_picker_catalogue_matches(analysis, items)))
         product_evidence = build_product_evidence(
             observed, references,
@@ -7435,6 +7514,7 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
     if product_evidence is not None:
         draft['product_evidence'] = product_evidence
         draft['observation_decisions'] = observation_decisions
+        draft['reference_decisions'] = reference_decisions
         if structured_draft and data is structured_draft:
             draft['listing_text_source'] = 'STRUCTURED_PRODUCT_EVIDENCE'
     if seller_declared_condition:
@@ -7526,8 +7606,18 @@ def review_final_draft():
     price=str(draft.get('price') or '')
     material=str(draft.get('confirmed_material') or '')
     digest = _draft_confirmation_digest(draft, _current_lot_sku())
-    evidence_html = _product_evidence_html(draft.get('product_evidence') or {})
+    evidence_html = _product_evidence_html(draft.get('product_evidence') or {}, show_unknown='product_evidence' in draft)
     evidence_html += _observation_diagnostics_html(draft.get('observation_decisions') or [])
+    if 'reference_decisions' in draft:
+        references = draft['reference_decisions']
+    elif 'product_evidence' in draft:
+        references = []
+        picker_id = session.get('picker_session_id')
+        _structured_identity_claims(IDENTIFICATION_CACHE.get(picker_id), MARKET_CACHE.get(picker_id),
+                                    len(PHOTO_CACHE.get(picker_id) or []), decisions=references)
+    else:
+        references = []
+    evidence_html += _observation_diagnostics_html(references, heading='Перевірка довідкових джерел')
     return page(label+" Final eBay Listing",f"""<h2>{label} — Final eBay Listing Draft</h2><p style='color:#176b2c'><b>Draft ready — saved result, no repeated AI request.</b></p><p><b>Seller-verified visible marking:</b> {html.escape(str(draft.get('seller_verified_marking') or 'none'))}</p><p><b>Draft evidence readiness:</b> {html.escape(str(draft.get('listing_readiness') or 'not scored'))}% — category/condition/photo checks are performed in Preflight.</p>{_usage_summary_html(session.get('picker_session_id'))}{evidence_html}<pre style='white-space:pre-wrap'>{html.escape(listing_text)}</pre><hr><form action='/picker/confirm-final-draft' method='post'><input type="hidden" name="hold_csrf" value="{_p058_csrf()}"><input type="hidden" name="draft_digest" value="{digest}"><p><label><b>Final Buy It Now price, USD:</b><br><input name='confirmed_price' type='number' min='0.01' step='0.01' value='{html.escape(price,quote=True)}' required style='font-size:20px;padding:10px;width:180px'></label></p><p><label><b>Material(s), editable override:</b><br><input name='confirmed_material' value='{html.escape(material,quote=True)}' placeholder='leave blank if unknown' style='font-size:18px;padding:10px;width:min(520px,90%)'></label></p><button type='submit' style='font-size:18px;padding:14px 18px;font-weight:bold'>Continue → eBay Preflight</button></form>""")
 
 # =========================================================

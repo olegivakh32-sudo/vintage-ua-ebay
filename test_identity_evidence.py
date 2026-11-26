@@ -39,6 +39,62 @@ class IdentityEvidenceTests(unittest.TestCase):
         self.assertTrue(m._p089_research_handoff(draft, self.consensus([self.claim]), {}))
         self.assertIn('Reference identification: Camera M-1', draft['description'])
 
+    def test_claims_without_auto_specs_preserve_citations_and_decisions(self):
+        rejected = [
+            {**self.sources[1], 'document_id': '0'},
+            {**self.sources[1], 'match': 'ANALOG'},
+            {**self.sources[1], 'url': 'https://unobserved.example/model'},
+        ]
+        claims = [
+            {**self.claim, 'sources': self.sources[:1] + rejected},
+            {**self.claim, 'field': 'model', 'value': 'UNKNOWN'},
+            {**self.claim, 'field': 'weight_kg', 'value': .35, 'specimen_basis': 'GROSS'},
+            {**self.claim, 'field': 'length_cm', 'value': 12, 'specimen_basis': 'ITEM'},
+        ]
+        identity = 'IDENTITY_CLAIMS_JSON ' + json.dumps({'claims': claims})
+        cases = m._consensus_specs_from_research(
+            identity + '\nWEB_TOOL_SOURCES_JSON ' + json.dumps({'urls': self.urls[:1]}),
+            'WEB_TOOL_SOURCES_JSON ' + json.dumps({'urls': self.urls[1:]}), photo_count=3,
+        )
+        decisions = cases['reference_decisions']
+        self.assertEqual([row['status'] for row in decisions],
+                         ['HYPOTHESIS', 'REJECTED', 'REJECTED', 'CORROBORATED_REFERENCE'])
+        self.assertEqual([item['reason'] for item in decisions[0]['sources']],
+                         ['ACCEPTED_CITATION', 'DUPLICATE_SOURCE', 'NONEXACT_SOURCE', 'URL_NOT_IN_SEARCH_RESULTS'])
+        self.assertEqual(decisions[2]['reasons'], ['WRONG_MEASUREMENT_SCOPE'])
+        self.assertEqual(cases['identity_claims'][-1]['value'], 12.0)
+        html = m._observation_diagnostics_html(decisions)
+        self.assertIn('повтор домену або документа', html)
+        self.assertIn('ваги нетто', html)
+        self.assertNotIn('unobserved.example', html)
+        broken = m._consensus_specs_from_research('IDENTITY_CLAIMS_JSON {"claims":', '', photo_count=3)
+        self.assertEqual(broken['identity_claims'], [])
+        self.assertEqual(broken['reference_decisions'][0]['reasons'], ['INVALID_CLAIMS_BLOCK'])
+
+    def test_analog_sources_use_metadata_on_either_research_block(self):
+        sources = [
+            dict(url=url, same_variant=True, confidence=94, matched_features=['shape', 'construction', 'material'],
+                 length_cm=12, width_cm=8, height_cm=4, weight_basis='NET', weight_kg=.2)
+            for url in self.urls
+        ]
+        identity = ('SPECS_EVIDENCE_JSON ' + json.dumps({'sources': sources})
+                    + '\nWEB_TOOL_SOURCES_JSON ' + json.dumps({'urls': self.urls[:1]}))
+        market = 'WEB_TOOL_SOURCES_JSON ' + json.dumps({'urls': self.urls[1:]})
+        report = m._p054_reference_evidence(identity, market, {})
+        self.assertEqual(report['estimates']['weight_kg'], .2)
+        self.assertEqual(len(report['sources']), 2)
+        self.assertFalse(report['independently_verified'])
+        report = m._p054_reference_evidence(identity, 'WEB_TOOL_SOURCES_JSON {"urls":[]}', {})
+        self.assertNotIn('weight_kg', report['estimates'])
+        self.assertEqual(report['rejected'][0]['reason'], 'URL absent from web search metadata')
+        for model in sources:
+            model['document_id'] = 'Shared manual'
+        mirrored = ('SPECS_EVIDENCE_JSON ' + json.dumps({'sources': sources})
+                    + '\nWEB_TOOL_SOURCES_JSON ' + json.dumps({'urls': self.urls[:1]}))
+        report = m._p054_reference_evidence(mirrored, market, {})
+        self.assertEqual(report['estimates'], {})
+        self.assertIn('копія того самого документа', m._p054_evidence_html({'reference_evidence': report}))
+
     def test_quality_mark_is_retained_as_ocr_without_promoting_it_to_maker(self):
         facts = m._auto_facts_from_analysis('AUTO_FACTS_JSON: {"materials":12,"brand":"XYZ",'
                                             '"markings":[{"photo":1,"literal":"XYZ","language":"uk","kind":"QUALITY_MARK"}]}')

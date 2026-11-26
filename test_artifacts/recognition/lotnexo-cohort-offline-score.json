@@ -1,0 +1,346 @@
+{
+  "objects": 57,
+  "admitted": 0,
+  "admission_rate": 0.0,
+  "minimum_admission_rate": null,
+  "missing_predictions": [],
+  "fields": {
+    "identity": {
+      "correct": 1,
+      "labelled": 57
+    },
+    "brand": {
+      "correct": 1,
+      "labelled": 5
+    },
+    "model": {
+      "correct": 1,
+      "labelled": 5
+    },
+    "ocr": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "period": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "material": {
+      "correct": 0,
+      "labelled": 49
+    },
+    "country": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "condition": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "completeness": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "defects": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "category_id": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "weight_kg": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "length_cm": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "width_cm": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "height_cm": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "product_photos": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "evidence_photos": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "main_photo": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "title_terms": {
+      "correct": 0,
+      "labelled": 0
+    },
+    "seo_passed": {
+      "correct": 0,
+      "labelled": 0
+    }
+  },
+  "identity_abstentions": 56,
+  "identity_abstention_rate": 0.9824561403508771,
+  "identity_target_met": false,
+  "critical_categories": [],
+  "admitted_without_category_reference": [],
+  "mismatches": {
+    "CASIO-F91W1": [
+      "identity"
+    ],
+    "LOGITECH-MX-MASTER3S": [
+      "identity",
+      "brand",
+      "model"
+    ],
+    "NINTENDO-SWITCH-LCD": [
+      "identity",
+      "brand",
+      "model"
+    ],
+    "RP-DISPLAY2-7": [
+      "identity"
+    ],
+    "RP-PI400": [
+      "identity",
+      "brand",
+      "model"
+    ],
+    "RP-ZERO2W": [
+      "identity",
+      "brand",
+      "model"
+    ],
+    "STANLEY-33425": [
+      "identity"
+    ],
+    "CMA-100447": [
+      "identity",
+      "material"
+    ],
+    "CMA-103057": [
+      "identity",
+      "material"
+    ],
+    "CMA-103073": [
+      "identity",
+      "material"
+    ],
+    "CMA-108380": [
+      "identity",
+      "material"
+    ],
+    "CMA-109228": [
+      "identity",
+      "material"
+    ],
+    "CMA-111705": [
+      "identity",
+      "material"
+    ],
+    "CMA-114576": [
+      "identity",
+      "material"
+    ],
+    "CMA-123306": [
+      "identity",
+      "material"
+    ],
+    "CMA-125267": [
+      "identity",
+      "material"
+    ],
+    "CMA-125583": [
+      "identity",
+      "material"
+    ],
+    "CMA-125713": [
+      "identity",
+      "material"
+    ],
+    "CMA-128048": [
+      "identity",
+      "material"
+    ],
+    "CMA-129843": [
+      "identity",
+      "material"
+    ],
+    "CMA-129875": [
+      "identity",
+      "material"
+    ],
+    "CMA-130035": [
+      "identity",
+      "material"
+    ],
+    "CMA-136178": [
+      "identity",
+      "material"
+    ],
+    "CMA-136303": [
+      "identity",
+      "material"
+    ],
+    "CMA-136398": [
+      "identity",
+      "material"
+    ],
+    "CMA-137127": [
+      "identity",
+      "material"
+    ],
+    "CMA-141274": [
+      "identity",
+      "material"
+    ],
+    "CMA-142466": [
+      "identity",
+      "material"
+    ],
+    "CMA-142810": [
+      "identity",
+      "material"
+    ],
+    "CMA-143311": [
+      "identity",
+      "material"
+    ],
+    "CMA-143942": [
+      "identity",
+      "material"
+    ],
+    "CMA-145937": [
+      "identity",
+      "material"
+    ],
+    "CMA-148336": [
+      "identity",
+      "material"
+    ],
+    "CMA-149888": [
+      "identity",
+      "material"
+    ],
+    "CMA-153278": [
+      "identity",
+      "material"
+    ],
+    "CMA-153674": [
+      "identity",
+      "material"
+    ],
+    "CMA-159528": [
+      "identity",
+      "material"
+    ],
+    "CMA-159994": [
+      "identity",
+      "material"
+    ],
+    "CMA-160422": [
+      "identity",
+      "material"
+    ],
+    "CMA-160961": [
+      "identity",
+      "material"
+    ],
+    "CMA-160964": [
+      "identity",
+      "material"
+    ],
+    "CMA-161779": [
+      "identity",
+      "material"
+    ],
+    "CMA-165322": [
+      "identity",
+      "material"
+    ],
+    "CMA-168183": [
+      "identity",
+      "material"
+    ],
+    "CMA-300665": [
+      "identity",
+      "material"
+    ],
+    "CMA-393706": [
+      "identity",
+      "material"
+    ],
+    "CMA-441848": [
+      "identity",
+      "material"
+    ],
+    "CMA-447720": [
+      "identity",
+      "material"
+    ],
+    "CMA-447764": [
+      "identity",
+      "material"
+    ],
+    "CMA-519488": [
+      "identity",
+      "material"
+    ],
+    "CMA-94657": [
+      "identity",
+      "material"
+    ],
+    "CMA-96590": [
+      "identity",
+      "material"
+    ],
+    "CMA-96621": [
+      "identity",
+      "material"
+    ],
+    "CMA-97449": [
+      "identity",
+      "material"
+    ],
+    "CMA-98761": [
+      "identity",
+      "material"
+    ],
+    "CMA-99433": [
+      "identity",
+      "material"
+    ]
+  },
+  "operations": {
+    "elapsed_ms": {
+      "reported": 57,
+      "total": 58407.0,
+      "median": 855
+    },
+    "cost_usd": {
+      "reported": 57,
+      "total": 0.0,
+      "median": 0
+    },
+    "manual_actions": {
+      "reported": 0,
+      "total": null,
+      "median": null
+    }
+  },
+  "passed": false,
+  "baseline": {
+    "source": "test_artifacts/recognition/lotnexo-cohort-offline.json",
+    "prediction_mode": "reuse_existing_local_ocr_catalogue_results",
+    "decode": "Use the object type, brand and model of the single catalogue match when the recorded route was VERIFY_CATALOGUE.",
+    "specimen_measurements_labelled": false,
+    "category_admission_tested": false
+  }
+}

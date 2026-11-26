@@ -1,6 +1,7 @@
 """Score saved recognition results against independently labelled objects offline."""
 
 import argparse
+import csv
 from decimal import Decimal
 import json
 import math
@@ -29,7 +30,7 @@ def nonnegative(value):
     return type(value) in (int, float) and 0 <= value <= 10**12
 
 
-def index_rows(rows, *, reference):
+def index_rows(rows, *, reference, allow_partial_categories=False):
     if not isinstance(rows, list):
         raise ValueError("Expected a JSON array of objects")
     indexed = {}
@@ -40,7 +41,7 @@ def index_rows(rows, *, reference):
         if reference:
             for field in FIELDS:
                 values = row.get(field)
-                if field in {"identity", "category_id"} or field in row:
+                if field == "identity" or field in row or (field == "category_id" and not allow_partial_categories):
                     if not isinstance(values, list) or not values or any(
                         not isinstance(value, str) or not value.strip() for value in values
                     ):
@@ -92,12 +93,32 @@ def index_rows(rows, *, reference):
     return indexed
 
 
-def score(reference, predictions, *, minimum_admission_rate=None):
+def cohort_references(path):
+    """Load the independent CSV manifest without scoring catalogue measurements as specimen facts."""
+    with path.open(encoding="utf-8", newline="") as source:
+        rows = []
+        for record in csv.DictReader(source):
+            if not record.get("reference_id") or not record.get("object_type"):
+                raise ValueError("Cohort requires reference_id and object_type")
+            row = {"lot": record["reference_id"], "identity": [record["object_type"]]}
+            if record.get("model_scope") == "exact":
+                for field in ("brand", "model"):
+                    if record.get(field):
+                        row[field] = [record[field]]
+            if record.get("material"):
+                row["material"] = [record["material"]]
+            if record.get("category_id"):
+                row["category_id"] = [record["category_id"]]
+            rows.append(row)
+        return rows
+
+
+def score(reference, predictions, *, minimum_admission_rate=None, allow_partial_categories=False):
     if minimum_admission_rate is not None and (
         not nonnegative(minimum_admission_rate) or not 0 < minimum_admission_rate <= 1
     ):
         raise ValueError("Minimum admission rate must be greater than zero and at most one")
-    labels = index_rows(reference, reference=True)
+    labels = index_rows(reference, reference=True, allow_partial_categories=allow_partial_categories)
     results = index_rows(predictions, reference=False)
     if not labels:
         raise ValueError("Reference dataset is empty")
@@ -110,6 +131,7 @@ def score(reference, predictions, *, minimum_admission_rate=None):
     admitted = 0
     abstained = 0
     critical_categories = []
+    admitted_without_category_reference = []
     mismatches = {}
     for lot, label in labels.items():
         result = results.get(lot, {})
@@ -149,8 +171,11 @@ def score(reference, predictions, *, minimum_admission_rate=None):
             admitted += 1
             if "category_id" in errors:
                 critical_categories.append(lot)
+            elif "category_id" not in label:
+                admitted_without_category_reference.append(lot)
 
     total = len(labels)
+    identity_target_met = total >= MINIMUM_OBJECTS and metrics["identity"]["correct"] * 10 >= total * 9
     operations = {}
     for field in ("elapsed_ms", "cost_usd", "manual_actions"):
         values = [row[field] for row in results.values() if row.get(field) is not None]
@@ -165,12 +190,14 @@ def score(reference, predictions, *, minimum_admission_rate=None):
         "fields": metrics,
         "identity_abstentions": abstained,
         "identity_abstention_rate": abstained / total,
+        "identity_target_met": identity_target_met,
         "critical_categories": critical_categories,
+        "admitted_without_category_reference": admitted_without_category_reference,
         "mismatches": mismatches,
         "operations": operations,
         "passed": (
-            total >= MINIMUM_OBJECTS
-            and metrics["identity"]["correct"] * 10 >= total * 9
+            identity_target_met
+            and metrics["category_id"]["labelled"] == total
             and not critical_categories
             and minimum_admission_rate is not None
             and admitted / total >= minimum_admission_rate
@@ -185,10 +212,12 @@ def main():
     parser.add_argument("--min-admission-rate", type=float, help="Threshold agreed before acceptance (0 < rate <= 1)")
     args = parser.parse_args()
     try:
+        manifest = args.reference.suffix.casefold() == ".csv"
         report = score(
-            json.loads(args.reference.read_text(encoding="utf-8")),
+            cohort_references(args.reference) if manifest else json.loads(args.reference.read_text(encoding="utf-8")),
             json.loads(args.predictions.read_text(encoding="utf-8")),
             minimum_admission_rate=args.min_admission_rate,
+            allow_partial_categories=manifest,
         )
     except (OSError, ValueError) as exc:
         parser.exit(2, f"{exc}\n")
