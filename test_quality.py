@@ -207,6 +207,30 @@ class CategoryTests(unittest.TestCase):
                 self.assertTrue(m._category_semantic_match(kind, leaf, f'{right} > {leaf}')[0])
                 self.assertFalse(m._category_semantic_match(kind, leaf, f'{wrong} > {leaf}')[0])
 
+    def test_development_board_and_console_categories_require_exact_product_purpose(self):
+        board = 'Business & Industrial > Electronic Components & Semiconductors > Development Kits & Boards'
+        console = 'Video Games & Consoles > Video Game Consoles'
+        for kind, path in (('Microcontroller Development Board', board), ('Handheld Game Console', console)):
+            with self.subTest(kind=kind):
+                leaf = path.rsplit(' > ', 1)[-1]
+                self.assertTrue(m._category_semantic_match(kind, leaf, path)[0])
+                self.assertFalse(m._category_semantic_match(kind, leaf, f'Toys & Hobbies > {leaf}')[0])
+                accessory = leaf + ' Cases'
+                self.assertFalse(m._category_semantic_match(kind, accessory, path + ' Cases')[0])
+                candidate = {'status': 'PHOTO_CANDIDATE', 'value': kind, 'photos': [1]}
+                draft = {'item_specifics': {'Type': kind}, 'product_evidence': {'type': [candidate]}}
+                self.assertIn('потребує підтвердження', m._visual_category_conflict(draft, path))
+                rows = draft['product_evidence']['type']
+                reference = {'status': 'CORROBORATED_REFERENCE', 'value': kind, 'photos': [2]}
+                rows.append(reference)
+                self.assertIn('потребує підтвердження', m._visual_category_conflict(draft, path))
+                reference['photos'] = [1]
+                self.assertEqual(m._visual_category_conflict(draft, path), '')
+                rows.pop()
+                candidate['status'] = 'PHOTO_OBSERVATION'
+                self.assertEqual(m._visual_category_conflict(draft, path), '')
+        self.assertFalse(m._category_semantic_match('Board', 'Development Kits & Boards', board)[0])
+
     def test_saved_category_is_rechecked_against_current_tree(self):
         saved = {
             "title": "Network switch", "category_path": "Computers > Networking > Network Switches",

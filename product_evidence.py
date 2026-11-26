@@ -19,6 +19,18 @@ ASPECTS = {
     'condition': 'condition', 'completeness': 'completeness', 'defect': 'defect', 'defects': 'defect',
 }
 
+NO_VISIBLE_DEFECT = re.compile(
+    r'^(?:none(?:\s+(?:visible|observed|seen|apparent|detected))?|'
+    r'no(?:\s+(?:visible|apparent|obvious))?\s+(?:defects?|damage|flaws?)'
+    r'(?:\s+(?:visible|observed|seen|apparent|detected))?|'
+    r'(?:видимих\s+)?(?:дефектів|пошкоджень)\s+(?:не\s+(?:видно|виявлено)|немає))[.!]?$',
+    re.I,
+)
+
+
+def no_visible_defect(value):
+    return isinstance(value, str) and bool(NO_VISIBLE_DEFECT.fullmatch(' '.join(value.split())))
+
 
 def text_value(value, limit=160):
     if isinstance(value, str) and not any(ord(letter) < 32 for letter in value.strip()):
@@ -33,30 +45,73 @@ def photo_numbers(values, photo_count):
         if isinstance(values, list) else []
 
 
-def build_product_evidence(observations, references, seller, measurement, photo_count):
-    facts = {field: [] for field in (*FIELDS, 'feature')}
-    for row in observations[:36]:
+def assess_photo_observations(observations, photo_count):
+    """Classify each row and retain bounded, non-public hypotheses."""
+    facts, decisions = {}, []
+    for index, row in enumerate(observations, 1):
+        decision = {'index': index, 'field': None, 'status': 'REJECTED', 'reasons': []}
+        decisions.append(decision)
+        reasons = decision['reasons']
+        if index > 36:
+            reasons.append('ROW_LIMIT')
+            continue
         if not isinstance(row, dict):
+            reasons.append('INVALID_ROW')
             continue
         field = row.get('field')
+        if not isinstance(field, str) or field not in VISUAL_FIELDS:
+            reasons.append('UNKNOWN_FIELD')
+            continue
+        decision['field'] = field
         value = text_value(row.get('value'))
+        no_defect = field == 'defect' and no_visible_defect(row.get('value'))
         photos = photo_numbers(row.get('photos'), photo_count)
         basis = text_value(row.get('basis'), 300)
-        if (isinstance(field, str) and field in VISUAL_FIELDS and value and photos and basis
-                and type(row.get('confidence')) is int and 90 <= row['confidence'] <= 100):
-            entry = dict(value=value, status='PHOTO_OBSERVATION', photos=photos, basis=basis)
-            if field == 'feature':
-                name = text_value(row.get('name'), 50)
-                if not name:
-                    continue
-                entry['name'] = name
-            if entry not in facts[field]:
-                facts[field].append(entry)
+        confidence = row.get('confidence')
+        valid_confidence = type(confidence) is int and 0 <= confidence <= 100
+        name = text_value(row.get('name'), 50) if field == 'feature' else None
+        if not (value or no_defect):
+            reasons.append('MISSING_OR_INVALID_VALUE')
+        if not photos:
+            reasons.append('NO_VALID_PHOTO')
+        if not basis:
+            reasons.append('MISSING_OR_INVALID_BASIS')
+        if not valid_confidence:
+            reasons.append('INVALID_CONFIDENCE')
+        else:
+            decision['confidence'] = confidence
+        if field == 'feature' and not name:
+            reasons.append('MISSING_FEATURE_NAME')
+        if reasons:
+            continue
+        if confidence < 90:
+            reasons.append('BELOW_CONFIRMATION_THRESHOLD')
+        if no_defect:
+            reasons.append('ABSENCE_IS_SURFACE_NOTE')
+            field, value = 'condition', 'На цьому фото видимих дефектів не помічено'
+        status = 'PHOTO_SURFACE_NOTE' if no_defect else 'PHOTO_CANDIDATE' if confidence < 90 else 'PHOTO_OBSERVATION'
+        entry = dict(value=value, status=status, photos=photos, basis=basis)
+        if name:
+            entry['name'] = name
+        rows = facts.setdefault(field, [])
+        if entry in rows:
+            reasons.append('DUPLICATE')
+            continue
+        rows.append(entry)
+        decision.update(status=status, photos=photos, output_field=field)
+    return facts, decisions
+
+
+def build_product_evidence(observations, references, seller, measurement, photo_count, *, assessed=None):
+    visual, _ = assessed if assessed is not None else assess_photo_observations(observations, photo_count)
+    facts = {field: list(visual.get(field, [])) for field in (*FIELDS, 'feature')}
     for reference in references:
         field = reference['field']
         if field in facts:
-            facts[field].append({key: reference[key] for key in
-                                 ('value', 'status', 'photos', 'references', 'contradictions')})
+            entry = {key: reference[key] for key in ('value', 'status', 'photos', 'references', 'contradictions')}
+            if field in PHYSICAL_FIELDS:
+                entry['unit'] = 'kg' if field == 'weight_kg' else 'cm'
+            facts[field].append(entry)
     for field, value in seller.items():
         if field in VISUAL_FIELDS and text_value(value):
             facts[field].insert(0, dict(value=value.strip(), status='SELLER_VERIFIED'))
@@ -90,8 +145,21 @@ def build_product_evidence(observations, references, seller, measurement, photo_
 
 
 def photo_type(evidence):
-    values = {normalized_claim(row['value']): row['value'] for row in evidence.get('type', [])
+    rows = evidence.get('type', [])
+    values = {normalized_claim(row['value']): row['value'] for row in rows
               if row['status'] in {'SELLER_VERIFIED', 'PHOTO_OBSERVATION'}}
+    if not values:
+        candidates = {normalized_claim(row['value']) for row in rows if row['status'] == 'PHOTO_CANDIDATE'}
+        if len(candidates) != 1:
+            return ''
+        for row in rows:
+            key = normalized_claim(row['value'])
+            if row['status'] == 'CORROBORATED_REFERENCE' and key in candidates and any(
+                candidate['status'] == 'PHOTO_CANDIDATE'
+                and set(candidate.get('photos', [])) & set(row.get('photos', []))
+                for candidate in rows
+            ):
+                values[key] = row['value']
     return next(iter(values.values())) if len(values) == 1 else ''
 
 
@@ -146,15 +214,16 @@ def draft_from_evidence(evidence, *, count, material, brand, country, test_statu
     if material:
         details.append(f'Material: {material}.')
     for field in PHYSICAL_FIELDS:
-        rows = evidence.get(field, [])
-        if rows and rows[0]['status'] in {'PHOTO_MEASUREMENT', 'SELLER_VERIFIED'}:
-            facts = rows[0]
+        facts = next((row for row in evidence.get(field, [])
+                      if row['status'] in {'PHOTO_MEASUREMENT', 'SELLER_VERIFIED'}), None)
+        if facts:
             label = {'weight_kg': 'Item Weight', 'length_cm': 'Item Length',
                      'width_cm': 'Item Width', 'height_cm': 'Item Height'}[field]
             specifics[label] = f"{facts['value']:g} {facts['unit']}"
     condition = 'Please review the photos for surface condition and included parts.'
     defects = list(dict.fromkeys(row['value'] for row in evidence.get('defect', [])
                                  if row['status'] == 'PHOTO_OBSERVATION'
+                                 and not no_visible_defect(row['value'])
                                  and not re.search(r'\b(?:no|possibly|likely|uncertain|maybe|hidden|working)\b',
                                                    row['value'], re.I)
                                  and re.fullmatch(r"[A-Za-z][A-Za-z0-9 ,'/()-]{2,119}", row['value'])))

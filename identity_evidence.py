@@ -1,6 +1,9 @@
 """Conservative validation of identity research citations and visual anchors."""
 
-FIELDS = frozenset({'brand', 'model', 'country', 'period', 'type', 'material'})
+from measurement_units import metric_value
+
+MEASUREMENTS = frozenset({'weight_kg', 'length_cm', 'width_cm', 'height_cm'})
+FIELDS = frozenset({'brand', 'model', 'country', 'period', 'type', 'material'}) | MEASUREMENTS
 PRIMARY = frozenset({'CATALOG', 'MANUAL', 'MUSEUM', 'ARCHIVE'})
 
 
@@ -12,9 +15,20 @@ def identity_claims(records, source_urls, photo_count, source_host):
         if not isinstance(record, dict) or not isinstance(record.get('field'), str) or record['field'] not in FIELDS:
             continue
         value = record.get('value')
-        if not isinstance(value, str) or not value.strip():
+        if record['field'] in MEASUREMENTS:
+            weight = record['field'] == 'weight_kg'
+            if record.get('specimen_basis') != ('NET' if weight else 'ITEM'):
+                continue
+            try:
+                value = metric_value(value, 'kg' if weight else 'cm', weight=weight)
+            except ValueError:
+                continue
+            if value is None:
+                continue
+        elif isinstance(value, str) and value.strip():
+            value = value.strip()[:160]
+        else:
             continue
-        value = value.strip()[:160]
         photos = record.get('photos')
         photos = sorted({item for item in photos if type(item) is int and 1 <= item <= photo_count}) if isinstance(photos, list) else []
         conflicts = record.get('contradictions')
@@ -32,7 +46,7 @@ def identity_claims(records, source_urls, photo_count, source_host):
 
     variants = {}
     for claim in claims:
-        variants.setdefault(claim['field'], set()).add(normalized_claim(claim['value']))
+        variants.setdefault(claim['field'], set()).add(normalized_claim(str(claim['value'])))
     for claim in claims:
         if len(variants[claim['field']]) > 1:
             claim['status'] = 'CONTESTED'
@@ -69,5 +83,5 @@ def normalized_claim(value):
 
 def corroborated_value(claims, field, value):
     return any(claim['field'] == field and claim['status'] == 'CORROBORATED_REFERENCE'
-               and normalized_claim(claim['value']) == normalized_claim(value)
+               and normalized_claim(str(claim['value'])) == normalized_claim(str(value))
                for claim in claims)

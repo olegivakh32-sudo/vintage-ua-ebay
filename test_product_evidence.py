@@ -3,10 +3,11 @@ import re
 from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
+from tempfile import TemporaryDirectory
 
 from catalogue_labels import Catalogue
 from ebay_sandbox_probe import SANDBOX, probe
-from product_evidence import build_product_evidence, specific_violations
+from product_evidence import assess_photo_observations, build_product_evidence, draft_from_evidence, specific_violations
 from test_mobile import m
 from visual_protocol import normalize_visual_analysis
 from workspace_ebay import TOKEN_API
@@ -18,6 +19,107 @@ def observed(field, value, photo=1):
 
 
 class ProductEvidenceTests(unittest.TestCase):
+    def test_decisions_preserve_anchored_candidates_and_separate_no_visible_defect(self):
+        rows = [
+            {**observed('type', 'Digital Single Lens Reflex Camera'), 'confidence': 86},
+            observed('defect', 'None visible'),
+            observed('type', 'Invalid frame', 4),
+            {**observed('brand', 'Fabricated'), 'basis': ''},
+            {**observed('model', 'Wrong'), 'confidence': '95'},
+            observed('feature', 'Black'),
+            observed('material', 'Metal'), observed('material', 'Metal'),
+            None, observed('invalid', 'Test'),
+        ]
+        evidence, decisions = assess_photo_observations(rows, 1)
+        self.assertEqual([row['reasons'] for row in decisions], [
+            ['BELOW_CONFIRMATION_THRESHOLD'], ['ABSENCE_IS_SURFACE_NOTE'], ['NO_VALID_PHOTO'],
+            ['MISSING_OR_INVALID_BASIS'], ['INVALID_CONFIDENCE'], ['MISSING_FEATURE_NAME'],
+            [], ['DUPLICATE'], ['INVALID_ROW'], ['UNKNOWN_FIELD'],
+        ])
+        self.assertEqual(evidence['type'][0]['status'], 'PHOTO_CANDIDATE')
+        self.assertNotIn('defect', evidence)
+        self.assertEqual(evidence['condition'][0]['status'], 'PHOTO_SURFACE_NOTE')
+        self.assertIsNone(draft_from_evidence(evidence, count=1, material='Metal', brand='', country='',
+                                              test_status='Untested'))
+        visual_html = m._product_evidence_html(evidence)
+        self.assertIn('Огляд поверхні', visual_html)
+        self.assertIn('Потребує перевірки', visual_html)
+        legacy = m._product_evidence_html({'defect': [{**evidence['condition'][0], 'value': 'None visible',
+                                                      'status': 'PHOTO_OBSERVATION'}]})
+        self.assertIn('Огляд поверхні', legacy)
+        self.assertIn('немає опису видимого доказу', m._observation_diagnostics_html(decisions))
+        self.assertEqual(assess_photo_observations([rows[6]] * 37, 1)[1][-1]['reasons'], ['ROW_LIMIT'])
+
+    def test_catalogue_uses_partial_label_only_as_lead_and_preserves_variant_conflicts(self):
+        source = Path(__file__).with_name('benchmark_product_sources.csv')
+        catalogue = Catalogue.read(source)
+        lead, = catalogue.match([(1, 'Pico 2')], include_leads=True)
+        self.assertEqual(lead['status'], 'CATALOGUE_LEAD')
+        self.assertEqual(catalogue.match([(1, 'Raspberry Pi\nPico 2 W')], include_leads=True), [])
+        exact, = catalogue.match([(1, 'Raspberry Pi\nPico 2')], include_leads=True)
+        self.assertEqual(exact['status'], 'CATALOGUE_CANDIDATE')
+        conflicting = catalogue.match([(1, 'Raspberry Pi\nPico 2'), (2, 'F-91W-1')], include_leads=True)
+        self.assertEqual({row['status'] for row in conflicting}, {'CONTESTED', 'CATALOGUE_LEAD'})
+
+    def test_local_ocr_research_sources_and_nominal_specs_reach_product_card(self):
+        picker = 'catalogue-to-draft-fixture'
+        path = 'https://maker.example/manual'
+        other = 'https://archive.example/camera'
+        kind = 'Digital Single Lens Reflex Camera'
+        observation = [observed('type', kind), observed('material', 'Metal'), observed('defect', 'None visible')]
+        analysis = 'PRODUCT_OBSERVATIONS_JSON: ' + json.dumps({'fields': observation})
+        analysis += '\nAUTO_FACTS_JSON: {"markings":[{"photo":1,"literal":"ACME","kind":"MAKER"}]}'
+        sources = [dict(url=url, kind='MANUAL', document_id=str(key), match='EXACT', excerpt='Reference manual.')
+                   for key, url in enumerate((path, other))]
+        claims = [
+            dict(field='model', value='K400', photos=[1], sources=sources),
+            dict(field='weight_kg', value=.2, specimen_basis='NET', photos=[1], sources=sources),
+            dict(field='length_cm', value=17, specimen_basis='PACKAGE', photos=[1], sources=sources),
+        ]
+        identity = 'IDENTITY_JSON ' + json.dumps({'type': kind})
+        identity += '\nIDENTITY_CLAIMS_JSON ' + json.dumps({'claims': claims})
+        market = 'PRICE_JSON {"normal":25}\nWEB_TOOL_SOURCES_JSON ' + json.dumps({'urls': [path, other]})
+        reply = f'=== IDENTIFICATION ===\n{identity}\n=== MARKET ===\n{market}'
+        measured = dict(weight_kg=.125, length_cm=12, width_cm=7, height_cm=5, weight_source='SELLER_VERIFIED')
+        with TemporaryDirectory() as directory:
+            catalogue_path = Path(directory) / 'catalogue.csv'
+            catalogue_path.write_text('reference_id,brand,model,object_type,source_url,material,weight_kg,length_cm\n'
+                                      f'CAM,Acme,K400,{kind},{path},Glass,0.2,15\n')
+            photos = [{'mobile_file': 'local-photo', 'retail_code_version': m.BARCODE_HINT_VERSION}]
+            with (
+                m.app.test_request_context('/picker/final-listing', method='POST', data={'hold_csrf': 'fixture'}),
+                patch.dict('os.environ', {'VINTAGE_PRODUCT_CATALOGUE': str(catalogue_path)}),
+                patch.dict(m.ANALYSIS_CACHE, {picker: analysis}),
+                patch.dict(m.IDENTIFICATION_CACHE), patch.dict(m.MARKET_CACHE),
+                patch.dict(m.PHOTO_CACHE, {picker: photos}), patch.dict(m.MEASUREMENT_CACHE, {picker: measured}),
+                patch.dict(m.ITEM_STRUCTURE_CACHE, {picker: dict(scope='ONE_PHYSICAL_ITEM', physical_item_count=1)}),
+                patch.dict(m.LOT002_DRAFT_CACHE),
+                patch.object(m, 'read_label_texts', return_value=[(1, 'K400')]) as ocr,
+                patch.object(m, '_mobile_local_bytes', return_value=b'fake preview'),
+                patch.object(m, 'google_photo_to_data_url', return_value='data:image/jpeg;base64,AA=='),
+                patch.object(m, '_save_active_lot_checkpoint', return_value=True),
+                patch.object(m, 'call_openai', return_value=reply) as transport,
+            ):
+                m.session.update(picker_session_id=picker, hold_csrf='fixture', current_lot_number=51)
+                m.IDENTIFICATION_CACHE[picker], m.MARKET_CACHE[picker] = m._p026_combined_research_engine(
+                    'LOT 051', analysis, photos, [1], m.ITEM_STRUCTURE_CACHE[picker], picker)
+                self.assertIn('CATALOGUE_CANDIDATE', transport.call_args.args[0]['input'][0]['content'][0]['text'])
+                result = m.app.make_response(m.final_listing(automatic_revision=m._measurement_revision(picker)))
+                self.assertEqual(result.status_code, 303)
+                ocr.assert_called_once()
+                transport.assert_called_once()
+                card = m.review_final_draft()
+                draft = m.LOT002_DRAFT_CACHE[picker]
+                self.assertIn(path, card)
+                self.assertIn(other, card)
+                self.assertIn('Огляд поверхні', card)
+                self.assertIn('Вага · 0.2 kg', card)
+                self.assertIn('Довжина · 15.0 cm', card)
+                self.assertNotIn('17.0 cm', card)
+                self.assertEqual(draft['item_specifics']['Item Weight'], '0.125 kg')
+                self.assertEqual(draft['item_specifics']['Material'], 'Metal')
+                self.assertNotIn('Model', draft['item_specifics'])
+
     def test_named_features_require_literal_support_and_dedupe(self):
         literal = {**observed('feature', 'Black'), 'name': 'Color'}
         evidence = build_product_evidence([literal, literal, observed('feature', 'Wireless'),

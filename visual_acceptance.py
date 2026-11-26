@@ -99,8 +99,9 @@ def cohort(root):
 def outcome(case, result):
     metrics = result.get('request_metrics') or {}
     attempted = metrics.get('sent') is True
-    parsed = result.get('mode') == 'APPROVED_VISION_ONLY' and bool(result.get('product_evidence'))
-    evidence = result['product_evidence'] if parsed else {}
+    evidence = (result.get('product_evidence') or {}) if result.get('mode') == 'APPROVED_VISION_ONLY' else {}
+    diagnostics = result.get('evidence_diagnostics') or {}
+    parsed = bool(evidence) and bool(diagnostics.get('observations_accepted', len(evidence)))
     checks = {}
     for field in FIELDS:
         actual = result.get(field) if parsed else None
@@ -136,7 +137,7 @@ def outcome(case, result):
         'visual_evidence': evidence,
         'physical_readings': result.get('physical_readings') or {},
         'processing_elapsed_ms': result.get('processing_elapsed_ms'),
-        'ocr': result.get('ocr') if parsed else None,
+        'ocr': result.get('ocr') if result.get('mode') == 'APPROVED_VISION_ONLY' else None,
         'sent': attempted, 'metrics': metrics, 'comparison': checks, 'admitted': False,
     }
 

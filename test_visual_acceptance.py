@@ -89,6 +89,9 @@ class VisualAcceptanceTests(unittest.TestCase):
         self.assertEqual(result['usage']['calls'], 1)
         self.assertEqual(result['stage_http']['visual'], 200)
         self.assertEqual(result['evidence_diagnostics']['observations_accepted'], 5)
+        self.assertEqual([row['reasons'] for row in result['evidence_diagnostics']['field_decisions'][-2:]],
+                         [['NO_VALID_PHOTO'], ['MISSING_OR_INVALID_BASIS']])
+        self.assertIn('condition', result['evidence_diagnostics']['fields_not_observed'])
         self.assertEqual(result['photo_roles'], {1: 'EBAY_PRODUCT'})
         self.assertEqual(result['main_photo'], 1)
         for field, value in {'identity':'Electric Kettle', 'brand':'North', 'model':'K400',
@@ -137,7 +140,7 @@ class VisualAcceptanceTests(unittest.TestCase):
             (marker + ' {', {}, {}, 'UNREADABLE_BLOCK'),
             (marker + ' {"fields": []}', {'fields': []}, {}, 'EMPTY_BLOCK'),
             (marker, {'fields': [{'confidence': 60}]}, {}, 'ALL_OBSERVATIONS_REJECTED'),
-            (marker, {'fields': [{'confidence': 95}]}, {'type': [{}]}, 'EVIDENCE_ACCEPTED'),
+            (marker, {'fields': [{'confidence': 95}]}, {'type': [{'status': 'PHOTO_OBSERVATION'}]}, 'EVIDENCE_ACCEPTED'),
         ):
             with self.subTest(expected=expected):
                 result = visual_evidence_diagnostics(analysis, observations, evidence, 'teapot')

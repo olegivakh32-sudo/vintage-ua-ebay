@@ -213,12 +213,13 @@ def visual_usage(response_data, expected_model):
     return metrics
 
 
-def visual_evidence_diagnostics(analysis, observations, evidence, candidate_type):
+def visual_evidence_diagnostics(analysis, observations, evidence, candidate_type, decisions=()):
     """Record the stage at which usable photo evidence was lost."""
-    from product_evidence import text_value
+    from product_evidence import VISUAL_FIELDS, text_value
 
     fields = observations.get('fields')
-    accepted = sum(len(rows) for rows in evidence.values())
+    accepted = sum(row.get('status') == 'PHOTO_OBSERVATION' for rows in evidence.values() for row in rows)
+    candidates = sum(row.get('status') == 'PHOTO_CANDIDATE' for rows in evidence.values() for row in rows)
     if 'PRODUCT_OBSERVATIONS_JSON' not in analysis.upper():
         status = 'MISSING_BLOCK' if analysis else 'NO_CACHED_ANALYSIS'
     elif not isinstance(fields, list):
@@ -226,12 +227,15 @@ def visual_evidence_diagnostics(analysis, observations, evidence, candidate_type
     elif not fields:
         status = 'EMPTY_BLOCK'
     elif not accepted:
-        status = 'ALL_OBSERVATIONS_REJECTED'
+        status = 'REVIEW_ONLY' if evidence else 'ALL_OBSERVATIONS_REJECTED'
     else:
         status = 'EVIDENCE_ACCEPTED'
     return {'status': status, 'analysis_chars': len(analysis),
             'observations_received': len(fields) if isinstance(fields, list) else None,
             'observations_accepted': accepted,
+            'candidates_retained': candidates,
+            'field_decisions': list(decisions),
+            'fields_not_observed': sorted(VISUAL_FIELDS - {row['field'] for row in decisions}),
             'unverified_type_candidate': text_value(candidate_type) or None}
 
 
@@ -336,10 +340,10 @@ def run(data, photos, limits):
             draft = vintage.LOT002_DRAFT_CACHE.get(picker, {})
         kind = str(identity.get('type') or '')
         visual_observations = vintage._research_machine_json(analysis, 'PRODUCT_OBSERVATIONS_JSON')
-        visual_facts = vintage.build_product_evidence(
-            visual_observations.get('fields') if isinstance(visual_observations.get('fields'), list) else [],
-            [], {}, {}, len(photos),
-        ) if limits.vision_only else {}
+        fields = visual_observations.get('fields')
+        visual_facts, decisions = vintage.assess_photo_observations(
+            fields if isinstance(fields, list) else [], len(photos),
+        ) if limits.vision_only else ({}, [])
         if limits.vision_only:
             kind = vintage.photo_type(visual_facts)
         category_draft = dict(draft) if draft else {'title': kind, 'item_specifics': {'Type': kind}}
@@ -391,12 +395,12 @@ def run(data, photos, limits):
         if limits.vision_only:
             report['product_evidence'] = visual_facts
             report['evidence_diagnostics'] = visual_evidence_diagnostics(
-                analysis, visual_observations, visual_facts, facts.get('object_type')
+                analysis, visual_observations, visual_facts, facts.get('object_type'), decisions,
             )
             report['physical_readings'] = vintage._research_machine_json(analysis, 'PHYSICAL_READINGS_JSON')
             report['request_metrics'] = limits.response_metrics
             for field in ('brand', 'model', 'country', 'material', 'period'):
-                options = {row['value'] for row in visual_facts.get(field, [])}
+                options = {row['value'] for row in visual_facts.get(field, []) if row['status'] == 'PHOTO_OBSERVATION'}
                 report[field] = next(iter(options)) if len(options) == 1 else None
         report['reference'] = data.get('reference', {})
         report['comparison'] = compare_reference(report['reference'], report)

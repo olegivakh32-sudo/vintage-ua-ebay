@@ -34,12 +34,21 @@ def upload_sample(raw):
         preview.save(buffer, 'JPEG', quality=95)
         return buffer.getvalue(), True
 
-def evaluate(museum_dir, modern_dir):
+def evaluate(museum_dir, modern_dir, cohort_path=None):
     base = Path(__file__).resolve().parent
     museum = records(base / 'benchmark_sources.csv')
     available = records(base / 'benchmark_licensed_photos.csv')
     models = records(base / 'benchmark_product_sources.csv')
     catalogue = Catalogue.read(base / 'benchmark_product_sources.csv')
+    if cohort_path is not None:
+        cohort = records(cohort_path)
+        manifest = {row['reference_id']: row['sha256'] for row in cohort}
+        known = {row['reference_id']: row['sha256'] for row in museum + available}
+        if len(manifest) != len(cohort) or not manifest or any(known.get(key) != sha for key, sha in manifest.items()):
+            raise ValueError('Cohort contains duplicate, unknown or changed source photos')
+        museum = [row for row in museum if row['reference_id'] in manifest]
+        available = [row for row in available if row['reference_id'] in manifest]
+        models = [row for row in models if row['reference_id'] in manifest]
     pending = {row['reference_id'] for row in models}
     outcomes = []
     for row in museum + available:
@@ -93,10 +102,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--museum-dir', type=Path, required=True)
     parser.add_argument('--modern-dir', type=Path, required=True)
+    parser.add_argument('--cohort', type=Path, help='Evaluate only the independently labelled photos in this manifest.')
     parser.add_argument('--out', type=Path, required=True)
     args = parser.parse_args()
     started = monotonic()
-    report = evaluate(args.museum_dir, args.modern_dir)
+    report = evaluate(args.museum_dir, args.modern_dir, args.cohort)
     report['elapsed_seconds'] = round(monotonic() - started, 2)
     args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(json.dumps({key: value for key, value in report.items() if key != 'outcomes'}, ensure_ascii=False))
