@@ -1,0 +1,45 @@
+{
+  "key_format": {
+    "present": true,
+    "nonblank": true,
+    "leading_whitespace": false,
+    "trailing_whitespace": false,
+    "internal_whitespace": false,
+    "line_break": false,
+    "quotes": false,
+    "bearer_prefix": false,
+    "non_ascii_or_control": false,
+    "openai_secret_key_prefix": false
+  },
+  "application": {
+    "calls_intercepted": 1,
+    "app_received_secret_unchanged": true,
+    "responses_url_matches": true,
+    "post_method": true,
+    "bearer_matches": true,
+    "holds_empty_body": true
+  },
+  "model": "gpt-4o-mini-2024-07-18",
+  "models_metadata": {
+    "http_status": 401,
+    "error_code": "invalid_api_key",
+    "error_type": "invalid_request_error",
+    "reason": "invalid_api_key"
+  },
+  "responses_without_key": {
+    "http_status": 401,
+    "error_code": null,
+    "error_type": "invalid_request_error",
+    "request_id": "req_9ca9121e9a6040469100cc49ec801faa",
+    "reason": "provider_rejected_request"
+  },
+  "responses_with_key": {
+    "http_status": 401,
+    "error_code": "invalid_api_key",
+    "error_type": "invalid_request_error",
+    "request_id": "req_32bdce389e984ed4a2fdf0c07d57a894",
+    "reason": "invalid_api_key"
+  },
+  "responses_write_evidence": false,
+  "live_status": "completed"
+}

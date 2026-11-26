@@ -32,14 +32,10 @@ jobs:
           .pilot-venv/bin/pip -q install -r requirements.txt
           timeout 90s .pilot-venv/bin/python visual_acceptance.py "$PILOT_ROOT" --prepare \
             --originals test_artifacts/vision-pilot > /dev/null
-      - name: Verify secret is configured
+      - name: Verify Responses authorization without generation
         env:
           OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
-        run: |
-          if [[ -z "$OPENAI_API_KEY" ]]; then
-            echo 'Missing environment secret P094_PILOT_OPENAI_API_KEY.'
-            exit 1
-          fi
+        run: timeout 45s .pilot-venv/bin/python openai_auth_diagnostic.py --require-responses-write
       - name: Reserve the one-time budget in GitHub
         env:
           GH_TOKEN: ${{ github.token }}

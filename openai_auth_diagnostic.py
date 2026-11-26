@@ -1,5 +1,6 @@
 """Check OpenAI credentials using metadata and a deliberately incomplete request."""
 
+import argparse
 import json
 import os
 import re
@@ -138,11 +139,19 @@ def diagnose():
     return report
 
 
-if __name__ == '__main__':
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--require-responses-write', action='store_true')
+    args = parser.parse_args()
     try:
         result = diagnose()
     except Exception as exc:
         # Some transports include the header or raw provider message in exceptions.
         print(json.dumps({'diagnostic_error_type': type(exc).__name__}))
-        raise SystemExit(1) from None
+        return 1
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    return int(args.require_responses_write and not result.get('responses_write_evidence'))
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   diagnose:
-    if: github.repository == 'olegivakh32-sudo/vintage-ua-ebay' && github.event.created && github.run_attempt == 1
+    if: github.repository == 'olegivakh32-sudo/vintage-ua-ebay' && github.event.created
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: p094-vision-pilot

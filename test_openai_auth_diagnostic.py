@@ -1,10 +1,12 @@
 """Regression tests for the isolated, non-generating authentication probe."""
 
+from contextlib import redirect_stdout
+from io import StringIO
 import json
 import unittest
 from unittest.mock import Mock, patch
 
-from openai_auth_diagnostic import RESPONSES_URL, check_app_request, key_format, probe, safe_error
+from openai_auth_diagnostic import RESPONSES_URL, check_app_request, key_format, main, probe, safe_error
 
 
 class AuthDiagnosticTests(unittest.TestCase):
@@ -46,3 +48,10 @@ class AuthDiagnosticTests(unittest.TestCase):
             allow_redirects=False, timeout=(4, 7), json={},
         )
         self.assertEqual(result['reason'], 'expected_schema_rejection')
+
+    def test_paid_precondition_requires_responses_write_evidence(self):
+        with (patch('sys.argv', ['openai_auth_diagnostic.py', '--require-responses-write']),
+              redirect_stdout(StringIO())):
+            for evidence in (False, True):
+                with patch('openai_auth_diagnostic.diagnose', return_value={'responses_write_evidence': evidence}):
+                    self.assertEqual(main(), int(not evidence))
