@@ -53,6 +53,8 @@ class VisualAcceptanceTests(unittest.TestCase):
         response = {'model': MODEL, 'service_tier': 'default',
                     'usage': {'input_tokens': 128000, 'output_tokens': 2000}}
         self.assertEqual(Decimal(visual_usage(response, MODEL)['standard_cost_usd']), Decimal('.0204'))
+        response['usage']['input_tokens_details'] = {'cached_tokens': 1000}
+        self.assertEqual(Decimal(visual_usage(response, MODEL)['metered_cost_usd']), Decimal('.020325'))
         for changed in ({'usage': {}}, {'model': 'different'}, {'service_tier': 'priority'},
                         {'output': [{'type': 'web_search_call'}]}):
             with self.subTest(changed=changed):
@@ -117,6 +119,7 @@ class VisualAcceptanceTests(unittest.TestCase):
                 if manifest.parent.name == '1':
                     result = dict(mode='APPROVED_VISION_ONLY', identity='Teapot', material='plastic',
                                   product_evidence={'type': [{'value': 'Teapot'}]},
+                                  stage_http={'visual': 200},
                                   request_metrics={'sent': True, 'standard_cost_usd': '0.002'})
                 report.write_text(json.dumps(result))
                 return result
@@ -146,3 +149,29 @@ class VisualAcceptanceTests(unittest.TestCase):
             self.assertEqual(second['vision'], 'NO_RESULT')
             self.assertEqual(third['vision'], 'NOT_RUN')
             self.assertFalse(any(row['admitted'] for row in result['cases']))
+
+    def test_metered_response_does_not_continue_after_a_failed_visual_stage(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cases = [dict(lot=f'A0{i}', manifest=root / f'input-{i}.json',
+                          report=root / f'report-{i}.json', data={}, photos=[],
+                          labels={'identity': ['teapot']}, reference_id=str(i), license='CC0',
+                          photo_source='', fact_source='', offline='UNRESOLVED',
+                          offline_elapsed_ms=1000) for i in range(1, 4)]
+            first = {'mode': 'APPROVED_VISION_ONLY', 'product_evidence': {'type': [{'value': 'Teapot'}]},
+                     'stage_http': {'visual': 409},
+                     'request_metrics': {'sent': True, 'http_status': 200, 'standard_cost_usd': '0.002'}}
+
+            def send(_manifest, report, _data, _photos, _limits):
+                report.write_text(json.dumps(first))
+                return first
+
+            with (patch('visual_acceptance.cohort', return_value=cases),
+                  patch('visual_acceptance.execute_pilot', side_effect=send) as execute,
+                  patch('visual_acceptance.datetime') as clock,
+                  patch.dict('os.environ', {'OPENAI_API_KEY': 'fixture', 'APPROVE_AI_PILOT': '1'})):
+                clock.now.return_value = datetime(2026, 11, 26, tzinfo=timezone.utc)
+                result = evaluate(root, execute=True)
+            execute.assert_called_once()
+            self.assertEqual(result['cases'][0]['visual_stage_http'], 409)
+            self.assertEqual(result['cases'][1]['vision'], 'NOT_RUN')

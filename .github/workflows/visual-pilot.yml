@@ -45,7 +45,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-            -f ref=refs/tags/p094-vision-pilot-0612-reserved -f sha="$GITHUB_SHA" > /dev/null
+            -f ref=refs/tags/p094-vision-pilot-0612-20261126-reserved -f sha="$GITHUB_SHA" > /dev/null
       - name: Run the approved requests once
         env:
           APPROVE_AI_PILOT: '1'

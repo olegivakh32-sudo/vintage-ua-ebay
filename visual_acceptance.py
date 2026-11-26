@@ -130,6 +130,7 @@ def outcome(case, result):
         **{key: case[key] for key in ('lot', 'reference_id', 'offline', 'offline_elapsed_ms', 'license',
                                     'photo_source', 'fact_source')},
         'vision': 'PARSED' if parsed else 'NO_RESULT' if attempted else 'NOT_RUN',
+        'visual_stage_http': (result.get('stage_http') or {}).get('visual'),
         'sent': attempted, 'metrics': metrics, 'comparison': checks, 'admitted': False,
     }
 
@@ -154,7 +155,8 @@ def evaluate(root, *, execute=False):
             limits = PilotLimits(VISION_MAXIMUM, vision_only=True)
             result = execute_pilot(case['manifest'], case['report'], case['data'], case['photos'], limits)
             metrics = result.get('request_metrics') or {}
-            if not metrics.get('standard_cost_usd'):
+            if (not metrics.get('standard_cost_usd') or not result.get('product_evidence')
+                    or (result.get('stage_http') or {}).get('visual') != 200):
                 break
 
     rows = []
@@ -165,8 +167,10 @@ def evaluate(root, *, execute=False):
     sent = [row for row in rows if row['sent']]
     priced = [row['metrics']['standard_cost_usd'] for row in sent if 'standard_cost_usd' in row['metrics']]
     unpriced = len(sent) - len(priced)
+    metered = [row['metrics']['metered_cost_usd'] for row in sent if 'metered_cost_usd' in row['metrics']]
     return {'budget_usd': str(BUDGET), 'requests_sent': len(sent), 'priced_requests': len(priced),
             'standard_cost_usd': str(sum(map(Decimal, priced), Decimal(0))) if not unpriced else None,
+            'metered_cost_usd': str(sum(map(Decimal, metered), Decimal(0))) if len(metered) == len(sent) else None,
             'cases': rows}
 
 
@@ -188,7 +192,8 @@ def main():
     except (OSError, KeyError, ValueError, RuntimeError) as exc:
         parser.exit(2, f'{exc}\n')
     if args.execute and (report['priced_requests'] != len(REFERENCES)
-                         or any(row['vision'] != 'PARSED' for row in report['cases'])):
+                         or any(row['vision'] != 'PARSED' or row.get('visual_stage_http') != 200
+                                for row in report['cases'])):
         parser.exit(1, 'Візуальний пілот завершився без повного набору результатів. Перевірте звіт.\n')
 
 

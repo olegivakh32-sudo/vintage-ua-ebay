@@ -32,6 +32,7 @@ PILOT_MODELS = {
 }
 PILOT_MAXIMUM = Decimal('0.25')
 VISION_MAXIMUM = Decimal('0.0204')  # 128,000 input tokens and no more than 2,000 output tokens.
+VISION_CACHED_INPUT_RATE = Decimal('0.075')
 WORST_CASE_RESERVATION = sum(
     (calls * (context * input_rate + 5200 * output_rate) / 1_000_000
      for calls, (context, input_rate, output_rate) in zip((4, 1), PILOT_MODELS.values())),
@@ -189,10 +190,15 @@ def visual_usage(response_data, expected_model):
     if (type(input_tokens) is not int or not 1 <= input_tokens <= context
             or type(output_tokens) is not int or not 0 <= output_tokens <= 2000):
         return {}
-    # Apply the undiscounted tariff. An invoice can apply cache discounts.
     cost = (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000
-    return {'model': expected_model, 'input_tokens': input_tokens, 'output_tokens': output_tokens,
-            'standard_cost_usd': str(cost)}
+    metrics = {'model': expected_model, 'input_tokens': input_tokens, 'output_tokens': output_tokens,
+               'standard_cost_usd': str(cost)}
+    input_details = usage.get('input_tokens_details')
+    cached = input_details.get('cached_tokens') if isinstance(input_details, dict) else None
+    if type(cached) is int and 0 <= cached <= input_tokens:
+        discount = cached * (input_rate - VISION_CACHED_INPUT_RATE) / 1_000_000
+        metrics.update(cached_input_tokens=cached, metered_cost_usd=str(cost - discount))
+    return metrics
 
 
 def run(data, photos, limits):
