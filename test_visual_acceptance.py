@@ -174,6 +174,19 @@ class VisualAcceptanceTests(unittest.TestCase):
         result['model'] += ' W'
         self.assertEqual(outcome(case, result)['comparison']['category_id']['status'], 'PENDING_IDENTIFICATION')
 
+    def test_audit_preserves_original_row_with_rejected_decision(self):
+        case = dict(lot='fixture', labels={}, reference_id='1', offline='UNRESOLVED',
+                    offline_elapsed_ms=0, license='CC0', photo_source='', fact_source='')
+        source = dict(field='type', value='electric kettle', photos=[3], basis='Visible handle')
+        result = dict(mode='APPROVED_VISION_ONLY',
+                      analysis='PRODUCT_OBSERVATIONS_JSON ' + json.dumps({'fields': [source]}),
+                      evidence_diagnostics={'field_decisions': [{'index': 1, 'reasons': ['NO_VALID_PHOTO']}]})
+        report = outcome(case, result)
+        self.assertEqual(report['observation_inputs'],
+                         [{'index': 1, 'value': 'electric kettle', 'basis': 'Visible handle',
+                           'photos': [3], 'name': None}])
+        self.assertEqual(report['comparison']['identity']['status'], 'NO_RESULT')
+
     def test_reported_tokens_are_priced_at_standard_rate(self):
         response = {'model': MODEL, 'service_tier': 'default',
                     'usage': {'input_tokens': 128000, 'output_tokens': 2000}}

@@ -128,12 +128,28 @@ def outcome(case, result):
                                  'status': category_status, 'reference': category}
     checks['features'] = {'observed': evidence.get('feature', []),
                           'documented_model_or_object': case.get('documented_features')}
+    # These are seller-photo observations from the three approved public images.
+    # Save bounded values beside the decision codes so rejected rows remain auditable.
+    from product_evidence import text_value
+    from visual_protocol import machine_object
+
+    observations = machine_object(result.get('analysis'), 'PRODUCT_OBSERVATIONS_JSON').get('fields')
+    observed_inputs = [
+        {'index': index, 'value': text_value(row.get('value'), 240) or
+         (row['value'].strip()[:240] if isinstance(row.get('value'), str) else None),
+         'basis': text_value(row.get('basis'), 300) or None,
+         'photos': [photo for photo in row.get('photos', [])[:32] if type(photo) is int]
+         if isinstance(row.get('photos'), list) else [],
+         'name': text_value(row.get('name'), 50) or None}
+        for index, row in enumerate(observations[:36], 1) if isinstance(row, dict)
+    ] if isinstance(observations, list) and result.get('mode') == 'APPROVED_VISION_ONLY' else []
     return {
         **{key: case[key] for key in ('lot', 'reference_id', 'offline', 'offline_elapsed_ms', 'license',
                                     'photo_source', 'fact_source')},
         'vision': 'PARSED' if parsed else 'NO_RESULT' if attempted else 'NOT_RUN',
         'visual_stage_http': (result.get('stage_http') or {}).get('visual'),
         'evidence_diagnostics': result.get('evidence_diagnostics'),
+        'observation_inputs': observed_inputs,
         'visual_evidence': evidence,
         'physical_readings': result.get('physical_readings') or {},
         'processing_elapsed_ms': result.get('processing_elapsed_ms'),
