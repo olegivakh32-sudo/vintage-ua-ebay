@@ -1,0 +1,554 @@
+{
+  "github_run": 45888499679,
+  "artifact": {
+    "id": 15149754463,
+    "sha256": "a45b390369797699ae13d2f6c63cc861018a394dee54195f1cf33c7e21f83ab2"
+  },
+  "approved_usd": "0.50",
+  "run_reserve_usd": "0.43335",
+  "model": "gpt-6-luna",
+  "free_preflight": {
+    "metadata_http": 200,
+    "responses_schema_checked_http": 400,
+    "token_count_http": 200
+  },
+  "provider_calls_sent": 2,
+  "stopped": true,
+  "model_complete_lots": 0,
+  "planned_lots": 3,
+  "cost_usd": {
+    "vision_from_provider_usage": "0.0006301",
+    "research_from_provider_usage": "0.0248227",
+    "total_from_provider_usage": "0.0254528",
+    "billing_invoice_verified": false
+  },
+  "timing_ms": {
+    "vision_inference": 5728,
+    "search_inference": 44433,
+    "vision_stage": 6109,
+    "search_stage": 44843,
+    "first_lot": 52423
+  },
+  "stop": {
+    "keyword": "max_output_tokens",
+    "reason": "Both the research response was incomplete and the adapter counted an unfinished third search record against the cap.",
+    "provider_input_tokens": 26352,
+    "provider_output_tokens": 4375,
+    "reasoning_tokens": 3454,
+    "max_tool_calls": 2,
+    "tool_record_statuses": [
+      "completed",
+      "completed",
+      "searching"
+    ],
+    "billable_web_searches": 2
+  },
+  "frozen_benchmark": {
+    "fields": {
+      "identity": {
+        "correct": 0,
+        "labelled": 3
+      },
+      "brand": {
+        "correct": 0,
+        "labelled": 2
+      },
+      "model": {
+        "correct": 0,
+        "labelled": 2
+      },
+      "ocr": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "period": {
+        "correct": 0,
+        "labelled": 1
+      },
+      "material": {
+        "correct": 0,
+        "labelled": 1
+      },
+      "country": {
+        "correct": 0,
+        "labelled": 1
+      },
+      "condition": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "completeness": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "defects": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "category_id": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "weight_kg": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "length_cm": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "width_cm": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "height_cm": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "product_photos": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "evidence_photos": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "main_photo": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "title_terms": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "seo_passed": {
+        "correct": 0,
+        "labelled": 0
+      }
+    },
+    "unknown_by_field": {
+      "identity": 2,
+      "brand": 2,
+      "model": 2,
+      "ocr": 0,
+      "period": 1,
+      "material": 1,
+      "country": 1,
+      "condition": 0,
+      "completeness": 0,
+      "defects": 0,
+      "category_id": 0,
+      "weight_kg": 0,
+      "length_cm": 0,
+      "width_cm": 0,
+      "height_cm": 0,
+      "product_photos": 0,
+      "evidence_photos": 0,
+      "main_photo": 0,
+      "title_terms": 0,
+      "seo_passed": 0
+    },
+    "missing_predictions": [
+      "MV-102",
+      "MV-103"
+    ],
+    "mismatches": {
+      "MV-101": [
+        "identity",
+        "period",
+        "material",
+        "country"
+      ],
+      "MV-102": [
+        "identity",
+        "brand",
+        "model"
+      ],
+      "MV-103": [
+        "identity",
+        "brand",
+        "model"
+      ]
+    },
+    "identity_abstentions": 2,
+    "identity_target_met": false,
+    "passed": false
+  },
+  "lots": [
+    {
+      "lot": "MV-101",
+      "status": "HOLD",
+      "stage_http": {
+        "visual": 200,
+        "research": 500,
+        "draft": null
+      },
+      "fields": {
+        "identity": {
+          "state": "SEMANTIC_MATCH_STRICT_MISMATCH",
+          "cause": "Exported category name contains purpose and two phrasings. The frozen alias set accepts only plate."
+        },
+        "maker": {
+          "state": "UNKNOWN",
+          "cause": "No legible maker mark and no manufacturer named in the exact museum record."
+        },
+        "model": {
+          "state": "UNKNOWN",
+          "cause": "1998.257 identifies the catalogue item. It is not a commercial model."
+        },
+        "marking": {
+          "state": "MATCH_IN_CARD",
+          "cause": "The accession number is visible in photo 2 and matches the museum record."
+        },
+        "material": {
+          "state": "MATCH_IN_PARTIAL_RESEARCH_ONLY",
+          "cause": "Search stopped before the production handoff. The visual observation was ceramic at 78 percent, below the confirmation threshold. One exact citation gave a hypothesis during offline replay."
+        },
+        "country": {
+          "state": "MATCH_IN_PARTIAL_RESEARCH_ONLY",
+          "cause": "Search stopped before handoff. The exact England/Staffordshire attribution has one primary citation."
+        },
+        "period": {
+          "state": "MATCH_IN_PARTIAL_RESEARCH_ONLY",
+          "cause": "Search stopped before handoff. The exact circa 1760 reference has one primary citation."
+        },
+        "dimensions": {
+          "state": "DOCUMENTARY_MATCH_IN_PARTIAL_RESEARCH_ONLY",
+          "cause": "The museum records a diameter of 30.5 cm and a total height of 4.3 cm. The photos contain no instrument readings."
+        },
+        "weight": {
+          "state": "UNKNOWN",
+          "cause": "No scale reading or exact documented item mass."
+        },
+        "condition": {
+          "state": "PHOTO_CANDIDATE",
+          "cause": "Underside specks and discoloration at 83 percent confidence were below the confirmation threshold."
+        },
+        "defects": {
+          "state": "UNKNOWN",
+          "cause": "The visual response did not verify chips, breaks or other defects."
+        },
+        "completeness": {
+          "state": "UNKNOWN",
+          "cause": "A single object is visible. The supplied record does not verify the as-sold completeness."
+        },
+        "category_price_shipping": {
+          "state": "HOLD",
+          "cause": "Research stopped before producing the relevant structured blocks. The draft step was not reached."
+        }
+      },
+      "reviewed_source": "https://www.clevelandart.org/art/1998.257",
+      "catalogue_ref": "1998.257",
+      "replayed_claims": [
+        {
+          "field": "type",
+          "value": "Plate with pierced lattice panels, scalloped edge and moulded basket-weave/scroll relief",
+          "photos": [
+            1,
+            2
+          ],
+          "references": [
+            {
+              "url": "https://www.clevelandart.org/art/1998.257",
+              "kind": "MUSEUM",
+              "excerpt": "“This particular plate features intricate basket weave patterns, decorative frames, and scalloped edges”; the record also describes openwork lattice square cutouts."
+            }
+          ],
+          "contradictions": [],
+          "status": "HYPOTHESIS"
+        },
+        {
+          "field": "model",
+          "value": "No commercial model or maker assigned in the museum record; exact model unconfirmed",
+          "photos": [
+            1,
+            2
+          ],
+          "references": [
+            {
+              "url": "https://www.clevelandart.org/art/1998.257",
+              "kind": "MUSEUM",
+              "excerpt": "Catalogued simply as “Plate”; attribution is Staffordshire, not to a named maker."
+            }
+          ],
+          "contradictions": [],
+          "status": "HYPOTHESIS"
+        },
+        {
+          "field": "country",
+          "value": "England, Staffordshire",
+          "photos": [
+            1,
+            2
+          ],
+          "references": [
+            {
+              "url": "https://www.clevelandart.org/art/1998.257",
+              "kind": "MUSEUM",
+              "excerpt": "“England, Staffordshire”"
+            }
+          ],
+          "contradictions": [],
+          "status": "HYPOTHESIS"
+        },
+        {
+          "field": "period",
+          "value": "Circa 1760",
+          "photos": [
+            1,
+            2
+          ],
+          "references": [
+            {
+              "url": "https://www.clevelandart.org/art/1998.257",
+              "kind": "MUSEUM",
+              "excerpt": "“c. 1760”"
+            }
+          ],
+          "contradictions": [],
+          "status": "HYPOTHESIS"
+        },
+        {
+          "field": "material",
+          "value": "Salt-glazed stoneware",
+          "photos": [
+            1,
+            2
+          ],
+          "references": [
+            {
+              "url": "https://www.clevelandart.org/art/1998.257",
+              "kind": "MUSEUM",
+              "excerpt": "Medium: “salt-glazed stoneware”"
+            }
+          ],
+          "contradictions": [],
+          "status": "HYPOTHESIS"
+        },
+        {
+          "field": "length_cm",
+          "value": 30.5,
+          "photos": [
+            1
+          ],
+          "references": [
+            {
+              "url": "https://www.clevelandart.org/art/1998.257",
+              "kind": "MUSEUM",
+              "excerpt": "Diameter: 30.5 cm (12 in.)."
+            }
+          ],
+          "contradictions": [],
+          "status": "HYPOTHESIS"
+        },
+        {
+          "field": "width_cm",
+          "value": 30.5,
+          "photos": [
+            1
+          ],
+          "references": [
+            {
+              "url": "https://www.clevelandart.org/art/1998.257",
+              "kind": "MUSEUM",
+              "excerpt": "Diameter: 30.5 cm (12 in.)."
+            }
+          ],
+          "contradictions": [],
+          "status": "HYPOTHESIS"
+        },
+        {
+          "field": "height_cm",
+          "value": 4.3,
+          "photos": [
+            2
+          ],
+          "references": [
+            {
+              "url": "https://www.clevelandart.org/art/1998.257",
+              "kind": "MUSEUM",
+              "excerpt": "Overall: 4.3 cm (1 11/16 in.)."
+            }
+          ],
+          "contradictions": [],
+          "status": "HYPOTHESIS"
+        }
+      ],
+      "replayed_claim_decisions": [
+        {
+          "index": 1,
+          "field": "type",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1,
+            2
+          ]
+        },
+        {
+          "index": 2,
+          "field": "model",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1,
+            2
+          ]
+        },
+        {
+          "index": 3,
+          "field": "country",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1,
+            2
+          ]
+        },
+        {
+          "index": 4,
+          "field": "period",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1,
+            2
+          ]
+        },
+        {
+          "index": 5,
+          "field": "material",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1,
+            2
+          ]
+        },
+        {
+          "index": 6,
+          "field": "length_cm",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1
+          ]
+        },
+        {
+          "index": 7,
+          "field": "width_cm",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1
+          ]
+        },
+        {
+          "index": 8,
+          "field": "height_cm",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "lot": "MV-102",
+      "status": "NOT_REACHED"
+    },
+    {
+      "lot": "MV-103",
+      "status": "NOT_REACHED"
+    }
+  ],
+  "independent_chatgpt_comparison": {
+    "status": "MISSING_PREDICTIONS",
+    "paired": false
+  },
+  "usage": {
+    "photos": {
+      "model": "gpt-6-luna",
+      "input_tokens": 2736,
+      "output_tokens": 713,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "web_calls": 0,
+      "metered_usd": "0.0006301"
+    },
+    "research": {
+      "model": "gpt-6-luna",
+      "input_tokens": 26352,
+      "output_tokens": 4375,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "web_calls": 2,
+      "metered_usd": "0.0248227"
+    }
+  }
+}

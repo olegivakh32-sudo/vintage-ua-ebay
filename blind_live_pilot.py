@@ -199,9 +199,13 @@ class LiveBudget:
                 write_report(saved, result)
                 row['response_file'] = saved.name
                 row.update(meter(result, stage))
-                if (result.get('status') != 'completed' or (stage == 'photos' and visual_response_issue(result))
-                        or row['web_calls'] < (stage == 'research')):
-                    raise RuntimeError('Incomplete model response or missing live search')
+                if result.get('status') != 'completed' or (stage == 'photos' and visual_response_issue(result)):
+                    reason = (result.get('incomplete_details') or {}).get('reason')
+                    if reason in ('max_output_tokens', 'content_filter'):
+                        raise RuntimeError(f'Incomplete model response: {reason}')
+                    raise RuntimeError('Incomplete model response')
+                if stage == 'research' and not row['web_calls']:
+                    raise RuntimeError('Missing live search')
                 return response
             finally:
                 row['inference_ms'] = round((monotonic() - inference_started) * 1000)
@@ -221,11 +225,14 @@ def meter(result, stage):
     details = usage.get('input_tokens_details') or {}
     inputs, outputs = usage.get('input_tokens'), usage.get('output_tokens')
     cached, written = details.get('cached_tokens', 0), details.get('cache_write_tokens', 0)
-    searches = sum(item.get('type') == 'web_search_call' for item in (result.get('output') or []))
+    web_usage = (result.get('tool_usage') or {}).get('web_search')
+    # The output stream can include a searching placeholder that was never billed.
+    searches = (web_usage.get('num_requests') if web_usage is not None else
+                sum(item.get('type') == 'web_search_call' for item in (result.get('output') or [])))
     input_limit = BASE_TOKENS if stage == 'photos' else RESEARCH_INPUT_MAX
     output_limit = VISUAL_OUTPUT if stage == 'photos' else RESEARCH_OUTPUT
     if (result.get('model') != MODEL or result.get('service_tier') != 'default'
-            or any(type(value) is not int or value < 0 for value in (inputs, outputs, cached, written))
+            or any(type(value) is not int or value < 0 for value in (inputs, outputs, cached, written, searches))
             or not 0 < inputs <= input_limit or outputs > output_limit or cached + written > inputs
             or searches > (0 if stage == 'photos' else SEARCH_LIMIT)
             or (details.get('cache_write_tokens_details') or {}).get('ttl_12h_tokens')):

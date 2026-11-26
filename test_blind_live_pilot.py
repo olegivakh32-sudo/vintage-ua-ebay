@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 import requests
 
 from ai_pilot import PilotLimits, run
-from blind_live_pilot import API, BASE_TOKENS, CAP, FULL_RESERVE, MODEL, LiveBudget, free_preflight
+from blind_live_pilot import API, BASE_TOKENS, CAP, FULL_RESERVE, MODEL, LiveBudget, free_preflight, meter
 from test_mobile import m
 from visual_protocol import VISUAL_TEXT
 
@@ -20,6 +20,19 @@ def response(data, status=200):
 
 
 class BlindPilotTests(unittest.TestCase):
+    def test_meter_uses_billable_search_count_for_partial_responses(self):
+        result = {'model': MODEL, 'service_tier': 'default', 'status': 'incomplete',
+                  'usage': {'input_tokens': 26352, 'output_tokens': 4375},
+                  'tool_usage': {'web_search': {'num_requests': 2}},
+                  'output': [{'type': 'web_search_call', 'status': state}
+                             for state in ('completed', 'completed', 'searching')]}
+        measured = meter(result, 'research')
+        self.assertEqual(measured['web_calls'], 2)
+        self.assertEqual(measured['metered_usd'], '0.0248227')
+        result['tool_usage']['web_search']['num_requests'] = 3
+        with self.assertRaisesRegex(RuntimeError, 'Unexpected provider'):
+            meter(result, 'research')
+
     def test_free_preflight_only_counts_when_model_access_is_confirmed(self):
         empty = response({'error': {'code': 'missing_required_parameter', 'param': 'model'}}, 400)
         with (patch.object(requests.Session, 'get', return_value=response({'id': MODEL})) as metadata,
