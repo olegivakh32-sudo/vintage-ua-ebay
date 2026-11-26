@@ -3043,7 +3043,7 @@ def _identity_claims_html(claims):
         return ''
     states = {'CORROBORATED_REFERENCE': 'Джерела узгоджуються',
               'CONTESTED': 'Суперечність', 'HYPOTHESIS': 'Припущення',
-              'CATALOGUE_REFERENCE': 'Довідка виробника для моделі'}
+              'CATALOGUE_REFERENCE': 'Довідка каталогу'}
     rows = []
     for claim in claims:
         unit = ' кг' if claim['field'] == 'weight_kg' else ' см' if claim['field'].endswith('_cm') else ''
@@ -3065,7 +3065,7 @@ _PRODUCT_FIELD_LABELS = {'type':'Тип', 'brand':'Виробник', 'model':'�
 def _product_evidence_html(evidence, *, show_unknown=False):
     statuses = {'SELLER_VERIFIED':'Підтверджено продавцем', 'PHOTO_OBSERVATION':'Спостереження з фото',
                 'PHOTO_CANDIDATE':'Потребує перевірки', 'PHOTO_SURFACE_NOTE':'У межах видимого кадру',
-                'CATALOGUE_REFERENCE':'Довідка виробника для моделі',
+                'CATALOGUE_REFERENCE':'Довідка каталогу',
                 'PHOTO_MEASUREMENT':'Показ із фото', 'SHIPPING_ESTIMATE':'Оцінка для доставки',
                 'CORROBORATED_REFERENCE':'Джерела узгоджуються', 'HYPOTHESIS':'Припущення',
                 'CONTESTED':'Суперечність'}
@@ -3105,6 +3105,7 @@ def _observation_diagnostics_html(decisions, *, heading='Перевірка сп
         'NO_VALID_PHOTO': 'немає посилання на доступне фото',
         'MISSING_OR_INVALID_BASIS': 'немає опису видимого доказу',
         'INVALID_CONFIDENCE': 'некоректна оцінка моделі', 'MISSING_FEATURE_NAME': 'немає назви характеристики',
+        'COMPLETENESS_REQUIRES_INVENTORY': 'для підтвердження комплектності потрібен перелік складових',
         'BELOW_CONFIRMATION_THRESHOLD': 'нижче порога підтвердження',
         'ABSENCE_IS_SURFACE_NOTE': 'примітку перенесено в огляд поверхні', 'DUPLICATE': 'дублікат',
         'CLAIM_LIMIT': 'за межею перевірки джерел', 'INVALID_CLAIM': 'пошкоджена довідкова характеристика',
@@ -4802,7 +4803,10 @@ def picker_analyze():
     # P024.7: machine-readable control lines are internal protocol, not seller-facing report text.
     display_analysis=re.sub(r'(?m)^\s*(?:PHOTO_ROLES_JSON|PHOTO_SCENES_JSON|AUTO_FACTS_JSON|SCOPE_JSON|PRODUCT_OBSERVATIONS_JSON|PHYSICAL_READINGS_JSON):.*(?:\n|$)', '', str(analysis or '')).strip()
     observations = _research_machine_json(analysis, 'PRODUCT_OBSERVATIONS_JSON').get('fields')
-    visual_evidence, decisions = assess_photo_observations(observations if isinstance(observations, list) else [], count)
+    visual_evidence, decisions = assess_photo_observations(
+        observations if isinstance(observations, list) else [], count,
+        summary_type=facts.get('object_type', '') if isinstance(observations, list) else '',
+    )
     body=f"""<h2>{label} — Аналіз ШІ</h2><p style='color:green'><b>✓ Візуальний аналіз завершено</b></p>{compact}{_usage_summary_html(picker_id)}
     {_product_evidence_html(visual_evidence, show_unknown=isinstance(observations, list))}{_observation_diagnostics_html(decisions)}
     <details><summary><b>Переглянути звіт ШІ</b></summary><div style='border:1px solid #ccc;padding:14px;border-radius:8px;background:#fafafa;margin-top:10px'>{text_to_html(display_analysis)}</div></details>
@@ -6974,7 +6978,8 @@ def _shipping_page(picker_id):
         checks.append(f"<label><input type='checkbox' name='material_choice' value='{html.escape(c,quote=True)}' {'checked' if selected else ''}> {html.escape(c)}</label>")
     # P024.7: photos/AI can never prove function. Seller must explicitly change this control.
     identity_type=_research_machine_json(identification,'IDENTITY_JSON').get('type','')
-    status='Not applicable' if _p081_passive(identity_type) else 'Untested'; comp=facts.get('completeness') or 'Unknown'
+    status='Not applicable' if _p081_passive(identity_type) else 'Untested'
+    comp = 'Incomplete' if facts.get('completeness') == 'Incomplete' else 'Unknown'
     status_options=''.join(f"<option value='{html.escape(x,quote=True)}' {'selected' if x==status else ''}>{html.escape(x)}</option>" for x in ("Untested","Tested working","Tested not working","Not applicable"))
     comp_options=''.join(f"<option value='{x}' {'selected' if x==comp else ''}>{x}</option>" for x in ("Unknown","Complete","Incomplete"))
     _roles=PHOTO_ROLE_CACHE.get(picker_id) or {}
@@ -7074,7 +7079,7 @@ def final_listing(automatic_revision=None):
             observed.extend({'field':field, 'value':record[value_key], 'photos':[record['photo']],
                              'basis':'Visible transcription from the visual report', 'confidence':90}
                             for record in facts.get(key, []) if '[?]' not in record[value_key])
-        assessed = assess_photo_observations(observed, photo_count)
+        assessed = assess_photo_observations(observed, photo_count, summary_type=facts.get('object_type', ''))
         observation_decisions = assessed[1]
         references = _structured_identity_claims(identification, market, photo_count, decisions=reference_decisions)
         references.extend(catalogue_claims(_picker_catalogue_matches(analysis, items)))

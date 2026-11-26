@@ -1,0 +1,629 @@
+{
+  "mode": "offline_render_of_actual_paid_evidence_with_read_only_documentary_sources",
+  "paid_run": 45826769724,
+  "previous_paid_run": 45813009221,
+  "paid_requests_during_replay": 0,
+  "cases": [
+    {
+      "lot": "A01",
+      "new_api_identity_status": "NO_RESULT",
+      "previous_api_identity_status": "NO_RESULT",
+      "new_api_ms": 5744,
+      "previous_api_ms": 5671,
+      "new_paid_observations": 0,
+      "previous_paid_observations": 0,
+      "search_and_reference": {
+        "ocr_catalogue_matches": [],
+        "local_ocr_characters": 20,
+        "museum_search": {
+          "query_url": "https://openaccess-api.clevelandart.org/api/artworks/?q=teapot&limit=12",
+          "candidates_returned": 12,
+          "first_candidate_url": "https://clevelandart.org/art/1940.228",
+          "candidate_image_url": "https://openaccess-cdn.clevelandart.org/1940.228/1940.228_web.jpg",
+          "candidate_image_http": 200,
+          "image_sha256": "bd9a78030f18d267ccc74dceec08b8e9b9d4bf8a1ccd0aca821d556b47e78b8b",
+          "same_original": true,
+          "record": {
+            "title": "Teapot",
+            "technique": "Silver, Wood",
+            "measurements": "with handle: 14.5 x 24.4 cm (5 11/16 x 9 5/8 in.)",
+            "creation_date": "c. 1755–60",
+            "creators": [
+              {
+                "id": 33346,
+                "description": "Nathaniel Hurd (American, 1730–1778)",
+                "extent": null,
+                "qualifier": null,
+                "role": "maker",
+                "biography": null,
+                "name_in_original_language": null,
+                "birth_year": "1730",
+                "death_year": "1778",
+                "use_in_caption": true,
+                "include_extent": false,
+                "weight": 1
+              }
+            ]
+          }
+        },
+        "other_analogues": [
+          {
+            "title": "Teapot with Begonias",
+            "creation_date": "1897–1914",
+            "technique": "Porcelain with underglaze and overglaze colors",
+            "url": "https://clevelandart.org/art/2022.168.a"
+          },
+          {
+            "title": "Covered Teapot",
+            "creation_date": "1887–96",
+            "technique": "silver gilt, opaque cloisonné enamel",
+            "url": "https://clevelandart.org/art/1966.500.1"
+          },
+          {
+            "title": "Teapot with Begonias",
+            "creation_date": "1897–1914",
+            "technique": "Porcelain with underglaze and overglaze colors",
+            "url": "https://clevelandart.org/art/2022.168"
+          },
+          {
+            "title": "Teapot with Chrysanthemum Motifs",
+            "creation_date": "1912–14",
+            "technique": "Porcelain with overglaze color enamel and gold",
+            "url": "https://clevelandart.org/art/2022.167"
+          }
+        ]
+      },
+      "stored_category_path_checks": {
+        "reference": {
+          "status": "REVIEW_COMPOSITION",
+          "rejected_id": "37998",
+          "source": "https://www.ebay.com/b/Antique-US-Sterling-Silver-Teapots-Coffee-Pots-Sets/37998/bn_16561856",
+          "reason": "The museum documents Colonial America, silver and wood. It does not specify sterling fineness on the public object page."
+        },
+        "public_page_http": 307,
+        "material_guard": [
+          false,
+          "Sterling Silver/.925 category requires explicit sterling/purity evidence; Metal or Silver Tone is insufficient"
+        ]
+      },
+      "after_fix_decisions": [
+        {
+          "index": 1,
+          "field": "condition",
+          "status": "PHOTO_CANDIDATE",
+          "reasons": [
+            "BELOW_CONFIRMATION_THRESHOLD"
+          ],
+          "confidence": 80,
+          "photos": [
+            1
+          ],
+          "output_field": "condition"
+        },
+        {
+          "index": 2,
+          "field": "defect",
+          "status": "PHOTO_SURFACE_NOTE",
+          "reasons": [
+            "ABSENCE_IS_SURFACE_NOTE"
+          ],
+          "confidence": 90,
+          "photos": [
+            1
+          ],
+          "output_field": "condition"
+        },
+        {
+          "index": 3,
+          "field": "material",
+          "status": "PHOTO_CANDIDATE",
+          "reasons": [
+            "BELOW_CONFIRMATION_THRESHOLD"
+          ],
+          "confidence": 75,
+          "photos": [
+            1
+          ],
+          "output_field": "material"
+        },
+        {
+          "index": 4,
+          "field": "feature",
+          "status": "PHOTO_CANDIDATE",
+          "reasons": [
+            "BELOW_CONFIRMATION_THRESHOLD",
+            "MISSING_FEATURE_NAME"
+          ],
+          "confidence": 80,
+          "photos": [
+            1
+          ],
+          "output_field": "feature"
+        },
+        {
+          "index": 5,
+          "field": "feature",
+          "status": "PHOTO_CANDIDATE",
+          "reasons": [
+            "BELOW_CONFIRMATION_THRESHOLD",
+            "MISSING_FEATURE_NAME"
+          ],
+          "confidence": 85,
+          "photos": [
+            1
+          ],
+          "output_field": "feature"
+        }
+      ],
+      "review_card_http": 200,
+      "review_card_fields": {
+        "type": [
+          {
+            "value": "teapot",
+            "status": "HYPOTHESIS",
+            "photos": [],
+            "basis": "Тип зі зведення ШІ без окремого спостереження"
+          }
+        ],
+        "brand": [
+          {
+            "value": "Nathaniel Hurd",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              1
+            ],
+            "references": [
+              {
+                "url": "https://clevelandart.org/art/1940.228",
+                "kind": "CATALOG",
+                "excerpt": "Cleveland Museum of Art • exact source-image SHA-256 match"
+              }
+            ],
+            "contradictions": []
+          }
+        ],
+        "material": [
+          {
+            "value": "silver",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              1
+            ],
+            "basis": "metallic appearance and weight perception"
+          },
+          {
+            "value": "Silver, Wood",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              1
+            ],
+            "references": [
+              {
+                "url": "https://clevelandart.org/art/1940.228",
+                "kind": "CATALOG",
+                "excerpt": "Cleveland Museum of Art • exact source-image SHA-256 match"
+              }
+            ],
+            "contradictions": []
+          }
+        ],
+        "period": [
+          {
+            "value": "c. 1755–60",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              1
+            ],
+            "references": [
+              {
+                "url": "https://clevelandart.org/art/1940.228",
+                "kind": "CATALOG",
+                "excerpt": "Cleveland Museum of Art • exact source-image SHA-256 match"
+              }
+            ],
+            "contradictions": []
+          }
+        ],
+        "condition": [
+          {
+            "value": "polished, shiny",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              1
+            ],
+            "basis": "visible surface finish with no apparent tarnish or corrosion"
+          },
+          {
+            "value": "На цьому фото видимих дефектів не помічено",
+            "status": "PHOTO_SURFACE_NOTE",
+            "photos": [
+              1
+            ],
+            "basis": "no visible dents or scratches"
+          }
+        ],
+        "feature": [
+          {
+            "value": "decorative engraving",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              1
+            ],
+            "basis": "visible ornate engravings on the body and lid"
+          },
+          {
+            "value": "wooden handle",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              1
+            ],
+            "basis": "visible wooden part of the handle"
+          },
+          {
+            "value": "with handle: 14.5 x 24.4 cm (5 11/16 x 9 5/8 in.)",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              1
+            ],
+            "references": [
+              {
+                "url": "https://clevelandart.org/art/1940.228",
+                "kind": "CATALOG",
+                "excerpt": "Cleveland Museum of Art • exact source-image SHA-256 match"
+              }
+            ],
+            "contradictions": []
+          }
+        ]
+      },
+      "unknown_specimen_measurements": [
+        "weight_kg",
+        "length_cm",
+        "width_cm",
+        "height_cm"
+      ],
+      "admitted": false,
+      "offline_replay_ms": 862
+    },
+    {
+      "lot": "A02",
+      "new_api_identity_status": "REQUIRES_INDEPENDENT_REVIEW",
+      "previous_api_identity_status": "ABSTAINED",
+      "new_api_ms": 6792,
+      "previous_api_ms": 5931,
+      "new_paid_observations": 2,
+      "previous_paid_observations": 1,
+      "search_and_reference": {
+        "ocr_catalogue_matches": [
+          {
+            "reference_id": "RP-PICO2",
+            "brand": "Raspberry Pi",
+            "model": "Raspberry Pi Pico 2",
+            "type": "microcontroller board",
+            "url": "https://www.raspberrypi.com/products/raspberry-pi-pico-2/",
+            "photos": [
+              1
+            ],
+            "status": "CATALOGUE_CANDIDATE"
+          }
+        ],
+        "local_ocr_characters": 133,
+        "manufacturer": {
+          "source": "https://www.raspberrypi.com/products/raspberry-pi-pico-2/",
+          "http": 200,
+          "title": "Buy a Raspberry Pi Pico 2 – Raspberry Pi",
+          "excerpts": [
+            "RP2350",
+            "150MHz"
+          ]
+        },
+        "variant_documentation": "https://www.raspberrypi.com/documentation/microcontrollers/pico-series.html"
+      },
+      "stored_category_path_checks": {
+        "reference": {
+          "id": "65507",
+          "path": "Business & Industrial > Electrical Equipment & Supplies > Electronic Components & Semiconductors > Semiconductors & Actives > Development Kits & Boards",
+          "source": "https://www.ebay.com/b/Raspberry-Pi-Development-Kits-Boards/65507/bn_117868551",
+          "checked_on": "2026-11-25"
+        },
+        "public_page_http": 307,
+        "application_preflight_on_recorded_path": [
+          false,
+          "Category leaf has a different purpose or object type; run Preflight again"
+        ],
+        "reference_or_hypothesis_semantics": [
+          true,
+          "Compatible product type and category hierarchy"
+        ]
+      },
+      "after_fix_decisions": [
+        {
+          "index": 1,
+          "field": "type",
+          "status": "PHOTO_OBSERVATION",
+          "reasons": [],
+          "confidence": 90,
+          "photos": [
+            1
+          ],
+          "output_field": "type"
+        },
+        {
+          "index": 2,
+          "field": "completeness",
+          "status": "PHOTO_CANDIDATE",
+          "reasons": [
+            "COMPLETENESS_REQUIRES_INVENTORY"
+          ],
+          "confidence": 90,
+          "photos": [
+            1
+          ],
+          "output_field": "completeness"
+        },
+        {
+          "index": 3,
+          "field": "defect",
+          "status": "PHOTO_SURFACE_NOTE",
+          "reasons": [
+            "ABSENCE_IS_SURFACE_NOTE"
+          ],
+          "confidence": 90,
+          "photos": [
+            1
+          ],
+          "output_field": "condition"
+        }
+      ],
+      "review_card_http": 200,
+      "review_card_fields": {
+        "type": [
+          {
+            "value": "Microcontroller",
+            "status": "PHOTO_OBSERVATION",
+            "photos": [
+              1
+            ],
+            "basis": "Clear view of component layout and markings on the board."
+          },
+          {
+            "value": "microcontroller board",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              1
+            ],
+            "references": [
+              {
+                "url": "https://www.raspberrypi.com/products/raspberry-pi-pico-2/",
+                "kind": "CATALOG",
+                "excerpt": "Raspberry Pi Pico 2 • type: microcontroller board"
+              }
+            ],
+            "contradictions": []
+          }
+        ],
+        "brand": [
+          {
+            "value": "Raspberry Pi",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              1
+            ],
+            "references": [
+              {
+                "url": "https://www.raspberrypi.com/products/raspberry-pi-pico-2/",
+                "kind": "CATALOG",
+                "excerpt": "Raspberry Pi Pico 2 • brand: Raspberry Pi"
+              }
+            ],
+            "contradictions": []
+          }
+        ],
+        "model": [
+          {
+            "value": "Raspberry Pi Pico 2",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              1
+            ],
+            "references": [
+              {
+                "url": "https://www.raspberrypi.com/products/raspberry-pi-pico-2/",
+                "kind": "CATALOG",
+                "excerpt": "Raspberry Pi Pico 2 • model: Raspberry Pi Pico 2"
+              }
+            ],
+            "contradictions": []
+          }
+        ],
+        "condition": [
+          {
+            "value": "На цьому фото видимих дефектів не помічено",
+            "status": "PHOTO_SURFACE_NOTE",
+            "photos": [
+              1
+            ],
+            "basis": "No visible defects noted in the photo."
+          }
+        ],
+        "completeness": [
+          {
+            "value": "Complete",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              1
+            ],
+            "basis": "All visible physical elements of the microcontroller are present."
+          }
+        ],
+        "feature": [
+          {
+            "value": "RP2350 · 150 MHz",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              1
+            ],
+            "references": [
+              {
+                "url": "https://www.raspberrypi.com/products/raspberry-pi-pico-2/",
+                "kind": "CATALOG",
+                "excerpt": "Official product page"
+              }
+            ],
+            "contradictions": []
+          }
+        ]
+      },
+      "unknown_specimen_measurements": [
+        "weight_kg",
+        "length_cm",
+        "width_cm",
+        "height_cm"
+      ],
+      "admitted": false,
+      "offline_replay_ms": 2597
+    },
+    {
+      "lot": "A03",
+      "new_api_identity_status": "ABSTAINED",
+      "previous_api_identity_status": "NO_RESULT",
+      "new_api_ms": 5922,
+      "previous_api_ms": 4833,
+      "new_paid_observations": 1,
+      "previous_paid_observations": 0,
+      "search_and_reference": {
+        "ocr_catalogue_matches": [],
+        "local_ocr_characters": 9,
+        "family_documentation": {
+          "source": "https://www.nintendo.com/us/gaming-systems/switch/tech-specs/",
+          "http": 200,
+          "title": "Technical Specs - Nintendo Switch™ - System hardware, console specs - Nintendo - Official Site",
+          "excerpts": [
+            "HDH-001",
+            "3.6 inches high, 8.2 inches long, and .55 inches deep",
+            ".61 lbs",
+            "5.5 inch"
+          ]
+        },
+        "exact_variant_verified_from_photo": false
+      },
+      "stored_category_path_checks": {
+        "reference": {
+          "id": "139971",
+          "path": "Video Games & Consoles > Video Game Consoles",
+          "source": "https://www.ebay.com/b/Nintendo-Switch-Lite-Consoles/139971/bn_7116999664",
+          "checked_on": "2026-11-25"
+        },
+        "public_page_http": 307,
+        "reference_or_hypothesis_semantics": [
+          true,
+          "Compatible product type and category hierarchy"
+        ]
+      },
+      "after_fix_decisions": [
+        {
+          "index": 1,
+          "field": "completeness",
+          "status": "PHOTO_CANDIDATE",
+          "reasons": [
+            "COMPLETENESS_REQUIRES_INVENTORY"
+          ],
+          "confidence": 95,
+          "photos": [
+            1
+          ],
+          "output_field": "completeness"
+        },
+        {
+          "index": 2,
+          "field": "defect",
+          "status": "PHOTO_CANDIDATE",
+          "reasons": [
+            "BELOW_CONFIRMATION_THRESHOLD"
+          ],
+          "confidence": 75,
+          "photos": [
+            1
+          ],
+          "output_field": "defect"
+        }
+      ],
+      "review_card_http": 200,
+      "review_card_fields": {
+        "type": [
+          {
+            "value": "Gaming console",
+            "status": "HYPOTHESIS",
+            "photos": [],
+            "basis": "Тип зі зведення ШІ без окремого спостереження"
+          }
+        ],
+        "defect": [
+          {
+            "value": "Minor scratches on screen",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              1
+            ],
+            "basis": "Visible surface imperfections"
+          }
+        ],
+        "completeness": [
+          {
+            "value": "Complete",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              1
+            ],
+            "basis": "Visible all physical features"
+          }
+        ]
+      },
+      "unknown_specimen_measurements": [
+        "weight_kg",
+        "length_cm",
+        "width_cm",
+        "height_cm"
+      ],
+      "admitted": false,
+      "offline_replay_ms": 1306
+    }
+  ],
+  "public_ebay_checks": {
+    "ebay_37998": {
+      "chain": [
+        {
+          "path": "/b/Antique-US-Sterling-Silver-Teapots-Coffee-Pots-Sets/37998/bn_16561856",
+          "http": 307
+        }
+      ],
+      "status": "public_challenge_or_non_ebay_redirect"
+    },
+    "ebay_65507": {
+      "chain": [
+        {
+          "path": "/b/Raspberry-Pi-Development-Kits-Boards/65507/bn_117868551",
+          "http": 307
+        }
+      ],
+      "status": "public_challenge_or_non_ebay_redirect"
+    },
+    "ebay_139971": {
+      "chain": [
+        {
+          "path": "/b/Nintendo-Switch-Lite-Consoles/139971/bn_7116999664",
+          "http": 307
+        }
+      ],
+      "status": "public_challenge_or_non_ebay_redirect"
+    }
+  },
+  "budget_comparison": {
+    "new_metered_cost_usd": "0.01248525",
+    "previous_metered_cost_usd": "0.01248465",
+    "difference_usd": "6.0E-7",
+    "remaining_authorized_ceiling_usd": "0.04871475",
+    "input_tokens": 79587,
+    "output_tokens": 912
+  }
+}

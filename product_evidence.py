@@ -45,7 +45,7 @@ def photo_numbers(values, photo_count):
         if isinstance(values, list) else []
 
 
-def assess_photo_observations(observations, photo_count):
+def assess_photo_observations(observations, photo_count, *, summary_type=''):
     """Classify each row and retain bounded, non-public hypotheses."""
     facts, decisions = {}, []
     for index, row in enumerate(observations, 1):
@@ -80,16 +80,21 @@ def assess_photo_observations(observations, photo_count):
             reasons.append('INVALID_CONFIDENCE')
         else:
             decision['confidence'] = confidence
-        if field == 'feature' and not name:
-            reasons.append('MISSING_FEATURE_NAME')
         if reasons:
+            if field == 'feature' and not name:
+                reasons.append('MISSING_FEATURE_NAME')
             continue
         if confidence < 90:
             reasons.append('BELOW_CONFIRMATION_THRESHOLD')
+        if field == 'feature' and not name:
+            reasons.append('MISSING_FEATURE_NAME')
+        if field == 'completeness' and normalized_claim(value) == 'complete':
+            reasons.append('COMPLETENESS_REQUIRES_INVENTORY')
+        status = 'PHOTO_CANDIDATE' if reasons else 'PHOTO_OBSERVATION'
         if no_defect:
             reasons.append('ABSENCE_IS_SURFACE_NOTE')
             field, value = 'condition', 'На цьому фото видимих дефектів не помічено'
-        status = 'PHOTO_SURFACE_NOTE' if no_defect else 'PHOTO_CANDIDATE' if confidence < 90 else 'PHOTO_OBSERVATION'
+            status = 'PHOTO_SURFACE_NOTE'
         entry = dict(value=value, status=status, photos=photos, basis=basis)
         if name:
             entry['name'] = name
@@ -99,6 +104,9 @@ def assess_photo_observations(observations, photo_count):
             continue
         rows.append(entry)
         decision.update(status=status, photos=photos, output_field=field)
+    if 'type' not in facts and (candidate := text_value(summary_type)):
+        facts['type'] = [dict(value=candidate, status='HYPOTHESIS', photos=[],
+                              basis='Тип зі зведення ШІ без окремого спостереження')]
     return facts, decisions
 
 

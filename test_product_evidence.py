@@ -37,6 +37,8 @@ class ProductEvidenceTests(unittest.TestCase):
             [], ['DUPLICATE'], ['INVALID_ROW'], ['UNKNOWN_FIELD'],
         ])
         self.assertEqual(evidence['type'][0]['status'], 'PHOTO_CANDIDATE')
+        self.assertEqual(evidence['feature'][0]['status'], 'PHOTO_CANDIDATE')
+        self.assertNotIn('name', evidence['feature'][0])
         self.assertNotIn('defect', evidence)
         self.assertEqual(evidence['condition'][0]['status'], 'PHOTO_SURFACE_NOTE')
         self.assertIsNone(draft_from_evidence(evidence, count=1, material='Metal', brand='', country='',
@@ -49,6 +51,20 @@ class ProductEvidenceTests(unittest.TestCase):
         self.assertIn('Огляд поверхні', legacy)
         self.assertIn('немає опису видимого доказу', m._observation_diagnostics_html(decisions))
         self.assertEqual(assess_photo_observations([rows[6]] * 37, 1)[1][-1]['reasons'], ['ROW_LIMIT'])
+
+    def test_summary_type_and_visible_parts_are_review_only(self):
+        evidence, decisions = assess_photo_observations(
+            [observed('completeness', 'Complete')], 1, summary_type='Gaming Console',
+        )
+        self.assertEqual(evidence['type'][0]['photos'], [])
+        self.assertEqual(evidence['type'][0]['status'], 'HYPOTHESIS')
+        self.assertEqual(m.photo_type(evidence), '')
+        self.assertEqual(decisions[0]['reasons'], ['COMPLETENESS_REQUIRES_INVENTORY'])
+        self.assertEqual(evidence['completeness'][0]['status'], 'PHOTO_CANDIDATE')
+        self.assertIsNone(draft_from_evidence(evidence, count=1, material='', brand='', country='',
+                                              test_status='Untested'))
+        confirmed = build_product_evidence([], [], {'completeness': 'Complete'}, {}, 1)
+        self.assertEqual(confirmed['completeness'][0]['status'], 'SELLER_VERIFIED')
 
     def test_catalogue_uses_partial_label_only_as_lead_and_preserves_variant_conflicts(self):
         source = Path(__file__).with_name('benchmark_product_sources.csv')
@@ -124,10 +140,11 @@ class ProductEvidenceTests(unittest.TestCase):
         literal = {**observed('feature', 'Black'), 'name': 'Color'}
         evidence = build_product_evidence([literal, literal, observed('feature', 'Wireless'),
                                           {**literal, 'photos': [2]}], [], {}, {}, 1)
-        self.assertEqual(evidence['feature'], [{
+        self.assertEqual([row for row in evidence['feature'] if row['status'] == 'PHOTO_OBSERVATION'], [{
             'name': 'Color', 'value': 'Black', 'basis': literal['basis'],
             'status': 'PHOTO_OBSERVATION', 'photos': [1],
         }])
+        self.assertEqual(evidence['feature'][1]['status'], 'PHOTO_CANDIDATE')
         self.assertIn('Color — Black', m._product_evidence_html(evidence))
 
     def test_complete_direct_readings_skip_separate_measurement_call(self):

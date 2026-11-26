@@ -343,6 +343,7 @@ def run(data, photos, limits):
         fields = visual_observations.get('fields')
         visual_facts, decisions = vintage.assess_photo_observations(
             fields if isinstance(fields, list) else [], len(photos),
+            summary_type=facts.get('object_type', '') if isinstance(fields, list) else '',
         ) if limits.vision_only else ({}, [])
         if limits.vision_only:
             kind = vintage.photo_type(visual_facts)

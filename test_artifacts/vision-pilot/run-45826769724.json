@@ -1,0 +1,593 @@
+{
+  "budget_usd": "0.0612",
+  "requests_sent": 3,
+  "priced_requests": 3,
+  "standard_cost_usd": "0.01248525",
+  "metered_cost_usd": "0.01248525",
+  "cases": [
+    {
+      "lot": "A01",
+      "reference_id": "CMA-119326",
+      "offline": "UNRESOLVED",
+      "offline_elapsed_ms": 1004,
+      "license": "CC0",
+      "photo_source": "https://clevelandart.org/art/1940.228",
+      "fact_source": "https://clevelandart.org/art/1940.228",
+      "vision": "NO_RESULT",
+      "visual_stage_http": 200,
+      "evidence_diagnostics": {
+        "status": "REVIEW_ONLY",
+        "analysis_chars": 1439,
+        "observations_received": 5,
+        "observations_accepted": 0,
+        "candidates_retained": 2,
+        "field_decisions": [
+          {
+            "index": 1,
+            "field": "condition",
+            "status": "PHOTO_CANDIDATE",
+            "reasons": [
+              "BELOW_CONFIRMATION_THRESHOLD"
+            ],
+            "confidence": 80,
+            "photos": [
+              1
+            ],
+            "output_field": "condition"
+          },
+          {
+            "index": 2,
+            "field": "defect",
+            "status": "PHOTO_SURFACE_NOTE",
+            "reasons": [
+              "ABSENCE_IS_SURFACE_NOTE"
+            ],
+            "confidence": 90,
+            "photos": [
+              1
+            ],
+            "output_field": "condition"
+          },
+          {
+            "index": 3,
+            "field": "material",
+            "status": "PHOTO_CANDIDATE",
+            "reasons": [
+              "BELOW_CONFIRMATION_THRESHOLD"
+            ],
+            "confidence": 75,
+            "photos": [
+              1
+            ],
+            "output_field": "material"
+          },
+          {
+            "index": 4,
+            "field": "feature",
+            "status": "REJECTED",
+            "reasons": [
+              "MISSING_FEATURE_NAME"
+            ],
+            "confidence": 80
+          },
+          {
+            "index": 5,
+            "field": "feature",
+            "status": "REJECTED",
+            "reasons": [
+              "MISSING_FEATURE_NAME"
+            ],
+            "confidence": 85
+          }
+        ],
+        "fields_not_observed": [
+          "brand",
+          "completeness",
+          "country",
+          "marking",
+          "model",
+          "period",
+          "symbol",
+          "type"
+        ],
+        "unverified_type_candidate": "teapot"
+      },
+      "observation_inputs": [
+        {
+          "index": 1,
+          "value": "polished, shiny",
+          "basis": "visible surface finish with no apparent tarnish or corrosion",
+          "photos": [
+            1
+          ],
+          "name": null
+        },
+        {
+          "index": 2,
+          "value": "none visible",
+          "basis": "no visible dents or scratches",
+          "photos": [
+            1
+          ],
+          "name": null
+        },
+        {
+          "index": 3,
+          "value": "silver",
+          "basis": "metallic appearance and weight perception",
+          "photos": [
+            1
+          ],
+          "name": null
+        },
+        {
+          "index": 4,
+          "value": "decorative engraving",
+          "basis": "visible ornate engravings on the body and lid",
+          "photos": [
+            1
+          ],
+          "name": null
+        },
+        {
+          "index": 5,
+          "value": "wooden handle",
+          "basis": "visible wooden part of the handle",
+          "photos": [
+            1
+          ],
+          "name": null
+        }
+      ],
+      "visual_evidence": {
+        "condition": [
+          {
+            "value": "polished, shiny",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              1
+            ],
+            "basis": "visible surface finish with no apparent tarnish or corrosion"
+          },
+          {
+            "value": "На цьому фото видимих дефектів не помічено",
+            "status": "PHOTO_SURFACE_NOTE",
+            "photos": [
+              1
+            ],
+            "basis": "no visible dents or scratches"
+          }
+        ],
+        "material": [
+          {
+            "value": "silver",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              1
+            ],
+            "basis": "metallic appearance and weight perception"
+          }
+        ]
+      },
+      "physical_readings": {
+        "scale": null,
+        "dimension_readings": []
+      },
+      "processing_elapsed_ms": 6063,
+      "ocr": "",
+      "sent": true,
+      "metrics": {
+        "sent": true,
+        "http_status": 200,
+        "model": "gpt-4o-mini-2024-07-18",
+        "input_tokens": 26529,
+        "output_tokens": 348,
+        "standard_cost_usd": "0.00418815",
+        "response_status": "completed",
+        "cached_input_tokens": 0,
+        "metered_cost_usd": "0.00418815",
+        "elapsed_ms": 5744
+      },
+      "comparison": {
+        "identity": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "brand": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "model": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "material": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "period": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "condition": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "defects": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "category_id": {
+          "value": null,
+          "status": "REVIEW_COMPOSITION",
+          "reference": {
+            "status": "REVIEW_COMPOSITION",
+            "rejected_id": "37998",
+            "source": "https://www.ebay.com/b/Antique-US-Sterling-Silver-Teapots-Coffee-Pots-Sets/37998/bn_16561856",
+            "reason": "The museum documents Colonial America, silver and wood. It does not specify sterling fineness on the public object page."
+          }
+        },
+        "features": {
+          "observed": [],
+          "documented_model_or_object": "with handle: 14.5 x 24.4 cm (5 11/16 x 9 5/8 in.)"
+        }
+      },
+      "admitted": false
+    },
+    {
+      "lot": "A02",
+      "reference_id": "RP-PICO2",
+      "offline": "UNRESOLVED",
+      "offline_elapsed_ms": 1661,
+      "license": "CC BY-SA 4.0",
+      "photo_source": "https://commons.wikimedia.org/wiki/File:Raspberry_PI_Pico_2-01.jpg",
+      "fact_source": "https://www.raspberrypi.com/products/raspberry-pi-pico-2/",
+      "vision": "PARSED",
+      "visual_stage_http": 200,
+      "evidence_diagnostics": {
+        "status": "EVIDENCE_ACCEPTED",
+        "analysis_chars": 1424,
+        "observations_received": 3,
+        "observations_accepted": 2,
+        "candidates_retained": 0,
+        "field_decisions": [
+          {
+            "index": 1,
+            "field": "type",
+            "status": "PHOTO_OBSERVATION",
+            "reasons": [],
+            "confidence": 90,
+            "photos": [
+              1
+            ],
+            "output_field": "type"
+          },
+          {
+            "index": 2,
+            "field": "completeness",
+            "status": "PHOTO_OBSERVATION",
+            "reasons": [],
+            "confidence": 90,
+            "photos": [
+              1
+            ],
+            "output_field": "completeness"
+          },
+          {
+            "index": 3,
+            "field": "defect",
+            "status": "PHOTO_SURFACE_NOTE",
+            "reasons": [
+              "ABSENCE_IS_SURFACE_NOTE"
+            ],
+            "confidence": 90,
+            "photos": [
+              1
+            ],
+            "output_field": "condition"
+          }
+        ],
+        "fields_not_observed": [
+          "brand",
+          "condition",
+          "country",
+          "feature",
+          "marking",
+          "material",
+          "model",
+          "period",
+          "symbol"
+        ],
+        "unverified_type_candidate": "Microcontroller"
+      },
+      "observation_inputs": [
+        {
+          "index": 1,
+          "value": "Microcontroller",
+          "basis": "Clear view of component layout and markings on the board.",
+          "photos": [
+            1
+          ],
+          "name": null
+        },
+        {
+          "index": 2,
+          "value": "Complete",
+          "basis": "All visible physical elements of the microcontroller are present.",
+          "photos": [
+            1
+          ],
+          "name": null
+        },
+        {
+          "index": 3,
+          "value": "None",
+          "basis": "No visible defects noted in the photo.",
+          "photos": [
+            1
+          ],
+          "name": null
+        }
+      ],
+      "visual_evidence": {
+        "type": [
+          {
+            "value": "Microcontroller",
+            "status": "PHOTO_OBSERVATION",
+            "photos": [
+              1
+            ],
+            "basis": "Clear view of component layout and markings on the board."
+          }
+        ],
+        "completeness": [
+          {
+            "value": "Complete",
+            "status": "PHOTO_OBSERVATION",
+            "photos": [
+              1
+            ],
+            "basis": "All visible physical elements of the microcontroller are present."
+          }
+        ],
+        "condition": [
+          {
+            "value": "На цьому фото видимих дефектів не помічено",
+            "status": "PHOTO_SURFACE_NOTE",
+            "photos": [
+              1
+            ],
+            "basis": "No visible defects noted in the photo."
+          }
+        ]
+      },
+      "physical_readings": {
+        "scale": null,
+        "dimension_readings": []
+      },
+      "processing_elapsed_ms": 7472,
+      "ocr": "Pico 2\nRaspberry Pi",
+      "sent": true,
+      "metrics": {
+        "sent": true,
+        "http_status": 200,
+        "model": "gpt-4o-mini-2024-07-18",
+        "input_tokens": 26529,
+        "output_tokens": 335,
+        "standard_cost_usd": "0.00418035",
+        "response_status": "completed",
+        "cached_input_tokens": 0,
+        "metered_cost_usd": "0.00418035",
+        "elapsed_ms": 6792
+      },
+      "comparison": {
+        "identity": {
+          "value": "Microcontroller",
+          "status": "REQUIRES_INDEPENDENT_REVIEW"
+        },
+        "brand": {
+          "value": null,
+          "status": "ABSTAINED"
+        },
+        "model": {
+          "value": null,
+          "status": "ABSTAINED"
+        },
+        "material": {
+          "value": null,
+          "status": "NO_REFERENCE"
+        },
+        "period": {
+          "value": null,
+          "status": "NO_REFERENCE"
+        },
+        "condition": {
+          "value": null,
+          "status": "NO_REFERENCE"
+        },
+        "defects": {
+          "value": null,
+          "status": "NO_REFERENCE"
+        },
+        "category_id": {
+          "value": null,
+          "status": "PENDING_IDENTIFICATION",
+          "reference": {
+            "id": "65507",
+            "path": "Business & Industrial > Electrical Equipment & Supplies > Electronic Components & Semiconductors > Semiconductors & Actives > Development Kits & Boards",
+            "source": "https://www.ebay.com/b/Raspberry-Pi-Development-Kits-Boards/65507/bn_117868551",
+            "checked_on": "2026-11-25"
+          }
+        },
+        "features": {
+          "observed": [],
+          "documented_model_or_object": "RP2350 microcontroller; 150 MHz"
+        }
+      },
+      "admitted": false
+    },
+    {
+      "lot": "A03",
+      "reference_id": "NINTENDO-SWITCH-LITE",
+      "offline": "UNRESOLVED",
+      "offline_elapsed_ms": 1107,
+      "license": "CC BY-SA 4.0",
+      "photo_source": "https://commons.wikimedia.org/wiki/File:Nintendo_Switch_Lite_Grey_-_01.jpg",
+      "fact_source": "https://www.nintendo.com/us/gaming-systems/switch/tech-specs/",
+      "vision": "PARSED",
+      "visual_stage_http": 200,
+      "evidence_diagnostics": {
+        "status": "EVIDENCE_ACCEPTED",
+        "analysis_chars": 1005,
+        "observations_received": 2,
+        "observations_accepted": 1,
+        "candidates_retained": 1,
+        "field_decisions": [
+          {
+            "index": 1,
+            "field": "completeness",
+            "status": "PHOTO_OBSERVATION",
+            "reasons": [],
+            "confidence": 95,
+            "photos": [
+              1
+            ],
+            "output_field": "completeness"
+          },
+          {
+            "index": 2,
+            "field": "defect",
+            "status": "PHOTO_CANDIDATE",
+            "reasons": [
+              "BELOW_CONFIRMATION_THRESHOLD"
+            ],
+            "confidence": 75,
+            "photos": [
+              1
+            ],
+            "output_field": "defect"
+          }
+        ],
+        "fields_not_observed": [
+          "brand",
+          "condition",
+          "country",
+          "feature",
+          "marking",
+          "material",
+          "model",
+          "period",
+          "symbol",
+          "type"
+        ],
+        "unverified_type_candidate": "Gaming console"
+      },
+      "observation_inputs": [
+        {
+          "index": 1,
+          "value": "Complete",
+          "basis": "Visible all physical features",
+          "photos": [
+            1
+          ],
+          "name": null
+        },
+        {
+          "index": 2,
+          "value": "Minor scratches on screen",
+          "basis": "Visible surface imperfections",
+          "photos": [
+            1
+          ],
+          "name": null
+        }
+      ],
+      "visual_evidence": {
+        "completeness": [
+          {
+            "value": "Complete",
+            "status": "PHOTO_OBSERVATION",
+            "photos": [
+              1
+            ],
+            "basis": "Visible all physical features"
+          }
+        ],
+        "defect": [
+          {
+            "value": "Minor scratches on screen",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              1
+            ],
+            "basis": "Visible surface imperfections"
+          }
+        ]
+      },
+      "physical_readings": {
+        "scale": null,
+        "dimension_readings": []
+      },
+      "processing_elapsed_ms": 7339,
+      "ocr": "",
+      "sent": true,
+      "metrics": {
+        "sent": true,
+        "http_status": 200,
+        "model": "gpt-4o-mini-2024-07-18",
+        "input_tokens": 26529,
+        "output_tokens": 229,
+        "standard_cost_usd": "0.00411675",
+        "response_status": "completed",
+        "cached_input_tokens": 0,
+        "metered_cost_usd": "0.00411675",
+        "elapsed_ms": 5922
+      },
+      "comparison": {
+        "identity": {
+          "value": "",
+          "status": "ABSTAINED"
+        },
+        "brand": {
+          "value": null,
+          "status": "ABSTAINED"
+        },
+        "model": {
+          "value": null,
+          "status": "ABSTAINED"
+        },
+        "material": {
+          "value": null,
+          "status": "NO_REFERENCE"
+        },
+        "period": {
+          "value": null,
+          "status": "NO_REFERENCE"
+        },
+        "condition": {
+          "value": null,
+          "status": "NO_REFERENCE"
+        },
+        "defects": {
+          "value": null,
+          "status": "NO_REFERENCE"
+        },
+        "category_id": {
+          "value": null,
+          "status": "PENDING_IDENTIFICATION",
+          "reference": {
+            "id": "139971",
+            "path": "Video Games & Consoles > Video Game Consoles",
+            "source": "https://www.ebay.com/b/Nintendo-Switch-Lite-Consoles/139971/bn_7116999664",
+            "checked_on": "2026-11-25"
+          }
+        },
+        "features": {
+          "observed": [],
+          "documented_model_or_object": "5.5-inch LCD; 1280 × 720; USB Type-C"
+        }
+      },
+      "admitted": false
+    }
+  ]
+}
