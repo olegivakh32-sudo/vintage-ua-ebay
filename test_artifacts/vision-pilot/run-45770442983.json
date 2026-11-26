@@ -1,0 +1,193 @@
+{
+  "budget_usd": "0.0612",
+  "requests_sent": 1,
+  "priced_requests": 0,
+  "standard_cost_usd": null,
+  "metered_cost_usd": null,
+  "cases": [
+    {
+      "lot": "A01",
+      "reference_id": "CMA-119326",
+      "offline": "UNRESOLVED",
+      "offline_elapsed_ms": 1004,
+      "license": "CC0",
+      "photo_source": "https://clevelandart.org/art/1940.228",
+      "fact_source": "https://clevelandart.org/art/1940.228",
+      "vision": "NO_RESULT",
+      "visual_stage_http": 502,
+      "visual_evidence": {},
+      "ocr": null,
+      "sent": true,
+      "metrics": {
+        "sent": true,
+        "http_status": 401,
+        "elapsed_ms": 236
+      },
+      "comparison": {
+        "identity": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "brand": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "model": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "material": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "period": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "condition": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "defects": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "category_id": {
+          "value": null,
+          "status": "REVIEW_COMPOSITION",
+          "reference": {
+            "status": "REVIEW_COMPOSITION",
+            "rejected_id": "37998",
+            "source": "https://www.ebay.com/b/Antique-US-Sterling-Silver-Teapots-Coffee-Pots-Sets/37998/bn_16561856",
+            "reason": "The museum documents Colonial America, silver and wood. It does not specify sterling fineness on the public object page."
+          }
+        },
+        "features": {
+          "observed": [],
+          "documented_model_or_object": "with handle: 14.5 x 24.4 cm (5 11/16 x 9 5/8 in.)"
+        }
+      },
+      "admitted": false
+    },
+    {
+      "lot": "A02",
+      "reference_id": "RP-PICO2",
+      "offline": "UNRESOLVED",
+      "offline_elapsed_ms": 1661,
+      "license": "CC BY-SA 4.0",
+      "photo_source": "https://commons.wikimedia.org/wiki/File:Raspberry_PI_Pico_2-01.jpg",
+      "fact_source": "https://www.raspberrypi.com/products/raspberry-pi-pico-2/",
+      "vision": "NOT_RUN",
+      "visual_stage_http": null,
+      "visual_evidence": {},
+      "ocr": null,
+      "sent": false,
+      "metrics": {},
+      "comparison": {
+        "identity": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "brand": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "model": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "material": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "period": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "condition": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "defects": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "category_id": {
+          "value": null,
+          "status": "PENDING_IDENTIFICATION",
+          "reference": {
+            "id": "65507",
+            "path": "Business & Industrial > Electrical Equipment & Supplies > Electronic Components & Semiconductors > Semiconductors & Actives > Development Kits & Boards",
+            "source": "https://www.ebay.com/b/Raspberry-Pi-Development-Kits-Boards/65507/bn_117868551",
+            "checked_on": "2026-11-25"
+          }
+        },
+        "features": {
+          "observed": [],
+          "documented_model_or_object": "RP2350 microcontroller; 150 MHz"
+        }
+      },
+      "admitted": false
+    },
+    {
+      "lot": "A03",
+      "reference_id": "NINTENDO-SWITCH-LITE",
+      "offline": "UNRESOLVED",
+      "offline_elapsed_ms": 1107,
+      "license": "CC BY-SA 4.0",
+      "photo_source": "https://commons.wikimedia.org/wiki/File:Nintendo_Switch_Lite_Grey_-_01.jpg",
+      "fact_source": "https://www.nintendo.com/us/gaming-systems/switch/tech-specs/",
+      "vision": "NOT_RUN",
+      "visual_stage_http": null,
+      "visual_evidence": {},
+      "ocr": null,
+      "sent": false,
+      "metrics": {},
+      "comparison": {
+        "identity": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "brand": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "model": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "material": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "period": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "condition": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "defects": {
+          "value": null,
+          "status": "NO_RESULT"
+        },
+        "category_id": {
+          "value": null,
+          "status": "PENDING_IDENTIFICATION",
+          "reference": {
+            "id": "139971",
+            "path": "Video Games & Consoles > Video Game Consoles",
+            "source": "https://www.ebay.com/b/Nintendo-Switch-Lite-Consoles/139971/bn_7116999664",
+            "checked_on": "2026-11-25"
+          }
+        },
+        "features": {
+          "observed": [],
+          "documented_model_or_object": "5.5-inch LCD; 1280 × 720; USB Type-C"
+        }
+      },
+      "admitted": false
+    }
+  ]
+}
