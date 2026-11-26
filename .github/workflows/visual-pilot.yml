@@ -1,8 +1,7 @@
 name: Approved three-image visual pilot
 
 on:
-  push:
-    tags: [p094-vision-pilot-0612]
+  workflow_dispatch:
 
 concurrency:
   group: p094-vision-pilot-0612
@@ -13,9 +12,8 @@ permissions:
 
 jobs:
   pilot:
-    # The exact push filter and environment enforce the owner-approved tag.
-    # The reservation below blocks a second metered run after any ref update.
-    if: github.repository == 'olegivakh32-sudo/vintage-ua-ebay' && github.run_attempt == 1
+    # The protected tag must be explicitly approved before a paid pilot.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     environment: p094-vision-pilot
@@ -43,7 +41,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-            -f ref=refs/tags/p094-vision-pilot-0612-20261126-structured-reserved -f sha="$GITHUB_SHA" > /dev/null
+            -f ref=refs/tags/p094-vision-pilot-0612-20261126-cohort-reserved -f sha="$GITHUB_SHA" > /dev/null
       - name: Run the approved requests once
         env:
           APPROVE_AI_PILOT: '1'
