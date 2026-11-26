@@ -100,6 +100,7 @@ def outcome(case, result):
     metrics = result.get('request_metrics') or {}
     attempted = metrics.get('sent') is True
     parsed = result.get('mode') == 'APPROVED_VISION_ONLY' and bool(result.get('product_evidence'))
+    evidence = result['product_evidence'] if parsed else {}
     checks = {}
     for field in FIELDS:
         actual = result.get(field) if parsed else None
@@ -124,13 +125,15 @@ def outcome(case, result):
             and checks['model']['status'] == 'MATCH' else 'PENDING_IDENTIFICATION')
         checks['category_id'] = {'value': category.get('id') if category_status == 'PUBLIC_PATH_MATCH' else None,
                                  'status': category_status, 'reference': category}
-    checks['features'] = {'observed': result.get('product_evidence', {}).get('feature', []) if parsed else [],
+    checks['features'] = {'observed': evidence.get('feature', []),
                           'documented_model_or_object': case.get('documented_features')}
     return {
         **{key: case[key] for key in ('lot', 'reference_id', 'offline', 'offline_elapsed_ms', 'license',
                                     'photo_source', 'fact_source')},
         'vision': 'PARSED' if parsed else 'NO_RESULT' if attempted else 'NOT_RUN',
         'visual_stage_http': (result.get('stage_http') or {}).get('visual'),
+        'visual_evidence': evidence,
+        'ocr': result.get('ocr') if parsed else None,
         'sent': attempted, 'metrics': metrics, 'comparison': checks, 'admitted': False,
     }
 
@@ -156,6 +159,7 @@ def evaluate(root, *, execute=False):
             result = execute_pilot(case['manifest'], case['report'], case['data'], case['photos'], limits)
             metrics = result.get('request_metrics') or {}
             if (not metrics.get('standard_cost_usd') or not result.get('product_evidence')
+                    or metrics.get('response_status') not in (None, 'completed')
                     or (result.get('stage_http') or {}).get('visual') != 200):
                 break
 
@@ -193,6 +197,7 @@ def main():
         parser.exit(2, f'{exc}\n')
     if args.execute and (report['priced_requests'] != len(REFERENCES)
                          or any(row['vision'] != 'PARSED' or row.get('visual_stage_http') != 200
+                                or (row.get('metrics') or {}).get('response_status') not in (None, 'completed')
                                 for row in report['cases'])):
         parser.exit(1, 'Візуальний пілот завершився без повного набору результатів. Перевірте звіт.\n')
 

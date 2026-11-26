@@ -193,6 +193,9 @@ def visual_usage(response_data, expected_model):
     cost = (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000
     metrics = {'model': expected_model, 'input_tokens': input_tokens, 'output_tokens': output_tokens,
                'standard_cost_usd': str(cost)}
+    status = response_data.get('status')
+    if status in ('completed', 'incomplete', 'failed', 'cancelled', 'in_progress', 'queued'):
+        metrics['response_status'] = status
     input_details = usage.get('input_tokens_details')
     cached = input_details.get('cached_tokens') if isinstance(input_details, dict) else None
     if type(cached) is int and 0 <= cached <= input_tokens:
