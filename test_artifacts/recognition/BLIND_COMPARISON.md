@@ -4,6 +4,8 @@
 
 Використовуйте `MV-101`, `MV-102`, `MV-103` з нового ZIP. Пакет має 7 JPEG і `photos.json`, без еталонів. SHA-256 `c362598737440888911cde10a9a508367236d16495338aff4b814a747b14764f`. Окремий архів містить п’ять вихідних файлів, зокрема авторський монтаж. У сліпому ZIP три його ракурси розкладено на окремі кадри. Використовуйте саме сліпий ZIP для обох систем. Атрибуції, умови ліцензій та еталони збережено в окремому маніфесті для звірки. [Маніфест](lotnexo-live-pilot-sources.json)
 
+Workflow використовує заморожений ZIP із репозиторію. [Пакет](lotnexo-live-pilot-blind.zip)
+
 ```sh
 python prepare_multiview_cohort.py test_artifacts/recognition/lotnexo-live-pilot-sources.json lotnexo-live-pilot-blind.zip
 python blind_live_pilot.py lotnexo-live-pilot-blind.zip

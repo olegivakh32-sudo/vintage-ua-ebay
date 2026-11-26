@@ -1,0 +1,69 @@
+name: LOTNEXO one-time recognition pilot
+
+on:
+  push:
+    tags: [p094-lotnexo-pilot-050]
+
+concurrency:
+  group: p094-lotnexo-pilot-050
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  pilot:
+    if: github.repository == 'olegivakh32-sudo/vintage-ua-ebay' && github.run_attempt == 1 && github.event.created
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: p094-vision-pilot
+    env:
+      ALLOW_PAID_AI: '0'
+      ENABLE_LIVE_PUBLISH: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify the frozen blind package
+        run: |
+          set -euo pipefail
+          if ! command -v tesseract >/dev/null; then
+            timeout 60s sudo apt-get update -qq
+            timeout 60s sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-eng
+          fi
+          python3 -m venv "$RUNNER_TEMP/pilot-venv"
+          py="$RUNNER_TEMP/pilot-venv/bin/python"
+          "$py" -m pip install --quiet -r requirements.txt
+          mkdir "$RUNNER_TEMP/lotnexo-pilot"
+          root="$RUNNER_TEMP/lotnexo-pilot"
+          cp test_artifacts/recognition/lotnexo-live-pilot-blind.zip "$root/photos.zip"
+          "$py" blind_live_pilot.py "$root/photos.zip" | tee "$root/reserve-preview.json"
+      - name: Confirm model authorization and token counting without generation
+        env:
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          timeout 45s "$RUNNER_TEMP/pilot-venv/bin/python" blind_live_pilot.py --preflight | tee "$RUNNER_TEMP/lotnexo-pilot/preflight.json"
+      - name: Reserve the approved cohort once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref=refs/tags/p094-lotnexo-pilot-050-reserved -f sha="$GITHUB_SHA" > /dev/null
+      - name: Run only the approved cohort and save provider responses
+        env:
+          APPROVE_LOTNEXO_050: c362598737440888911cde10a9a508367236d16495338aff4b814a747b14764f
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: |
+          root="$RUNNER_TEMP/lotnexo-pilot"
+          timeout 14m "$RUNNER_TEMP/pilot-venv/bin/python" blind_live_pilot.py "$root/photos.zip" --execute "$root/results"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: lotnexo-live-pilot-050-results
+          path: |
+            ${{ runner.temp }}/lotnexo-pilot/reserve-preview.json
+            ${{ runner.temp }}/lotnexo-pilot/preflight.json
+            ${{ runner.temp }}/lotnexo-pilot/results/*.json
+          retention-days: 14
+          if-no-files-found: ignore

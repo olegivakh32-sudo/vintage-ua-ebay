@@ -53,16 +53,41 @@ RESERVE = {
 FULL_RESERVE = len(LOTS) * sum(RESERVE.values())
 
 
-def model_metadata(secret):
+def model_metadata(secret, models=CANDIDATES):
     result = {}
     with requests.Session() as session:
-        for model in CANDIDATES:
+        for model in models:
             response = session.get(f'{API}/models/{model}', headers={'Authorization': f'Bearer {secret}'},
                                    timeout=(4, 7), allow_redirects=False)
             result[model] = safe_error(response)
             if response.ok:
                 result[model]['returned_model'] = response.json().get('id')
     return result
+
+
+def model_is_available(result):
+    return result.get('http_status') == 200 and result.get('returned_model') == MODEL
+
+
+def free_preflight(secret):
+    metadata = model_metadata(secret, (MODEL,))[MODEL]
+    report = {'model': MODEL, 'metadata': metadata}
+    if not model_is_available(metadata):
+        return report, False
+    headers = {'Authorization': f'Bearer {secret}'}
+    # A body without a model or input can check write authorization, never generate.
+    empty = requests.post(f'{API}/responses', headers=headers, json={}, timeout=(4, 7), allow_redirects=False)
+    report['responses_authorization'] = safe_error(empty)
+    if report['responses_authorization'].get('reason') != 'expected_schema_rejection':
+        return report, False
+    response = requests.post(f'{API}/responses/input_tokens',
+                             headers=headers, timeout=(4, 20),
+                             allow_redirects=False, json={'model': MODEL, 'input': 'LOTNEXO token count check'})
+    count = response.json().get('input_tokens') if response.ok else None
+    report['token_count'] = {'http_status': response.status_code, 'input_tokens': count}
+    if not response.ok:
+        report['token_count'].update(safe_error(response))
+    return report, type(count) is int and count > 0
 
 
 def frozen_inputs(archive, directory):
@@ -170,6 +195,9 @@ class LiveBudget:
                     row['provider_error'] = safe_error(response)
                     raise RuntimeError('Inference HTTP error')
                 result = response.json()
+                saved = self.report.parent / f'{lot}-{stage}-response.json'
+                write_report(saved, result)
+                row['response_file'] = saved.name
                 row.update(meter(result, stage))
                 if (result.get('status') != 'completed' or (stage == 'photos' and visual_response_issue(result))
                         or row['web_calls'] < (stage == 'research')):
@@ -240,8 +268,7 @@ def approved_run(archive, directory, lots, secret):
         raise ValueError('Explicit budget approval and a project key are required')
     if FULL_RESERVE > CAP or datetime.now(timezone.utc).date() >= date(2026, 12, 11):
         raise ValueError('Price profile needs review')
-    metadata = model_metadata(secret).get(MODEL, {})
-    if metadata.get('http_status') != 200 or metadata.get('returned_model') != MODEL:
+    if not model_is_available(model_metadata(secret, (MODEL,))[MODEL]):
         raise ValueError('Required model access was not verified')
     # One immutable reservation per frozen archive beside the approved input.
     claim = archive.parent / f'.lotnexo-{ARCHIVE_SHA256}.claim'
@@ -275,6 +302,7 @@ def main():
     parser.add_argument('archive', type=Path, nargs='?')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--models', action='store_true', help='Only read OpenAI model metadata. No generation.')
+    mode.add_argument('--preflight', action='store_true', help='Verify the required model and free token counter.')
     mode.add_argument('--execute', type=Path, metavar='REPORT_DIRECTORY')
     args = parser.parse_args()
     secret = os.environ.get('P094_PILOT_OPENAI_API_KEY') or os.environ.get('OPENAI_API_KEY')
@@ -282,6 +310,10 @@ def main():
         if args.models:
             print(json.dumps(model_metadata(secret) if secret else {'blocked': 'NO_PROJECT_KEY'}, indent=2))
             return int(not secret)
+        if args.preflight:
+            report, ready = free_preflight(secret) if secret else ({'blocked': 'NO_PROJECT_KEY'}, False)
+            print(json.dumps(report, indent=2))
+            return int(not ready)
         if args.archive is None:
             parser.error('archive is required')
         with TemporaryDirectory(prefix='lotnexo-blind-') as tmp:
