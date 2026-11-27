@@ -452,7 +452,7 @@ class AndroidTests(unittest.TestCase):
                 'identity': ['Pocket Watch'], 'category_id': ['123'], 'ocr': ['СД[?]'], 'period': ['1980s'],
                 'material': ['Metal'], 'symbols': ['star'], 'main_photo': 1,
                 'product_photos': [1], 'evidence_photos': [2, 3], 'title_terms': ['Pocket Watch'],
-                'price_usd': {'value': 25, 'tolerance': 0}, 'shipping_usd': {'value': 10.99, 'tolerance': 0},
+                'shipping_usd': {'value': 10.99, 'tolerance': 0},
                 'measurement': {key: {'value': value, 'tolerance': .0001}
                                 for key, value in zip(('weight_kg', 'length_cm', 'width_cm', 'height_cm'),
                                                       (.125, 8, 5, 2))},
@@ -476,8 +476,11 @@ class AndroidTests(unittest.TestCase):
         self.assertIn('Pocket Watch', report['draft']['title'])
         self.assertEqual(report['draft']['measurement_source']['weight_source'], 'MEASURED_FROM_SCALE')
         self.assertEqual(report['draft']['material_evidence_source'], 'SELLER_PHOTO')
+        self.assertEqual(report['draft']['price'], '')
+        self.assertEqual(report['draft']['market_valuation']['status'], 'NEEDS_MATCHED_SALES')
         self.assertEqual(report['draft']['reference_decisions'][0]['reasons'], ['WRONG_MEASUREMENT_SCOPE'])
         comparisons = report['comparison']['verified_comparisons']
+        self.assertIsNone(comparisons.pop('price_usd'))
         self.assertTrue(all(comparisons.values()), comparisons)
         self.assertTrue(report['comparison']['title_required_terms'])
         self.assertEqual(limits.attempts, 4)

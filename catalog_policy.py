@@ -23,10 +23,15 @@ PARTS_CONDITION_CLAIM = re.compile(
 # need positive context in the ancestors, even when the wording of the leaf matches.
 DEVELOPMENT_BOARD = r'(?:microcontroller(?: development)?|embedded development) boards?|development boards?'
 GAME_CONSOLE = r'(?:handheld (?:video )?game|portable (?:video )?game|handheld|(?:video )?game|gaming) consoles?'
+SINGLE_BOARD_COMPUTER = r'single board computers?'
+GAME_CONTROLLER = r'(?:video )?game controllers?|gamepads?'
 PURPOSE_BRANCHES = (
     (DEVELOPMENT_BOARD,
      r'electronic components and semiconductors|semiconductors and actives|electrical equipment and supplies'),
     (GAME_CONSOLE, r'video games and consoles|video games'),
+    (GAME_CONTROLLER, r'video games and consoles|video game accessories'),
+    (SINGLE_BOARD_COMPUTER,
+     r'computers tablets (?:and )?networking|electronic components and semiconductors|electrical equipment and supplies'),
     (r'usb(?: c)? (?:charging |data )?cables?|ethernet cables?|network switch(?:es)?',
      r'computers tablets (?:and )?networking|computer (?:cables|accessories)|networking|'
      r'consumer electronics|cell phones (?:and )?accessories|mobile phone (?:cables|accessories)'),
@@ -68,6 +73,8 @@ def compatible_category_leaf(primary, leaf):
     names = (
         (DEVELOPMENT_BOARD, r'development kits and boards|development boards'),
         (GAME_CONSOLE, r'video game consoles|game consoles'),
+        (GAME_CONTROLLER, r'(?:video game )?controllers(?: and attachments)?|gamepads'),
+        (SINGLE_BOARD_COMPUTER, r'single board computers(?: and microcontrollers)?'),
         (r'(?:dslr|digital single lens reflex) cameras?', r'digital cameras?'),
         (r'(?:wireless |computer )?mouse', r'mice (?:and )?trackballs|mice trackballs (?:and )?touchpads'),
         (r'usb(?: c)? (?:(?:charging|data) )?cables?', r'(?:usb )?cables (?:and )?adapters'),

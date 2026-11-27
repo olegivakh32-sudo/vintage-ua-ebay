@@ -1,0 +1,960 @@
+[
+  {
+    "lot": "P001",
+    "identity": [
+      "brooch"
+    ],
+    "material": [
+      "bronze and champlevé enamel"
+    ],
+    "reference_id": "CMA-111705",
+    "source_url": "https://clevelandart.org/art/1930.232",
+    "photo_source": "https://clevelandart.org/art/1930.232",
+    "photo_sha256": "76ee871a7e5891ee453d74410156d43d7b247c43e0fccb996f3914dd159b40b2",
+    "source_sha256": "623f9355a1e5109707a012b386958697f92da8f6faf322696a9bae97a81194e8",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P002",
+    "identity": [
+      "figurine"
+    ],
+    "material": [
+      "cast gold"
+    ],
+    "reference_id": "CMA-125267",
+    "source_url": "https://clevelandart.org/art/1947.23",
+    "photo_source": "https://clevelandart.org/art/1947.23",
+    "photo_sha256": "e27198ad65be978986f0b47717608a99e5d26359789dc6ee0554590367f44cc0",
+    "source_sha256": "4e2138e8175e04b3ac0961d8830bdd360e73ac4888c85718a38dc55487feee3c",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P003",
+    "identity": [
+      "medal"
+    ],
+    "material": [
+      "bronze, partially gilded"
+    ],
+    "reference_id": "CMA-143942",
+    "source_url": "https://clevelandart.org/art/1968.32",
+    "photo_source": "https://clevelandart.org/art/1968.32",
+    "photo_sha256": "e065d8dcae9f0541df24eee1ea0691ff5c89907b3ab209f259773669c76eec40",
+    "source_sha256": "6e1b09c9adca6d36c28e0cb8fff9f0daa77b7020b5c209acbb72f0d33d2f95fe",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P004",
+    "identity": [
+      "tape measure"
+    ],
+    "reference_id": "STANLEY-33425",
+    "source_url": "https://www.stanleytools.com/en-us/product/33-425/25-ft-powerlock-tape-measure",
+    "photo_source": "https://commons.wikimedia.org/wiki/File:Stanley_PowerLock_tape_measure.jpg",
+    "photo_sha256": "84fbed644c6c3fa32d6298f9db9b66c2c56d1b128b8b0ea963c411c34bb8b598",
+    "source_sha256": "5e5ad6cfd9bc101b202c56324b34cf3b3bf872188c5eed84da6f4435aa53793b",
+    "photo_credit": "Flickr user redjar",
+    "photo_license": "CC BY-SA 2.0",
+    "photo_license_url": "https://creativecommons.org/licenses/by-sa/2.0"
+  },
+  {
+    "lot": "P005",
+    "identity": [
+      "figurine"
+    ],
+    "material": [
+      "Ceramic, pigment"
+    ],
+    "reference_id": "CMA-149888",
+    "source_url": "https://clevelandart.org/art/1980.127",
+    "photo_source": "https://clevelandart.org/art/1980.127",
+    "photo_sha256": "c8a42437cad268e6977ef4bb9e67cfab10eb1890a613d87de2bcc9f0a63a2ac8",
+    "source_sha256": "b372f37e5b0e4a8dc61cd366118d98915f6eb43182c75127cd677e700fbf1b27",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P006",
+    "identity": [
+      "print"
+    ],
+    "material": [
+      "woodcut"
+    ],
+    "reference_id": "CMA-108380",
+    "source_url": "https://clevelandart.org/art/1926.112",
+    "photo_source": "https://clevelandart.org/art/1926.112",
+    "photo_sha256": "8f9bd2b27ba03a6c261c3f931d03bdfa35815e00cbe47c4b9ba670a892ca480c",
+    "source_sha256": "6ffef243ece4f371b7505cfdd1f7ae93a5130a688cc21d79e2971356451759d1",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P007",
+    "identity": [
+      "medal"
+    ],
+    "material": [
+      "bronze"
+    ],
+    "reference_id": "CMA-153674",
+    "source_url": "https://clevelandart.org/art/1987.195",
+    "photo_source": "https://clevelandart.org/art/1987.195",
+    "photo_sha256": "f8e41ea19d06d87e0b9b06783f1c494b2556736f53abb2c89d17fbecbf1125ad",
+    "source_sha256": "b991f817e4906c63e72fa608c7c439044836bf922668cff1457a48ea4ab7e53f",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P008",
+    "identity": [
+      "medal"
+    ],
+    "material": [
+      "bronze"
+    ],
+    "reference_id": "CMA-100447",
+    "source_url": "https://clevelandart.org/art/1919.899",
+    "photo_source": "https://clevelandart.org/art/1919.899",
+    "photo_sha256": "7c8186d8ecc5c94108261a95d6dae68ef8f161c5a4fd962616b79997ceb389ac",
+    "source_sha256": "2b683d271bb61d1fe6eaa6a863f6a15bb70d51f763d1884fbaf90cc751cf57a6",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P009",
+    "identity": [
+      "print"
+    ],
+    "material": [
+      "woodcut"
+    ],
+    "reference_id": "CMA-129875",
+    "source_url": "https://clevelandart.org/art/1952.296",
+    "photo_source": "https://clevelandart.org/art/1952.296",
+    "photo_sha256": "716b90c3e31d9d4a8cb1be01a884a6ff67dc7f77182dd99e0171a65f6f928c8f",
+    "source_sha256": "c1f42e83b42a2025400cd8388b5b6af3edaef91eeb3115f734851dde9974a2cf",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P010",
+    "identity": [
+      "coin"
+    ],
+    "material": [
+      "gold"
+    ],
+    "reference_id": "CMA-160961",
+    "source_url": "https://clevelandart.org/art/1999.226",
+    "photo_source": "https://clevelandart.org/art/1999.226",
+    "photo_sha256": "a8b084e3bcd4cb8eacb47a8df6188f38ea2ba10f0fb47fffe2eb74e235b8968c",
+    "source_sha256": "a8a1d38b15407de46b60fbfc77be9c00f5e2f60b9c0daa8f515fa09b03962c7e",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P011",
+    "identity": [
+      "brooch"
+    ],
+    "material": [
+      "silver gilt with garnets and niello"
+    ],
+    "reference_id": "CMA-165322",
+    "source_url": "https://clevelandart.org/art/2007.226",
+    "photo_source": "https://clevelandart.org/art/2007.226",
+    "photo_sha256": "41d44e265c6c5b180488f9f3f0242025d02cf57ffade50429f486a8b9446df8a",
+    "source_sha256": "724dc317651cd87d65f2d4e4aa4d9cdf3fda5994e2842381d29def2d121a2214",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P012",
+    "identity": [
+      "touch display"
+    ],
+    "reference_id": "RP-DISPLAY2-7",
+    "source_url": "https://www.raspberrypi.com/products/touch-display-2/",
+    "photo_source": "https://commons.wikimedia.org/wiki/File:Touch_Display_2.jpg",
+    "photo_sha256": "ffb8cb14907f575750ec588f4d0927f87a44ece1f0e0ed005e1228ecf6e3190a",
+    "source_sha256": "99a39351e396bf88cd57c275d5e8608627e52811adc0122a6c47d0c16834b875",
+    "photo_credit": "SparkFun Electronics",
+    "photo_license": "CC BY 2.0",
+    "photo_license_url": "https://creativecommons.org/licenses/by/2.0"
+  },
+  {
+    "lot": "P013",
+    "identity": [
+      "bowl"
+    ],
+    "material": [
+      "celadon"
+    ],
+    "reference_id": "CMA-98761",
+    "source_url": "https://clevelandart.org/art/1918.442",
+    "photo_source": "https://clevelandart.org/art/1918.442",
+    "photo_sha256": "cba63f451d8e186e40d13f52f0c8ba1e53acf73e43edb103cb634865fdfbc806",
+    "source_sha256": "f7670eb81dfbe25f4a598573ccf57168920b450941f0249fa719ae6f2aac23f9",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P014",
+    "identity": [
+      "plate"
+    ],
+    "material": [
+      "tin-glazed earthenware (maiolica)"
+    ],
+    "reference_id": "CMA-123306",
+    "source_url": "https://clevelandart.org/art/1943.55",
+    "photo_source": "https://clevelandart.org/art/1943.55",
+    "photo_sha256": "9a7feb675462891dd68f8b7a3318d80380f8dfbea0ac17fe2a21898a3989cc5f",
+    "source_sha256": "c3f87bf0880f39f841e774f705e4cc40001fd82e8ab69f5cc5443e5d29db321d",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P015",
+    "identity": [
+      "vase"
+    ],
+    "material": [
+      "favrile glass"
+    ],
+    "reference_id": "CMA-136303",
+    "source_url": "https://clevelandart.org/art/1960.186",
+    "photo_source": "https://clevelandart.org/art/1960.186",
+    "photo_sha256": "410a2778220e83fd05f025cfc028474b1e4962267a0541f35b3c06b4d56bbd22",
+    "source_sha256": "c6ae2539e87a298018490afb98837e64105533eb2833c2e526fd2574ab0f00cb",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P016",
+    "identity": [
+      "teapot"
+    ],
+    "material": [
+      "Porcelain with underglaze blue, molded design and metal handles"
+    ],
+    "reference_id": "CMA-447764",
+    "source_url": "https://clevelandart.org/art/2022.203",
+    "photo_source": "https://clevelandart.org/art/2022.203",
+    "photo_sha256": "e1148d6f0d419503f72eabc0ae959a9c7f483b28be7aefcde6c839476535a1f2",
+    "source_sha256": "bd6bc4449828f9aac30c35fbb7f27f63ed04bc69ce030e4d9bfd62718e2770ca",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P017",
+    "identity": [
+      "vase"
+    ],
+    "material": [
+      "Favrile glass"
+    ],
+    "reference_id": "CMA-159994",
+    "source_url": "https://clevelandart.org/art/1997.260",
+    "photo_source": "https://clevelandart.org/art/1997.260",
+    "photo_sha256": "5b01b1b9fcf5d775775d46fde76bf3515978929582c0afeb87b0f99aa137dfc1",
+    "source_sha256": "469180dd6fa3cabd4d3c016d7c32ed0064dcd4cefa474ec702a8c1194b815cd2",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P018",
+    "identity": [
+      "figurine"
+    ],
+    "material": [
+      "Ceramic, pigment"
+    ],
+    "reference_id": "CMA-130035",
+    "source_url": "https://clevelandart.org/art/1952.455",
+    "photo_source": "https://clevelandart.org/art/1952.455",
+    "photo_sha256": "a36f975e052b8727b65e2ab4b16224fc678949a22b3cba50ff79b5beef59d4da",
+    "source_sha256": "5e3f940c93fc4b0707e133df954a65c2bcb4ef80e2343300d892d3c71073e684",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P019",
+    "identity": [
+      "brooch"
+    ],
+    "material": [
+      "gold"
+    ],
+    "reference_id": "CMA-125583",
+    "source_url": "https://clevelandart.org/art/1947.504",
+    "photo_source": "https://clevelandart.org/art/1947.504",
+    "photo_sha256": "93c5c0428b39d4acb74ce29df571c089add9bd140c8c979c4846f8376dca2a46",
+    "source_sha256": "1771fc6b46ea646a6d395444f2158990b98d3f81b1b074792f8c431de5f42e6d",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P020",
+    "identity": [
+      "vase"
+    ],
+    "material": [
+      "Earthenware"
+    ],
+    "reference_id": "CMA-300665",
+    "source_url": "https://clevelandart.org/art/2017.208",
+    "photo_source": "https://clevelandart.org/art/2017.208",
+    "photo_sha256": "dc950a35465d673120bd31151dd99a5f6b484a4f788d65ff340e96ec80490174",
+    "source_sha256": "14b10ede9ec49067c7312062b6c77d306eae5828bc9d2ed92d98e99805b1b9d9",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P021",
+    "identity": [
+      "textile fragment"
+    ],
+    "material": [
+      "Linen: undyed; wool: dyed; plain weave ground with tapestry weave"
+    ],
+    "reference_id": "CMA-148336",
+    "source_url": "https://clevelandart.org/art/1975.6",
+    "photo_source": "https://clevelandart.org/art/1975.6",
+    "photo_sha256": "1387a368d0dbd9eaecdf57dcca0519d9137c1c9b819f0f1c63b3b97ed1665194",
+    "source_sha256": "8c2dab27f1817fd84ca01ead36acddf607394e794851a8a197cd01c4b4305027",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P022",
+    "identity": [
+      "plate"
+    ],
+    "material": [
+      "stone (probably steatite [soapstone])"
+    ],
+    "reference_id": "CMA-441848",
+    "source_url": "https://clevelandart.org/art/2021.131",
+    "photo_source": "https://clevelandart.org/art/2021.131",
+    "photo_sha256": "fbf4a666d67547a0495f0fe096a4f7957e6ce69fe72b65df7a11279344ea4b24",
+    "source_sha256": "ee2f1cf393018812c41acf3706388b6723091f0cead3f00178cd5aad1e35210d",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P023",
+    "identity": [
+      "coin"
+    ],
+    "material": [
+      "gold"
+    ],
+    "reference_id": "CMA-160964",
+    "source_url": "https://clevelandart.org/art/1999.227",
+    "photo_source": "https://clevelandart.org/art/1999.227",
+    "photo_sha256": "d31c36967368665e0a8acf3e4a7a1463cc82ec2598b2fd092fdccd27d1257dbe",
+    "source_sha256": "2c1e182953198df313526086e2e66c4d4510fa0459baddf9f3359e6d47117131",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P024",
+    "identity": [
+      "single-board computer"
+    ],
+    "brand": [
+      "Raspberry Pi"
+    ],
+    "model": [
+      "Raspberry Pi Zero 2 W"
+    ],
+    "reference_id": "RP-ZERO2W",
+    "source_url": "https://www.raspberrypi.com/products/raspberry-pi-zero-2-w/",
+    "photo_source": "https://commons.wikimedia.org/wiki/File:Raspberry_Pi_Zero_2_W_--_2024_--_0008.jpg",
+    "photo_sha256": "8f4025536b4a78ca9500e71ff67a0282498e044702a3a434ebc0ec37399cbbf8",
+    "source_sha256": "38b17e26c3f8206961ff2f0eaee27456d46026a53b6ee8aede1eff45ed1e005e",
+    "photo_credit": "Anil Öztas",
+    "photo_license": "CC BY 4.0",
+    "photo_license_url": "https://creativecommons.org/licenses/by/4.0"
+  },
+  {
+    "lot": "P025",
+    "identity": [
+      "medal"
+    ],
+    "material": [
+      "bronze"
+    ],
+    "reference_id": "CMA-103073",
+    "source_url": "https://clevelandart.org/art/1921.1724",
+    "photo_source": "https://clevelandart.org/art/1921.1724",
+    "photo_sha256": "80e9f81325220801ed3eb69b4dd94df95946d0f5f8878bb46c322a4b6aca753c",
+    "source_sha256": "5ded7c346ae5d4c1826a75bfdc693f1fb0d497402dc67ceb3e45edc9ff903302",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P026",
+    "identity": [
+      "fan"
+    ],
+    "material": [
+      "mother-of-pearl, gold, silk"
+    ],
+    "reference_id": "CMA-168183",
+    "source_url": "https://clevelandart.org/art/2009.79",
+    "photo_source": "https://clevelandart.org/art/2009.79",
+    "photo_sha256": "414b6f78050fd24c42cf92e256e9773af6164f06e655aa49362e5508778f4ef9",
+    "source_sha256": "6bcd285f3d5781eaffc6aaf4db324c658a7295cce5261060c81c598167718eb9",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P027",
+    "identity": [
+      "plate"
+    ],
+    "material": [
+      "porcelaneous stoneware with celadon glaze and molded decoration"
+    ],
+    "reference_id": "CMA-137127",
+    "source_url": "https://clevelandart.org/art/1961.92",
+    "photo_source": "https://clevelandart.org/art/1961.92",
+    "photo_sha256": "08f94411dcfb11accaea6571279a466ac0c7b07c1dc578be6d7aedf783b55721",
+    "source_sha256": "09bc6b7e8832711b3d4e174500f76f8e3192f3f1c88f555b24f9bd7773e0ccce",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P028",
+    "identity": [
+      "bowl"
+    ],
+    "material": [
+      "silver gilt"
+    ],
+    "reference_id": "CMA-153278",
+    "source_url": "https://clevelandart.org/art/1986.24",
+    "photo_source": "https://clevelandart.org/art/1986.24",
+    "photo_sha256": "915982120afe67081424c059dd3ef0f297ac37b67b61a242629babfae959ba25",
+    "source_sha256": "76848090054c5e9e66f4bf02d74c939adc495fa9a55c00475779a7ea9d466850",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P029",
+    "identity": [
+      "keyboard computer"
+    ],
+    "brand": [
+      "Raspberry Pi"
+    ],
+    "model": [
+      "Raspberry Pi 400"
+    ],
+    "reference_id": "RP-PI400",
+    "source_url": "https://www.raspberrypi.com/products/raspberry-pi-400/",
+    "photo_source": "https://commons.wikimedia.org/wiki/File:Raspberry_Pi_400.jpg",
+    "photo_sha256": "93ff1dd003128b5330e1121936929ea05dab098d0153ddf7e601f263faf1ff3d",
+    "source_sha256": "8c141c139c9950ed0f4744b45772eb58e202426f074a1c46e8ced139e0f0838e",
+    "photo_credit": "SimonWaldherr",
+    "photo_license": "CC BY-SA 4.0",
+    "photo_license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  {
+    "lot": "P030",
+    "identity": [
+      "fan"
+    ],
+    "material": [
+      "mother-of-pearl, painted paper(?), gold and silver leaf"
+    ],
+    "reference_id": "CMA-96621",
+    "source_url": "https://clevelandart.org/art/1916.361",
+    "photo_source": "https://clevelandart.org/art/1916.361",
+    "photo_sha256": "5720190489a85cc6a0674dec24d39496103bfadad8895a773cd10f4c3cbd4fc5",
+    "source_sha256": "4da16ef2373b2d635d2b10d207febdec95c50b17f765bf0a846ad6e3b02ce515",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P031",
+    "identity": [
+      "buckle"
+    ],
+    "material": [
+      "iron with silver overlay"
+    ],
+    "reference_id": "CMA-99433",
+    "source_url": "https://clevelandart.org/art/1919.1009.a",
+    "photo_source": "https://clevelandart.org/art/1919.1009.a",
+    "photo_sha256": "d089b82039cbac1e697370a294c32696699322aa7c01e373373d73529d019546",
+    "source_sha256": "164e41eb096e0ad052f45661d73458961f67e900383bffd41e886fd183d472c3",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P032",
+    "identity": [
+      "print"
+    ],
+    "material": [
+      "woodcut"
+    ],
+    "reference_id": "CMA-136178",
+    "source_url": "https://clevelandart.org/art/1959.99.14",
+    "photo_source": "https://clevelandart.org/art/1959.99.14",
+    "photo_sha256": "be20acb9ad1f895ae8f4fa078579b35b6f4b04eae9aa33092571a7367edfadda",
+    "source_sha256": "574de3957506ea1e53268e949c624c0e301b997cce132e775a0a3509a83dcdb0",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P033",
+    "identity": [
+      "plate"
+    ],
+    "material": [
+      "soft-paste porcelain with enamel decoration"
+    ],
+    "reference_id": "CMA-141274",
+    "source_url": "https://clevelandart.org/art/1964.503",
+    "photo_source": "https://clevelandart.org/art/1964.503",
+    "photo_sha256": "6f01443d63ad3a8c61a45fc71929e039eda1c2376f30ad0f855ae6cd85851145",
+    "source_sha256": "16db320d1926ec05c97bb056a4a2a40d5afd0feae76b746f9be69da690fb05dd",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P034",
+    "identity": [
+      "teapot"
+    ],
+    "material": [
+      "silver gilt, opaque cloisonné enamel"
+    ],
+    "reference_id": "CMA-142810",
+    "source_url": "https://clevelandart.org/art/1966.500.1",
+    "photo_source": "https://clevelandart.org/art/1966.500.1",
+    "photo_sha256": "0d20529fe71dd7a41ae0831a067b8675b9ec7c085e0bec758f6a1ca9c83e8e4d",
+    "source_sha256": "cb89e2ef58462c0c5bb79566f5b05bcfda6eae982a3fe5c94d41bee8b15bae25",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P035",
+    "identity": [
+      "textile fragment"
+    ],
+    "material": [
+      "wool: tapestry twill"
+    ],
+    "reference_id": "CMA-114576",
+    "source_url": "https://clevelandart.org/art/1934.199",
+    "photo_source": "https://clevelandart.org/art/1934.199",
+    "photo_sha256": "a9bbe9b2f5aea9b3b578fb50ca7a7fd50dfdaa2c40c75beb81972683b7837f98",
+    "source_sha256": "15e7953ad1f9e040f595d1aae1dfc67d42a10e94e25a895fb4c2f82c92bb096b",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P036",
+    "identity": [
+      "teapot"
+    ],
+    "material": [
+      "Porcelain with underglaze and overglaze colors"
+    ],
+    "reference_id": "CMA-519488",
+    "source_url": "https://clevelandart.org/art/2022.168.a",
+    "photo_source": "https://clevelandart.org/art/2022.168.a",
+    "photo_sha256": "f59420b25c086ec305e27221869f2a49a7c0bc83f125f8805c6be534501a29b2",
+    "source_sha256": "78a6a9bec3ccd9154b9cfeb286956f0a0e3ae32141ac1cbb1c3a4a852c5711d7",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P037",
+    "identity": [
+      "buckle"
+    ],
+    "material": [
+      "Gilt bronze"
+    ],
+    "reference_id": "CMA-97449",
+    "source_url": "https://clevelandart.org/art/1917.1023",
+    "photo_source": "https://clevelandart.org/art/1917.1023",
+    "photo_sha256": "67d5c9406987a0d4d6ca85debb5e6a572176d571c20a9ff74c26a81be1f8dea0",
+    "source_sha256": "63d210ce5af77f885a848f062e545a8d1833f8ce9141af8199ff5ddfc601ffd7",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P038",
+    "identity": [
+      "print"
+    ],
+    "material": [
+      "woodcut"
+    ],
+    "reference_id": "CMA-129843",
+    "source_url": "https://clevelandart.org/art/1952.271",
+    "photo_source": "https://clevelandart.org/art/1952.271",
+    "photo_sha256": "d8abcf88dc9db7e4f7fa356924ede10f5b60fbf3d675b0c5537d73c424166afd",
+    "source_sha256": "a5ae913a31474bdd767bc9454541aeaf8ec24a29442e6095078d8782f1413f1f",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P039",
+    "identity": [
+      "digital wristwatch"
+    ],
+    "reference_id": "CASIO-F91W1",
+    "source_url": "https://www.casio.com/us/watches/casio/product.F-91W-1/",
+    "photo_source": "https://commons.wikimedia.org/wiki/File:Casio_F-91W_watch_(2023)_(packaging_and_contents)_(ii).jpg",
+    "photo_sha256": "5af4a6f3325b1a783bc7a2a9c0a8c6c73924ae719b17d563dcf79f8376dbb869",
+    "source_sha256": "055756618cc241e52762d3b62d75a5ba7858552ebb2a92e94f1080d3dec00cc0",
+    "photo_credit": "Multicherry",
+    "photo_license": "CC BY-SA 4.0",
+    "photo_license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  {
+    "lot": "P040",
+    "identity": [
+      "buckle"
+    ],
+    "material": [
+      "Gilt-silver inlaid with semiprecious stones"
+    ],
+    "reference_id": "CMA-125713",
+    "source_url": "https://clevelandart.org/art/1947.610",
+    "photo_source": "https://clevelandart.org/art/1947.610",
+    "photo_sha256": "2cf9e73a9b39a89b69b3b0460d6da55495e748409fd7b20aeaae20eb0e8c9cb2",
+    "source_sha256": "ceec58d7e6952fe5c396d9772099f03ea33f20a13c4679d1a768b9c04cb7074d",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P041",
+    "identity": [
+      "figurine"
+    ],
+    "material": [
+      "ceramic, pigment"
+    ],
+    "reference_id": "CMA-159528",
+    "source_url": "https://clevelandart.org/art/1996.291",
+    "photo_source": "https://clevelandart.org/art/1996.291",
+    "photo_sha256": "6971a04ee26e28312222d4ecd79d5eb88a689b1e2f414af815b9fca57e16528f",
+    "source_sha256": "bd2800363c415948033993b89f386464151fe02792f93c8101809e39a2d0d549",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P042",
+    "identity": [
+      "bowl"
+    ],
+    "material": [
+      "silver gilt"
+    ],
+    "reference_id": "CMA-393706",
+    "source_url": "https://clevelandart.org/art/1965.467.a",
+    "photo_source": "https://clevelandart.org/art/1965.467.a",
+    "photo_sha256": "43878800f806dba524961280d689e567efade166c9ad91ccde4101f461e6c0bd",
+    "source_sha256": "83c6721dd73f50f3e758aa29dc2f19ded18c7d79767cdb42e03e137be2cab320",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P043",
+    "identity": [
+      "teapot"
+    ],
+    "material": [
+      "Porcelain with overglaze color enamel and gold"
+    ],
+    "reference_id": "CMA-447720",
+    "source_url": "https://clevelandart.org/art/2022.167",
+    "photo_source": "https://clevelandart.org/art/2022.167",
+    "photo_sha256": "4411a34ea83062fdf2335f3fc90e8e4e43480c196620c8ae4d8ce9d0d88c7d4e",
+    "source_sha256": "169f4bb253302f4aafd1300eda9a1af78588755fdb708467e7f0dcc1c0bb5718",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P044",
+    "identity": [
+      "buckle"
+    ],
+    "material": [
+      "bronze with garnets, glass, mother of pearl, gold foil, traces of gilding; bronze and glass"
+    ],
+    "reference_id": "CMA-161779",
+    "source_url": "https://clevelandart.org/art/2001.119",
+    "photo_source": "https://clevelandart.org/art/2001.119",
+    "photo_sha256": "07bc9c590fa9fc35dec501176ac4472c1368b1e061a5d7773ae3115cdc5b9f45",
+    "source_sha256": "3879cfe8b204bd32d2196c86469ba16d2eea7d631bb60aadbcd0cfd3f7c62fcf",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P045",
+    "identity": [
+      "coin"
+    ],
+    "material": [
+      "silver"
+    ],
+    "reference_id": "CMA-143311",
+    "source_url": "https://clevelandart.org/art/1967.243",
+    "photo_source": "https://clevelandart.org/art/1967.243",
+    "photo_sha256": "cd831cf610c2df4d1402a0f7e7870a35d9f4c6f473e2b063d25410455eb18473",
+    "source_sha256": "f2d455fc242835d474d35d6a3b1597595b6d6180cce1ee5efeb6bc2122e0ce5c",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P046",
+    "identity": [
+      "textile fragment"
+    ],
+    "material": [
+      "Silk: lampas and taqueté weave"
+    ],
+    "reference_id": "CMA-109228",
+    "source_url": "https://clevelandart.org/art/1927.378",
+    "photo_source": "https://clevelandart.org/art/1927.378",
+    "photo_sha256": "67aa41a6fc5ea922fc7da0cfb4c9b259d83e0aff842fcaf637f3e5b58a3fc8c1",
+    "source_sha256": "82ee3addc6162986986bf9d8358c574472cbcda1122783bb79f25d2409480bd9",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P047",
+    "identity": [
+      "single-board computer"
+    ],
+    "brand": [
+      "Raspberry Pi"
+    ],
+    "model": [
+      "Raspberry Pi 5"
+    ],
+    "reference_id": "RP-PI5",
+    "source_url": "https://www.raspberrypi.com/products/raspberry-pi-5/",
+    "photo_source": "https://commons.wikimedia.org/wiki/File:Raspberry_Pi_5.jpg",
+    "photo_sha256": "79257d672a77827a582165fb66966465261150b1610c34b8d6df9229262e36c2",
+    "source_sha256": "77a724485f6b48408aacf2e42806783e1c9448997a9e9627905fe2d3f2ada264",
+    "photo_credit": "SimonWaldherr",
+    "photo_license": "CC BY 4.0",
+    "photo_license_url": "https://creativecommons.org/licenses/by/4.0"
+  },
+  {
+    "lot": "P048",
+    "identity": [
+      "vase"
+    ],
+    "material": [
+      "soft-paste porcelain"
+    ],
+    "reference_id": "CMA-142466",
+    "source_url": "https://clevelandart.org/art/1966.233",
+    "photo_source": "https://clevelandart.org/art/1966.233",
+    "photo_sha256": "ff20367f7479bdb1c2890546e61f38f256f23aacb5cbe5c8c6767f33ad5550c9",
+    "source_sha256": "003bcfd1227206fc74eaca2ae850ccef0993b5fce03c23ee37deeb7595dfaf48",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P049",
+    "identity": [
+      "fan"
+    ],
+    "material": [
+      "wooden frame painted and lacquered"
+    ],
+    "reference_id": "CMA-96590",
+    "source_url": "https://clevelandart.org/art/1916.332",
+    "photo_source": "https://clevelandart.org/art/1916.332",
+    "photo_sha256": "685dbf1bf72df52de0db0aae4937d6ee243391a8a6726e36de2f6d7369558110",
+    "source_sha256": "64344f2a2e687bef033ddc176f57dfe82e283244057f5bdbaffde5af7886187c",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P050",
+    "identity": [
+      "bowl"
+    ],
+    "material": [
+      "earthenware with painted underglaze and incised design"
+    ],
+    "reference_id": "CMA-94657",
+    "source_url": "https://clevelandart.org/art/1915.303",
+    "photo_source": "https://clevelandart.org/art/1915.303",
+    "photo_sha256": "4faee5414445bdd03bb5ec92d2ccdf2042979fb72f8e1bf03cb48672a4a67bd5",
+    "source_sha256": "6168e1eb3c3135cf2e00d29caaad577f2726828454b5126f3482d01918a9cc28",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P051",
+    "identity": [
+      "vase"
+    ],
+    "material": [
+      "porcelain painted in polychrome enamels over transparent glaze"
+    ],
+    "reference_id": "CMA-145937",
+    "source_url": "https://clevelandart.org/art/1971.145",
+    "photo_source": "https://clevelandart.org/art/1971.145",
+    "photo_sha256": "cde73db10a0ed51aa87b7faf7aea9a36922d3cb68e120e852806cba7286f024f",
+    "source_sha256": "2f2cf3882cc6d4f3912ecec35acc5c60db9b5bb1127511b8fe0d2867b1eee007",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P052",
+    "identity": [
+      "game console"
+    ],
+    "brand": [
+      "Nintendo"
+    ],
+    "model": [
+      "Nintendo Switch (6.2-inch LCD)"
+    ],
+    "reference_id": "NINTENDO-SWITCH-LCD",
+    "source_url": "https://www.nintendo.com/us/gaming-systems/switch/tech-specs/",
+    "photo_source": "https://commons.wikimedia.org/wiki/File:Nintendo-Switch-Console-Docked-wJoyConRB.jpg",
+    "photo_sha256": "a51c340d9e4ba00115c29a4023253d40b8ad59cde3fab78b8e5c8bfb45605442",
+    "source_sha256": "489aa714bb0ffbdfeef9570d17799af28fa90120ed7ab5fb395a365f71e6b8b0",
+    "photo_credit": "Evan-Amos",
+    "photo_license": "Public domain",
+    "photo_license_url": "https://commons.wikimedia.org/wiki/Commons:Public_domain"
+  },
+  {
+    "lot": "P053",
+    "identity": [
+      "wireless mouse"
+    ],
+    "brand": [
+      "Logitech"
+    ],
+    "model": [
+      "MX Master 3S"
+    ],
+    "reference_id": "LOGITECH-MX-MASTER3S",
+    "source_url": "https://www.logitech.com/en-us/shop/p/mx-master-3s",
+    "photo_source": "https://commons.wikimedia.org/wiki/File:Logitech_MX_Master_3S_HS01.jpg",
+    "photo_sha256": "4a595dc834835b2b9de4de3056d0db4ccf1b7303aa67f060b6d663ff303ffc82",
+    "source_sha256": "1d4eaca262219b132c0d342a348faf5cf89c11eef5a0cf438b94d4bab2195cca",
+    "photo_credit": "Hayden Schiff",
+    "photo_license": "CC BY 4.0",
+    "photo_license_url": "https://creativecommons.org/licenses/by/4.0"
+  },
+  {
+    "lot": "P054",
+    "identity": [
+      "fan"
+    ],
+    "material": [
+      "Leaf:  gouache on paper; sticks and guards: mother-of-pearl; pivot: gold"
+    ],
+    "reference_id": "CMA-136398",
+    "source_url": "https://clevelandart.org/art/1960.267",
+    "photo_source": "https://clevelandart.org/art/1960.267",
+    "photo_sha256": "fbe3c9853f99d2087f5dd693458d8b9e7be4d8b39bdef1eb630df65876f8136c",
+    "source_sha256": "c8a18b7e130c76bf62a81cb4b4c28a8407bddf8bebfaaeac561141ca88f28086",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P055",
+    "identity": [
+      "print"
+    ],
+    "material": [
+      "woodcut, in black and white on paper washed blue"
+    ],
+    "reference_id": "CMA-128048",
+    "source_url": "https://clevelandart.org/art/1950.72",
+    "photo_source": "https://clevelandart.org/art/1950.72",
+    "photo_sha256": "33a48eafa83ce9ec20b8c7b9c5e441c09d87cab161032e40c06e3176d68f8911",
+    "source_sha256": "a25b45a0d8d6381327dba74f437c9979b8ad1a3c5af3d8472aa183a8092d1d5a",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "lot": "P056",
+    "identity": [
+      "figurine"
+    ],
+    "material": [
+      "Ceramic, pigment"
+    ],
+    "reference_id": "CMA-103057",
+    "source_url": "https://clevelandart.org/art/1921.1711",
+    "photo_source": "https://clevelandart.org/art/1921.1711",
+    "photo_sha256": "eaf6601e9d474c8a6698b13e028a5c9470e6c01d8f5cc7d831ec772c388632a1",
+    "source_sha256": "d000b710bf75497f2be4190c278f35e197d12f0abb24e7432455c8064633be8b",
+    "photo_credit": "The Cleveland Museum of Art",
+    "photo_license": "CC0",
+    "photo_license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  }
+]

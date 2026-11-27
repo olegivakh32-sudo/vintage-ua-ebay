@@ -63,7 +63,8 @@ from catalog_policy import (
 from catalogue_labels import catalogue_claims, load_catalogue, read_label_texts
 from identity_evidence import corroborated_value, identity_claims, normalized_claim
 from hold_package import export_package, staged_import
-from market_evidence import comparable_reference
+from listing_review import DIRECT, evidence_value, export_review, hold_seo_preview
+from market_evidence import comparable_reference, completed_sale_valuation
 from market_profit import (
     DOMESTIC_URL, EBAY_FEES_URL, EBAY_INTL_FEES_URL, OLX_FEES_URL, RATE_DOCS, TARIFFS_CHECKED, amount, basic_ebay_fee,
     currency_evidence, domestic_base_quote, kyiv_today, official_usd_rate, olx_fee, projection,
@@ -3231,6 +3232,77 @@ def _product_evidence_for_review(analysis, identification, market, items, seller
                                    len(items), assessed=assessed), assessed[1], reference_decisions)
 
 
+def _completed_sale_review(review):
+    configured = os.environ.get('VINTAGE_VERIFIED_SALES_FILE')
+    records = []
+    if configured:
+        try:
+            with Path(configured).open('rb') as source:
+                raw = source.read(2_000_001)
+            records = json.loads(raw) if len(raw) <= 2_000_000 else []
+            if not isinstance(records, list) or len(records) > 10000:
+                records = []
+        except (OSError, ValueError):
+            records = []
+    evidence = review['fields']
+    model = evidence_value(evidence, 'model', DIRECT)
+    brand = evidence_value(evidence, 'brand', DIRECT)
+    identity = f'{brand} {model}' if brand and model and not model.casefold().startswith(brand.casefold()) else model
+    return completed_sale_valuation(records, {
+        'identity': identity,
+        'condition': evidence_value(evidence, 'condition', {'SELLER_VERIFIED'}),
+        'completeness': evidence_value(evidence, 'completeness', {'SELLER_VERIFIED'}),
+    }, as_of=kyiv_today())
+
+
+def _hold_category_review(draft, market):
+    candidate = _research_machine_json(market, 'CATEGORY_CANDIDATE_JSON')
+    status = {'status': 'UNVERIFIED', 'research_candidate': candidate}
+    if not all((EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, EBAY_REFRESH_TOKEN)):
+        return status | {'reason': 'TAXONOMY_ACCESS_UNAVAILABLE'}
+    try:
+        proposal = dict(draft)
+        category, name = _current_category(get_ebay_access_token(), draft['title'], proposal)
+        proposal.update(category_id=category, category_name=name)
+        valid, note = _p057_category_snapshot_check(proposal)
+        if valid and proposal.get('category_tree_version'):
+            return status | {'status': 'TAXONOMY_CHECKED', 'id': category, 'path': proposal['category_path'],
+                             'tree_id': proposal['category_tree_id'], 'version': proposal['category_tree_version']}
+        return status | {'reason': note or 'TAXONOMY_TREE_VERSION_MISSING'}
+    except (RuntimeError, ValueError, requests.RequestException):
+        return status | {'reason': 'TAXONOMY_MATCH_UNAVAILABLE'}
+
+
+def _save_hold_listing(picker_id, analysis, identification, market, measurements, *, shipping_status):
+    items = PHOTO_CACHE.get(picker_id) or []
+    evidence, observations, references = _product_evidence_for_review(analysis, identification, market, items, {}, measurements)
+    hint = _research_machine_json(identification, 'IDENTITY_JSON').get('type')
+    review = export_review(evidence or {}, hint)
+    draft = hold_seo_preview(review)
+    if draft is None:
+        return page('Огляд HOLD', '<h2>Потрібне підтвердження типу предмета</h2>'), 409
+    draft.update(hold_preview=True, product_evidence=review['fields'], product_export=review,
+                 primary_type=review['type'], observation_decisions=observations,
+                 reference_decisions=references, shipping_status=shipping_status)
+    draft['market_valuation'] = _completed_sale_review(review)
+    draft['category_review'] = _hold_category_review(draft, market)
+    draft['compliance_review'] = _p083_compliance(draft)
+    with _p054_lot_lock('ebay-write:' + _current_lot_sku()):
+        previous = LOT002_DRAFT_CACHE.get(picker_id)
+        if not previous or previous.get('hold_preview'):
+            LOT002_DRAFT_CACHE[picker_id] = draft
+            try:
+                _p058_capture_current('SEO_HOLD')
+            except (ValueError, RuntimeError, OSError):
+                if previous:
+                    LOT002_DRAFT_CACHE[picker_id] = previous
+                else:
+                    LOT002_DRAFT_CACHE.pop(picker_id, None)
+                _save_active_lot_checkpoint()
+                return page('Збереження HOLD', '<h2>Не вдалося записати чернетку в HOLD</h2>'), 503
+    return redirect('/picker/review-final-draft', code=303)
+
+
 def _reference_measurements_from_consensus(specs):
     """P023.5 HARD GUARD: only exact-model-confirmed research may prefill measurements.
 
@@ -3906,6 +3978,8 @@ def _p089_research_handoff(draft, specs, facts):
 
 def _p087_quality_block(draft):
     if not draft: return 'Чернетка відсутня.'
+    if draft.get('hold_preview'):
+        return 'Внутрішня SEO-чернетка HOLD. Для публікації потрібні виміри та перевірка оголошення.'
     title=str(draft.get('title') or '').strip()
     desc=str(draft.get('description') or '').strip()
     if not 30 <= len(title) <= 80 or len(desc.split()) < 25:
@@ -7100,12 +7174,18 @@ def final_listing(automatic_revision=None):
     measurements = [_p054_positive(accepted.get(key), limit)
                     for key, limit in zip(_MEASUREMENT_FIELDS, (101, 1001, 1001, 1001))]
     if not all(measurements):
+        if automatic and analysis and identification and market:
+            return _save_hold_listing(picker_id, analysis, identification, market, accepted,
+                                      shipping_status='NEEDS_VERIFIED_MEASUREMENTS')
         detail = ('Доказів для розрахунку доставки бракує. Потрібен чіткий кадр ваг або потрібної осі.'
                   if automatic else 'Підтвердьте виміри перед створенням чернетки')
         return page('Дані доставки', '<h2>' + detail + '</h2>'
                     '<a href="/picker/resume-measurements">Відкрити виміри</a>'), 409
     size, package_size, packed, quote = _shipping_quote(*measurements)
     if quote.get('recommended_usd') is None:
+        if automatic and analysis and identification and market:
+            return _save_hold_listing(picker_id, analysis, identification, market, accepted,
+                                      shipping_status='NEEDS_SUPPORTED_TARIFF')
         return page('Дані доставки', '<h2>Потрібна перевірка тарифу доставки</h2>'
                     '<a href="/picker/resume-shipping">Відкрити розрахунок</a>'), 409
     item_weight, packed_weight = str(measurements[0]), str(packed)
@@ -7180,9 +7260,14 @@ def final_listing(automatic_revision=None):
     }
     if automatic:
         _draft_sig_payload['automatic_material_source'] = material_source
+    product_export = None
+    valuation = None
     if product_evidence is not None:
+        product_export = export_review(product_evidence, kind)
+        valuation = _completed_sale_review(product_export)
         _draft_sig_payload['product_evidence'] = product_evidence
         _draft_sig_payload['observation_decisions'] = observation_decisions
+        _draft_sig_payload['completed_sale_valuation'] = valuation
     if seller_declared_condition:
         _draft_sig_payload['seller_declared_condition'] = seller_declared_condition
     _draft_sig=hashlib.sha256(json.dumps(_draft_sig_payload,ensure_ascii=False,sort_keys=True).encode("utf-8")).hexdigest()
@@ -7193,6 +7278,10 @@ def final_listing(automatic_revision=None):
         return redirect("/picker/review-final-draft")
     price_quality=_market_price_quality(market)
     fallback_price=_market_bin_price(market)
+    if valuation is not None:
+        fallback_price = valuation['price'] or ''
+        price_quality = {'ok': bool(fallback_price),
+                         'reasons': [] if fallback_price else ['Insufficient verified, matched completed sales']}
     fallback_title=_market_title(market)
     structure=ITEM_STRUCTURE_CACHE.get(session.get("picker_session_id")) or {}
     physical_scope=str(structure.get("scope") or "UNCERTAIN")
@@ -7591,6 +7680,10 @@ JSON schema exactly: {{"title":"","price_usd":"","condition_note":"","item_speci
     draft['material_evidence_source'] = material_source
     if product_evidence is not None:
         draft['product_evidence'] = product_evidence
+        draft['product_export'] = product_export
+        draft['market_valuation'] = valuation
+        if valuation['price']:
+            draft['price_source'] = 'COMPLETED_SALES'
         draft['observation_decisions'] = observation_decisions
         draft['reference_decisions'] = reference_decisions
         if structured_draft and data is structured_draft:
@@ -7627,6 +7720,8 @@ def confirm_final_draft():
     picker_id = session.get('picker_session_id')
     if not LOT002_DRAFT_CACHE.get(picker_id):
         return page('Чернетка недоступна', '<h2>Чернетку лота не знайдено</h2>'), 400
+    if LOT002_DRAFT_CACHE[picker_id].get('hold_preview'):
+        return page('Огляд HOLD', '<h2>Спочатку доповніть виміри й перевірте оголошення</h2>' + review_link), 409
     raw = request.form.get('confirmed_price', '').strip().replace(',', '.')
     try:
         value = Decimal(raw)
@@ -7679,6 +7774,18 @@ def review_final_draft():
     draft=_current_draft(); label=_current_lot_label()
     if not draft:
         return page("Draft missing","<h2>Draft is missing. Nothing was sent to eBay.</h2><p><a href='/picker/items'>Return to photos</a></p>"),400
+    if draft.get('hold_preview'):
+        evidence = _product_evidence_html(draft['product_evidence'], show_unknown=True)
+        specifics = '\n'.join(f'{key}: {value}' for key, value in draft['item_specifics'].items())
+        text = '\n\n'.join((draft['title'], draft['description'], specifics))
+        corrections = ' · '.join(f"{row['observed']} → {row['value']}"
+                                 for row in draft['product_export']['ocr_corrections'])
+        return page(label+' — SEO у HOLD', '<h2>SEO-чернетка збережена в HOLD</h2>'
+                    '<p>Для публікації потрібні перевірка категорії, ціни та дані доставки.</p>'
+                    f'<pre style="white-space:pre-wrap">{html.escape(text)}</pre>'
+                    f'<p>{html.escape(corrections)}</p>{evidence}'
+                    '<p><a href="/picker/hold-draft.json">Експорт доказів і SEO</a> · '
+                    '<a href="/picker/resume-measurements">Відкрити виміри</a></p>')
     if _p060_ensure_title_object(draft):_save_active_lot_checkpoint()
     listing_text=str(draft.get('listing_text') or '')
     price=str(draft.get('price') or '')
@@ -7696,7 +7803,23 @@ def review_final_draft():
     else:
         references = []
     evidence_html += _observation_diagnostics_html(references, heading='Перевірка довідкових джерел')
+    if 'product_evidence' in draft:
+        evidence_html += '<p><a href="/picker/hold-draft.json">Експорт доказів і SEO</a></p>'
     return page(label+" Final eBay Listing",f"""<h2>{label} — Final eBay Listing Draft</h2><p style='color:#176b2c'><b>Draft ready — saved result, no repeated AI request.</b></p><p><b>Seller-verified visible marking:</b> {html.escape(str(draft.get('seller_verified_marking') or 'none'))}</p><p><b>Draft evidence readiness:</b> {html.escape(str(draft.get('listing_readiness') or 'not scored'))}% — category/condition/photo checks are performed in Preflight.</p>{_usage_summary_html(session.get('picker_session_id'))}{evidence_html}<pre style='white-space:pre-wrap'>{html.escape(listing_text)}</pre><hr><form action='/picker/confirm-final-draft' method='post'><input type="hidden" name="hold_csrf" value="{_p058_csrf()}"><input type="hidden" name="draft_digest" value="{digest}"><p><label><b>Final Buy It Now price, USD:</b><br><input name='confirmed_price' type='number' min='0.01' step='0.01' value='{html.escape(price,quote=True)}' required style='font-size:20px;padding:10px;width:180px'></label></p><p><label><b>Material(s), editable override:</b><br><input name='confirmed_material' value='{html.escape(material,quote=True)}' placeholder='leave blank if unknown' style='font-size:18px;padding:10px;width:min(520px,90%)'></label></p><button type='submit' style='font-size:18px;padding:14px 18px;font-weight:bold'>Continue → eBay Preflight</button></form>""")
+
+
+@app.get('/picker/hold-draft.json')
+def export_hold_draft():
+    draft = _current_draft()
+    if 'product_evidence' not in draft:
+        return '', 404
+    response = app.make_response({key: draft[key] for key in (
+        'title', 'description', 'item_specifics', 'seo_keywords', 'category_review',
+        'market_valuation', 'shipping_status', 'compliance_review', 'observation_decisions', 'reference_decisions',
+    ) if key in draft} | {'product_export': draft.get('product_export') or export_review(draft['product_evidence']),
+                          'hold_preview': bool(draft.get('hold_preview'))})
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 # =========================================================
 # EBAY MEDIA API — SAFE ONE-PHOTO TEST FOR LOT 001
@@ -10825,6 +10948,8 @@ def _p081_saved_passive(draft):
 def _current_draft():
     picker_id = session.get('picker_session_id')
     draft = LOT002_DRAFT_CACHE.get(picker_id) or {}
+    if draft.get('hold_preview'):
+        return draft
     if draft:
         changed=_p081_saved_passive(draft)
         changed=_p056_restore_object_type(draft, ANALYSIS_CACHE.get(picker_id), IDENTIFICATION_CACHE.get(picker_id)) or changed
@@ -11020,6 +11145,8 @@ def _p073_auto_cards(draft, title=""):
 
 def _draft_primary_type(draft, title=""):
     """Use structured Item Type before SEO/title features when choosing an eBay category."""
+    if (draft or {}).get('hold_preview'):
+        return str((draft.get('product_export') or {}).get('type') or '')
     observed_type = photo_type((draft or {}).get('product_evidence') or {})
     if observed_type:
         return observed_type
@@ -12169,6 +12296,8 @@ def ebay_current_preflight():
     draft=_current_draft(); label=_current_lot_label(); sku=_current_lot_sku(); picker_id=session.get('picker_session_id'); items=PHOTO_CACHE.get(picker_id,[])
     if not draft:
         return page(label+' preflight','<h2>Draft is missing from current Render memory.</h2>'),400
+    if draft.get('hold_preview'):
+        return page(label+' HOLD', '<h2>' + html.escape(_p087_quality_block(draft)) + '</h2>'), 409
     try:
         if _p060_ensure_title_object(draft):_save_active_lot_checkpoint()
         title=str(draft.get('title') or '').strip(); price=str(draft.get('price') or '').strip(); ship=str(draft.get('shipping_usd') or '').strip()
@@ -12689,6 +12818,8 @@ def _p083_compliance(draft):
     if review or not str(draft.get('title') or '').strip():
         return dict(evidence, status='REVIEW', rule='LOCAL_EXPORT_REVIEW' if review else 'MISSING_TITLE',
                     trigger=review[0] if review else '')
+    if draft.get('hold_preview'):
+        return dict(evidence, status='REVIEW', rule='HOLD_DETAILS_PENDING', trigger='')
     return dict(evidence, status='CLEAR', rule='NO_LOCAL_MATCH', trigger='')
 
 
@@ -12918,8 +13049,11 @@ def _p058_record(snapshot,old=None,reason=None,offer_id=None,allow_fetch=False):
     filename=str(((photos[0].get('mediaFile') or {}).get('filename') or '') if photos else '')
     title=str(draft.get('title') or str(identity.get('type') or '').replace('_',' ').title() or filename or 'Предмет ще не ідентифіковано')[:250]
     thumbnail,url=_p058_preview(snapshot,old,allow_fetch)
+    price = draft.get('price') or ''
+    if not price and 'market_valuation' not in draft:
+        price = _market_bin_price(snapshot.get('market') or '') or ''
     return {**old,'sku':f'LOT-{no:03d}','lot_number':no,'picker_id':str(snapshot['picker_session_id']),
-            'title':title,'price':str(draft.get('price') or _market_bin_price(snapshot.get('market') or '') or ''),
+            'title':title,'price':str(price),
             'currency':'USD','reason':str(reason or old.get('reason') or 'HELD_BY_SELLER')[:500],
             'photo_count':len(photos),'thumbnail':thumbnail,'photo_url':url,
             'offer_id':str(offer_id or old.get('offer_id') or ''),'snapshot':snapshot,
@@ -14415,7 +14549,8 @@ def mobile_prepare_stage():
     items = PHOTO_CACHE.get(picker_id) or []
     if not str(picker_id or '').startswith('mobile-') or not 1 <= len(items) <= 24:
         return {'error': 'Відкрийте лот із завантаженими фото.'}, 409
-    if LOT002_DRAFT_CACHE.get(picker_id):
+    existing = LOT002_DRAFT_CACHE.get(picker_id)
+    if existing and (not existing.get('hold_preview') or request.form.get('stage') != 'draft'):
         return {'open': '/picker/review-final-draft'}
 
     stage = request.form.get('stage')

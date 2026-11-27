@@ -245,6 +245,7 @@ def run(data, photos, limits, *, live_web=None):
     client = vintage.app.test_client()
     actual_request = requests.Session.request
     actual_api = vintage._p054_openai_request
+    actual_evidence = vintage._product_evidence_for_review
     if live_web is not None:
         live_web.prepare_catalogue(data['lot'], photos, vintage)
 
@@ -317,6 +318,12 @@ def run(data, photos, limits, *, live_web=None):
             # This cohort lacks instrument photos. Direct readings still pass through the
             # normal measurement code. The optional paid measurement engine stays disabled.
             optional.enter_context(patch.object(vintage, 'estimate_item_size_weight_from_photos', return_value={}))
+            catalogue = live_web.catalogue_references(data['lot'])
+            if catalogue:
+                def with_catalogue(*args, **kwargs):
+                    kwargs.setdefault('catalogue_references', catalogue)
+                    return actual_evidence(*args, **kwargs)
+                optional.enter_context(patch.object(vintage, '_product_evidence_for_review', with_catalogue))
         client.get('/mobile')
         with client.session_transaction() as session:
             csrf = session['hold_csrf']
@@ -386,7 +393,8 @@ def run(data, photos, limits, *, live_web=None):
             candidates = vintage._research_machine_json(market, 'CATEGORY_CANDIDATE_JSON')
             review = {'title': draft.get('title'), 'evidence': evidence, 'observations': observations,
                       'reference_decisions': references, 'market_check': vintage._market_price_quality(market),
-                      'unverified_category': candidates, 'draft_status': 'DRAFT' if draft else 'HOLD'}
+                      'unverified_category': candidates,
+                      'draft_status': 'DRAFT' if draft and not draft.get('hold_preview') else 'HOLD'}
         observed = {
             field: list(dict.fromkeys(row['value'] for row in evidence.get(field, [])
                                       if row['status'] in {'PHOTO_OBSERVATION', 'SELLER_VERIFIED'}))

@@ -1,0 +1,402 @@
+{
+  "mode": "OFFLINE_REPLAY_OF_ARCHIVED_MODEL_RESPONSES",
+  "source_runs": [
+    45888499679,
+    45955681812
+  ],
+  "new_paid_usd": "0",
+  "external_requests": 0,
+  "score": {
+    "objects": 3,
+    "admitted": 0,
+    "admission_rate": 0.0,
+    "minimum_admission_rate": null,
+    "missing_predictions": [],
+    "fields": {
+      "identity": {
+        "correct": 3,
+        "labelled": 3
+      },
+      "brand": {
+        "correct": 2,
+        "labelled": 2
+      },
+      "model": {
+        "correct": 2,
+        "labelled": 2
+      },
+      "ocr": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "period": {
+        "correct": 1,
+        "labelled": 1
+      },
+      "material": {
+        "correct": 1,
+        "labelled": 1
+      },
+      "country": {
+        "correct": 1,
+        "labelled": 1
+      },
+      "condition": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "completeness": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "defects": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "category_id": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "weight_kg": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "length_cm": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "width_cm": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "height_cm": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "product_photos": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "evidence_photos": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "main_photo": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "title_terms": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "seo_passed": {
+        "correct": 0,
+        "labelled": 0
+      }
+    },
+    "unknown_by_field": {
+      "identity": 0,
+      "brand": 0,
+      "model": 0,
+      "ocr": 0,
+      "period": 0,
+      "material": 0,
+      "country": 0,
+      "condition": 0,
+      "completeness": 0,
+      "defects": 0,
+      "category_id": 0,
+      "weight_kg": 0,
+      "length_cm": 0,
+      "width_cm": 0,
+      "height_cm": 0,
+      "product_photos": 0,
+      "evidence_photos": 0,
+      "main_photo": 0,
+      "title_terms": 0,
+      "seo_passed": 0
+    },
+    "identity_abstentions": 0,
+    "identity_abstention_rate": 0.0,
+    "identity_target_met": false,
+    "critical_categories": [],
+    "admitted_without_category_reference": [],
+    "mismatches": {},
+    "operations": {
+      "elapsed_ms": {
+        "reported": 0,
+        "total": null,
+        "median": null
+      },
+      "cost_usd": {
+        "reported": 0,
+        "total": null,
+        "median": null
+      },
+      "manual_actions": {
+        "reported": 0,
+        "total": null,
+        "median": null
+      }
+    },
+    "passed": false
+  },
+  "lots": [
+    {
+      "lot": "MV-101",
+      "identity": "Plate",
+      "brand": null,
+      "model": null,
+      "ocr_raw": "1998.257",
+      "ocr": "1998.257",
+      "ocr_corrections": [],
+      "measurement": {
+        "weight_kg": {
+          "actual": null,
+          "reference": [],
+          "estimate": []
+        },
+        "length_cm": {
+          "actual": null,
+          "reference": [
+            {
+              "value": 30.5,
+              "status": "CATALOGUE_REFERENCE",
+              "photos": [
+                2
+              ],
+              "references": [
+                {
+                  "url": "https://www.clevelandart.org/art/1998.257",
+                  "kind": "MUSEUM",
+                  "document_id": "1998.257",
+                  "excerpt": "1998.257 • length_cm: 30.5"
+                }
+              ],
+              "contradictions": [],
+              "unit": "cm"
+            }
+          ],
+          "estimate": []
+        },
+        "width_cm": {
+          "actual": null,
+          "reference": [
+            {
+              "value": 30.5,
+              "status": "CATALOGUE_REFERENCE",
+              "photos": [
+                2
+              ],
+              "references": [
+                {
+                  "url": "https://www.clevelandart.org/art/1998.257",
+                  "kind": "MUSEUM",
+                  "document_id": "1998.257",
+                  "excerpt": "1998.257 • width_cm: 30.5"
+                }
+              ],
+              "contradictions": [],
+              "unit": "cm"
+            }
+          ],
+          "estimate": []
+        },
+        "height_cm": {
+          "actual": null,
+          "reference": [
+            {
+              "value": 4.3,
+              "status": "CATALOGUE_REFERENCE",
+              "photos": [
+                2
+              ],
+              "references": [
+                {
+                  "url": "https://www.clevelandart.org/art/1998.257",
+                  "kind": "MUSEUM",
+                  "document_id": "1998.257",
+                  "excerpt": "1998.257 • height_cm: 4.3"
+                }
+              ],
+              "contradictions": [],
+              "unit": "cm"
+            }
+          ],
+          "estimate": []
+        }
+      },
+      "stored_state": "HOLD",
+      "open_after_cache_clear": true,
+      "photos_sha256": [
+        "9e8665758811ed4fe3321fc60ed705d25f981bd81469eec1079b9d066e22b494",
+        "6fd3cb7a3dd97df662a565664da174574327924972e7adcaec436fdbd379eec5"
+      ],
+      "title": "Plate salt-glazed stoneware",
+      "description": "Item shown in the photos: Plate. Documented catalogue material: salt-glazed stoneware. Refer to the photographs for visible condition and included parts. Verify any details that the photos do not establish before listing.",
+      "item_specifics": {
+        "Type": "Plate"
+      },
+      "category": {
+        "status": "UNVERIFIED",
+        "research_candidate": {
+          "category_id": 870,
+          "path": "Collectibles & Art > Pottery & Glass > Decorative Cookware, Dinnerware & Serveware > Decorative Pottery & Glassware > Salt Glazed Pottery",
+          "reason": "Unverified candidate: eBay lists Salt Glazed Pottery under this category (ID 870). ([ebay.com](https://www.ebay.com/b/Salt-Glazed-Pottery/870/bn_7023253747?utm_source=openai))"
+        },
+        "reason": "TAXONOMY_ACCESS_UNAVAILABLE"
+      },
+      "market": {
+        "status": "NEEDS_MATCHED_SALES",
+        "currency": "USD",
+        "price": null,
+        "sales": []
+      },
+      "shipping_status": "NEEDS_VERIFIED_MEASUREMENTS",
+      "admitted": false
+    },
+    {
+      "lot": "MV-102",
+      "identity": "Single-board computer",
+      "brand": "Raspberry Pi",
+      "model": "Raspberry Pi 4 Model B",
+      "ocr_raw": "Raspberry Pi 4 Model B\n© Raspberry Pi 2018\nFCC ID: 2ABCB-RP14B\n20953-RP14B\nMade in the UK\nGPIO",
+      "ocr": "Raspberry Pi 4 Model B\n© Raspberry Pi 2018\nFCC ID: 2ABCB-RPI4B\n20953-RPI4B\nMade in the UK\nGPIO",
+      "ocr_corrections": [
+        {
+          "observed": "2ABCB-RP14B",
+          "value": "2ABCB-RPI4B",
+          "status": "DOCUMENT_MATCH",
+          "photos": [
+            1
+          ],
+          "url": "https://pip-assets.raspberrypi.com/categories/1047-compliance-information/documents/RP-006477-DS/Raspberry-Pi-4-Model-B-E-Label"
+        },
+        {
+          "observed": "20953-RP14B",
+          "value": "20953-RPI4B",
+          "status": "DOCUMENT_MATCH",
+          "photos": [
+            1
+          ],
+          "url": "https://pip-assets.raspberrypi.com/categories/1047-compliance-information/documents/RP-006477-DS/Raspberry-Pi-4-Model-B-E-Label"
+        }
+      ],
+      "measurement": {
+        "weight_kg": {
+          "actual": null,
+          "reference": [],
+          "estimate": []
+        },
+        "length_cm": {
+          "actual": null,
+          "reference": [],
+          "estimate": []
+        },
+        "width_cm": {
+          "actual": null,
+          "reference": [],
+          "estimate": []
+        },
+        "height_cm": {
+          "actual": null,
+          "reference": [],
+          "estimate": []
+        }
+      },
+      "stored_state": "HOLD",
+      "open_after_cache_clear": true,
+      "photos_sha256": [
+        "39ed3cfb39675ea87bd51bfdad282d07a87fbbe150fc7632cec9fd5b3a6eb67f",
+        "b66724cf20e32d53aa4930550f9c0ccc8524f68a506c5e87a1aa95ab0ef22db2"
+      ],
+      "title": "Raspberry Pi 4 Model B Single-board computer",
+      "description": "Item shown in the photos: Single-board computer. Visible model marking: Raspberry Pi 4 Model B. Refer to the photographs for visible condition and included parts. Verify any details that the photos do not establish before listing.",
+      "item_specifics": {
+        "Type": "Single-board computer",
+        "Brand": "Raspberry Pi",
+        "Model": "Raspberry Pi 4 Model B"
+      },
+      "category": {
+        "status": "UNVERIFIED",
+        "research_candidate": {
+          "category_id": null,
+          "path": null,
+          "reason": "No verified eBay category path established."
+        },
+        "reason": "TAXONOMY_ACCESS_UNAVAILABLE"
+      },
+      "market": {
+        "status": "NEEDS_MATCHED_SALES",
+        "currency": "USD",
+        "price": null,
+        "sales": []
+      },
+      "shipping_status": "NEEDS_VERIFIED_MEASUREMENTS",
+      "admitted": false
+    },
+    {
+      "lot": "MV-103",
+      "identity": "Video game controller",
+      "brand": "Nintendo",
+      "model": "DOL-003",
+      "ocr_raw": "NINTENDO GAMECUBE Controller\nDOL-003\nMADE IN CHINA\nNintendo",
+      "ocr": "NINTENDO GAMECUBE Controller\nDOL-003\nMADE IN CHINA\nNintendo",
+      "ocr_corrections": [],
+      "measurement": {
+        "weight_kg": {
+          "actual": null,
+          "reference": [],
+          "estimate": []
+        },
+        "length_cm": {
+          "actual": null,
+          "reference": [],
+          "estimate": []
+        },
+        "width_cm": {
+          "actual": null,
+          "reference": [],
+          "estimate": []
+        },
+        "height_cm": {
+          "actual": null,
+          "reference": [],
+          "estimate": []
+        }
+      },
+      "stored_state": "HOLD",
+      "open_after_cache_clear": true,
+      "photos_sha256": [
+        "ecfa8df568b5fa38b5f4d34e1bc83c140e7aca33fafb950424f5e02d6e1b55f3",
+        "56045bd6d5a11ae6318e7f4ce3cee57422938b5818ee2ed2b358b0995c3deadb",
+        "f46fc2c08e0f161a541643f7c50511fb8fc449766bf34d94279822d239c26c7d"
+      ],
+      "title": "Nintendo DOL-003 Video game controller",
+      "description": "Item shown in the photos: Video game controller. Visible model marking: DOL-003. Refer to the photographs for visible condition and included parts. Verify any details that the photos do not establish before listing.",
+      "item_specifics": {
+        "Type": "Video game controller",
+        "Brand": "Nintendo",
+        "Model": "DOL-003",
+        "Country/Region of Manufacture": "China"
+      },
+      "category": {
+        "status": "UNVERIFIED",
+        "research_candidate": {
+          "category_id": "117042",
+          "path": "Video Games & Consoles > Video Game Accessories > Controllers & Attachments",
+          "reason": "eBay category search result lists Nintendo GameCube controllers under this category; candidate unverified."
+        },
+        "reason": "TAXONOMY_ACCESS_UNAVAILABLE"
+      },
+      "market": {
+        "status": "NEEDS_MATCHED_SALES",
+        "currency": "USD",
+        "price": null,
+        "sales": []
+      },
+      "shipping_status": "NEEDS_VERIFIED_MEASUREMENTS",
+      "admitted": false
+    }
+  ]
+}

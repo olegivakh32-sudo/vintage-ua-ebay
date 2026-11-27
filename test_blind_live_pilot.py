@@ -182,8 +182,10 @@ class BlindPilotTests(unittest.TestCase):
             self.assertEqual(raw['output'][0]['action']['sources'], urls)
             self.assertIn('IDENTITY_CLAIMS_JSON', raw['output_text'])
         self.assertEqual(transport.call_count, 4)
-        self.assertEqual(result['stage_http'], {'visual': 200, 'research': 200, 'draft': 409})
+        self.assertEqual(result['stage_http'], {'visual': 200, 'research': 200, 'draft': 200})
         self.assertEqual(result['review_card']['draft_status'], 'HOLD')
         rows = result['review_card']['evidence']['type']
         self.assertIn('CORROBORATED_REFERENCE', {row['status'] for row in rows})
-        self.assertEqual(result['draft'], {})
+        self.assertTrue(result['draft']['hold_preview'])
+        self.assertNotIn('shipping_usd', result['draft'])
+        self.assertFalse(result['admitted'])

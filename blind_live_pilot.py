@@ -16,6 +16,7 @@ import requests
 
 from ai_pilot import PilotLimits, run, write_report
 from identity_evidence import normalized_claim
+from listing_review import DOCUMENTED, corrected_ocr, export_review
 from openai_auth_diagnostic import safe_error
 from visual_protocol import VISUAL_TEXT, machine_object, visual_response_issue
 
@@ -426,6 +427,7 @@ def meter(result, stage, *, continuation=False):
 
 def prediction(result, attempts):
     evidence = (result.get('review_card') or {}).get('evidence') or {}
+    export = export_review(evidence, result.get('identity'))
 
     def verified_value(field, statuses):
         rows = evidence.get(field, [])
@@ -435,10 +437,11 @@ def prediction(result, attempts):
         return next(iter(values.values())) if len(values) == 1 else None
 
     observed = {'PHOTO_OBSERVATION', 'SELLER_VERIFIED'}
-    documented = observed | {'CORROBORATED_REFERENCE'}
+    documented = observed | DOCUMENTED
     billed = [attempt.get('metered_usd') for attempt in attempts if attempt['lot'] == result['lot']]
-    row = {'lot': result['lot'], 'identity': verified_value('type', documented),
-           'ocr': result['ocr'] or None, 'defects': result['defects'], 'category_id': result['category_id'],
+    row = {'lot': result['lot'], 'identity': export['type'] or None, 'product_export': export,
+           'ocr': corrected_ocr(result['ocr'], export['ocr_corrections']) or None,
+           'ocr_raw': result['ocr'] or None, 'defects': result['defects'], 'category_id': result['category_id'],
            'admitted': False, 'elapsed_ms': result['elapsed_ms'], 'main_photo': result['main_photo'],
            'title': (result.get('review_card') or {}).get('title'),
            'product_photos': result['ebay_photo_order'],
