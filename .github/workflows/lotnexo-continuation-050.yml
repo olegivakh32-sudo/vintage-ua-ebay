@@ -1,0 +1,74 @@
+name: LOTNEXO one-time pilot continuation
+
+on:
+  push:
+    tags: [p094-lotnexo-continuation-050]
+
+concurrency:
+  group: p094-lotnexo-continuation-050
+  cancel-in-progress: false
+
+jobs:
+  pilot:
+    if: >-
+      github.repository == 'olegivakh32-sudo/vintage-ua-ebay' &&
+      github.ref == 'refs/tags/p094-lotnexo-continuation-050' &&
+      github.event.created && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: p094-vision-pilot
+    permissions:
+      contents: write
+    env:
+      ALLOW_PAID_AI: '0'
+      ENABLE_LIVE_PUBLISH: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify the frozen inputs and cumulative reserve
+        run: |
+          set -euo pipefail
+          if ! command -v tesseract >/dev/null; then
+            timeout 60s sudo apt-get update -qq
+            timeout 60s sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-eng
+          fi
+          root="$RUNNER_TEMP/lotnexo-continuation"
+          mkdir -m 700 "$root"
+          python3 -m venv "$root/venv"
+          "$root/venv/bin/python" -m pip install --quiet -r requirements.txt
+          cp test_artifacts/recognition/lotnexo-live-pilot-blind.zip "$root/photos.zip"
+          cp test_artifacts/recognition/lotnexo-paid-45888499679.zip "$root/prior.zip"
+          "$root/venv/bin/python" blind_live_pilot.py "$root/photos.zip" \
+            --prior-results "$root/prior.zip" | tee "$root/reserve-preview.json"
+      - name: Verify the protected project key without generation
+        env:
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/lotnexo-continuation"
+          timeout 45s "$root/venv/bin/python" blind_live_pilot.py --preflight | tee "$root/preflight.json"
+      - name: Claim this approval once across all runners
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref=refs/tags/p094-lotnexo-continuation-050-reserved -f sha="$GITHUB_SHA" > /dev/null
+      - name: Resume the three-lot pilot and preserve the responses
+        env:
+          APPROVE_LOTNEXO_CONTINUATION: a45b390369797699ae13d2f6c63cc861018a394dee54195f1cf33c7e21f83ab2
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: |
+          root="$RUNNER_TEMP/lotnexo-continuation"
+          timeout 14m "$root/venv/bin/python" blind_live_pilot.py "$root/photos.zip" \
+            --prior-results "$root/prior.zip" --execute "$root/results"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: lotnexo-continuation-050-results
+          path: |
+            ${{ runner.temp }}/lotnexo-continuation/reserve-preview.json
+            ${{ runner.temp }}/lotnexo-continuation/preflight.json
+            ${{ runner.temp }}/lotnexo-continuation/results/*.json
+          retention-days: 30
+          if-no-files-found: ignore
