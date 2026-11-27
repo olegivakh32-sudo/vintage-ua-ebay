@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import re
 
-from identity_evidence import normalized_claim
+from identity_evidence import PRIMARY, normalized_claim
 from product_evidence import AMBIGUOUS_TYPE, PHYSICAL_FIELDS, TYPE_TAIL, concise_type, photo_type, reviewed_product_type, text_value
 
 
@@ -41,6 +41,30 @@ def canonical_product_type(evidence, suggested=''):
                 and re.search(r'(?<!\w)' + re.escape(normalized_claim(value)) + r'(?!\w)', normalized)):
             return value.strip()
     return concise_type(phrase) if len(phrase) > 2 else ''
+
+
+def _model_marking(evidence):
+    """Separate a corroborated model code from additional visible label text."""
+    rows = evidence.get('model', [])
+    observed = evidence_value(evidence, 'model', DIRECT)
+    if not observed or ';' not in observed or any(row['status'] == 'SELLER_VERIFIED' for row in rows):
+        return None
+    labels = [part.strip() for part in observed.split(';')]
+    codes = [part for part in labels if IDENTIFIER.fullmatch(part) and any(char.isdigit() for char in part)]
+    if len(labels) != 2 or len(codes) != 1 or not all(labels):
+        return None
+    code = codes[0]
+    visible = {row['value']: set(row.get('photos', [])) for row in evidence.get('marking', [])
+               if row['status'] == 'PHOTO_OBSERVATION' and row.get('marking_kind') == 'MODEL_NUMBER'}
+    common_photos = visible.get(labels[0], set()) & visible.get(labels[1], set())
+    exact_code = re.compile(r'(?<![\w-])' + re.escape(code) + r'(?![\w-])', re.I)
+    for row in rows:
+        if not common_photos.intersection(row.get('photos', [])) or row.get('contradictions'):
+            continue
+        for source in row.get('references', []):
+            if source['kind'] in PRIMARY and exact_code.search(source['excerpt']):
+                return {'code': code, 'visible_text': observed, 'labels': labels, 'url': source['url']}
+    return None
 
 
 def _identifier_corrections(evidence):
@@ -90,6 +114,7 @@ def export_review(evidence, suggested_type=''):
     """Keep all observations, source statuses and the original OCR in the export."""
     return {'type': canonical_product_type(evidence, suggested_type), 'fields': deepcopy(evidence),
             'identity_review': deepcopy(reviewed_product_type(evidence)),
+            'model_marking': _model_marking(evidence),
             'ocr_corrections': _identifier_corrections(evidence),
             'measurements': {field: {
                 'actual': evidence_value({field: [row for row in evidence.get(field, [])
@@ -141,13 +166,17 @@ def hold_seo_preview(review):
     evidence = review['fields']
     brand = evidence_value(evidence, 'brand', DIRECT)
     model = evidence_value(evidence, 'model', DIRECT)
+    model_marking = review.get('model_marking')
+    model_title = ' '.join(model_marking['labels']) if model_marking else model
+    if model_marking:
+        model = model_marking['code']
     material = evidence_value(evidence, 'material', DIRECT)
     reference_material = evidence_value(evidence, 'material', DOCUMENTED)
     title = kind
-    for value in (model, brand):
+    for value in (model_title, brand):
         if value and normalized_claim(value) not in normalized_claim(title) and len(value) + len(title) < 80:
             title = f'{value} {title}'
-    title = _marked_product_family(evidence, kind, brand, model) or title
+    title = _marked_product_family(evidence, kind, brand, model_title) or title
     title_material = material or reference_material
     feature = _observed_title_feature(evidence)
     if title_material and normalized_claim(title_material) not in normalized_claim(title):

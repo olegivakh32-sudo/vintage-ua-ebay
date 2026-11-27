@@ -307,6 +307,7 @@ def run(data, photos, limits, *, live_web=None):
     with ExitStack() as optional, tempfile.TemporaryDirectory(prefix='vintage-ai-pilot-') as tmp, patch.dict(os.environ, {
         'ALLOW_PAID_AI': '1', 'ENABLE_LIVE_PUBLISH': '0', 'ENABLE_BRAND_RESCAN': '0', 'HOLD_QUEUE_DIR': tmp,
         'VINTAGE_OPERATOR_PASSWORD': '', 'VINTAGE_ACCEPTANCE_SERVER': '0', 'RENDER': '',
+        'VINTAGE_VERIFY_PUBLIC_CATALOGUE': '0',
     }), patch.object(vintage, 'ACTIVE_LOT_CHECKPOINT_DIR', tmp), patch.object(
         vintage, '_p054_openai_request', bounded_api
     ), patch.object(requests.Session, 'request', request_guard), patch.dict(vintage._MODEL_PRICING_PER_M, {

@@ -179,6 +179,8 @@ starting the next. Use null/empty arrays for unknowns. Each source URL must come
 === IDENTIFICATION ===
 IDENTITY_JSON {"type":null,"brand":null,"model":null,"country":null,"period":null,"material":null,"exact_model_confirmed":false}
 IDENTITY_CLAIMS_JSON {"claims":[{"field":"","value":null,"photos":[1],"specimen_basis":"NET|ITEM","contradictions":[],"sources":[{"url":"","kind":"CATALOG|MANUAL|MUSEUM|ARCHIVE|OTHER","document_id":"","match":"EXACT|ANALOG","excerpt":""}]}]}
+REFERENCE_OBJECT_JSON {"url":null,"type":null,"photos":[]}
+Provide an exact object candidate and matching frames for an observed primary museum record. Preserve the accession as source attribution.
 For market-only research use the identity template with null fields and an empty claims list.
 Otherwise use separate factual claims and short excerpts. ''' + RESEARCH_FIELD_GUIDANCE + ' ' + TYPE_ANCHOR_GUIDANCE + '''
 For powered items include documented battery chemistry and installed, supplied or optional status when known.
@@ -447,6 +449,8 @@ def prediction(result, attempts):
                            for field in ('weight_kg', 'length_cm', 'width_cm', 'height_cm')},
            'cost_usd': float(sum(Decimal(cost) for cost in billed)) if billed and all(billed) else None}
     row.update({field: verified_value(field, documented) for field in ('brand', 'model', 'material', 'country', 'period')})
+    if export['model_marking']:
+        row['model'] = export['model_marking']['code']
     row.update({field: verified_value(field, observed) for field in ('condition', 'completeness')})
     return row
 

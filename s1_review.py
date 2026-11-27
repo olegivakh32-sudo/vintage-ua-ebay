@@ -8,7 +8,28 @@ from recognition_benchmark import FIELDS, compare_systems, score
 from s1_acceptance import PLAN_SHA
 
 
-def review(plan_path, reference_path, prediction_path, chatgpt_path=None):
+def align_chatgpt(rows, mapping, photo_hashes):
+    if not isinstance(rows, list) or not isinstance(mapping, list) or len(rows) != len(mapping):
+        raise ValueError('The photo mapping must cover every submitted row')
+    by_received = {}
+    for record in mapping:
+        if not isinstance(record, dict):
+            raise ValueError('Each photo mapping entry must be an object')
+        received, lot = record.get('received_id'), record.get('lot')
+        if (not isinstance(received, str) or not received.strip() or received in by_received
+                or not isinstance(lot, str) or lot not in photo_hashes or photo_hashes[lot] != record.get('photo_sha256')):
+            raise ValueError('Invalid, ambiguous or stale photo mapping')
+        by_received[received] = lot
+    if any(not isinstance(row, dict) or not isinstance(row.get('lot'), str) for row in rows):
+        raise ValueError('Each submitted row must have a textual lot ID')
+    submitted = [row['lot'] for row in rows]
+    if (set(submitted) != set(by_received) or len(set(submitted)) != len(rows)
+            or set(by_received.values()) != set(photo_hashes) or len(by_received) != len(photo_hashes)):
+        raise ValueError('Submission IDs and sealed lot IDs must map one-to-one')
+    return [row | {'lot': by_received[row['lot']]} for row in rows]
+
+
+def review(plan_path, reference_path, prediction_path, chatgpt_path=None, lot_map_path=None):
     if sha(plan_path) != PLAN_SHA:
         raise ValueError('S1 manifest differs from the frozen plan')
     plan = json.loads(plan_path.read_bytes())
@@ -52,7 +73,14 @@ def review(plan_path, reference_path, prediction_path, chatgpt_path=None):
         if baseline_hash == report['lotnexo_predictions_sha256']:
             raise ValueError('Independent ChatGPT results must come from a separate run')
         report['chatgpt_predictions_sha256'] = baseline_hash
-        report['paired'] = compare_systems(labels, predictions, json.loads(chatgpt_path.read_bytes()))
+        chatgpt = json.loads(chatgpt_path.read_bytes())
+        if lot_map_path is not None:
+            chatgpt = align_chatgpt(chatgpt, json.loads(lot_map_path.read_bytes()),
+                                   {lot: original[lot]['photo_sha256'] for lot in known_ids})
+            report['chatgpt_lot_map_sha256'] = sha(lot_map_path)
+        report['paired'] = compare_systems(labels, predictions, chatgpt)
+    elif lot_map_path is not None:
+        raise ValueError('A ChatGPT result is required with a photo mapping')
     return report
 
 
@@ -62,5 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('references', type=Path)
     parser.add_argument('predictions', type=Path)
     parser.add_argument('--chatgpt', type=Path)
+    parser.add_argument('--lot-map', type=Path)
     args = parser.parse_args()
-    print(json.dumps(review(args.plan, args.references, args.predictions, args.chatgpt), indent=2, ensure_ascii=False))
+    print(json.dumps(review(args.plan, args.references, args.predictions, args.chatgpt, args.lot_map),
+                     indent=2, ensure_ascii=False))

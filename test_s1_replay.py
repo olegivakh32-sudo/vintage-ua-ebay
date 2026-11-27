@@ -9,6 +9,7 @@ from zipfile import ZipFile
 import requests
 
 from s1_acceptance import LotFailure, StageBudget, execute, frozen_plan
+from s1_review import align_chatgpt
 from sellable_scope import resolve_scope
 from test_blind_live_pilot import RECOGNITION, response
 from test_mobile import m
@@ -89,6 +90,9 @@ class S1ReplayTests(unittest.TestCase):
             self.assertEqual(cards['P053']['review_card']['draft_status'], 'NO_DRAFT')
             self.assertEqual(cards['P001']['review_card']['draft_status'], 'NO_DRAFT')
             self.assertEqual(cards['P004']['review_card']['draft_status'], 'HOLD')
+            self.assertEqual(cards['P004']['draft']['item_specifics']['Model'], '33-425')
+            self.assertEqual(cards['P004']['draft']['product_export']['model_marking']['visible_text'],
+                             'PowerLock 25; 33-425')
             self.assertTrue(cards['P006']['review_card']['evidence']['research_note'])
             self.assertNotIn('1523', cards['P006']['draft']['description'])
             ledger = json.loads((out / 'run.json').read_bytes())
@@ -97,6 +101,17 @@ class S1ReplayTests(unittest.TestCase):
             self.assertEqual([row['status'] for row in ledger['attempts'][-3:]], ['SKIPPED'] * 3)
             self.assertEqual({row['reason'] for row in ledger['attempts'][-3:]}, {'ARCHIVED_RESPONSE_UNAVAILABLE'})
             self.assertEqual(ledger['status'], 'AWAIT_INDEPENDENT_REVIEW')
+
+    def test_supplied_photo_mapping_is_explicit_and_one_to_one(self):
+        photos = {'P001': 'first-sha', 'P002': 'second-sha'}
+        rows = [{'lot': 'phone-a', 'admitted': False}, {'lot': 'phone-b', 'admitted': False}]
+        mapping = [{'lot': 'P002', 'received_id': 'phone-a', 'photo_sha256': 'second-sha'},
+                   {'lot': 'P001', 'received_id': 'phone-b', 'photo_sha256': 'first-sha'}]
+        self.assertEqual([row['lot'] for row in align_chatgpt(rows, mapping, photos)], ['P002', 'P001'])
+        for invalid in (mapping[:1], [mapping[0], mapping[1] | {'photo_sha256': 'second-sha'}],
+                        [mapping[0], mapping[0] | {'received_id': 'phone-b'}]):
+            with self.assertRaises(ValueError):
+                align_chatgpt(rows, invalid, photos)
 
     def test_retail_parts_do_not_collapse_independent_or_uncertain_products(self):
         anchor = [{'field': 'type', 'value': 'Film camera with controls', 'confidence': 96, 'photos': [1]}]

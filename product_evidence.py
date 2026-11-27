@@ -105,6 +105,8 @@ def assess_photo_observations(observations, photo_count, *, summary_type=''):
         entry = dict(value=value, status=status, photos=photos, basis=basis)
         if name:
             entry['name'] = name
+        if field == 'marking' and row.get('marking_kind') == 'MODEL_NUMBER':
+            entry['marking_kind'] = 'MODEL_NUMBER'
         rows = facts.setdefault(field, [])
         if entry in rows:
             reasons.append('DUPLICATE')
@@ -124,7 +126,8 @@ def build_product_evidence(observations, references, seller, measurement, photo_
         field = reference['field']
         if field in facts:
             entry = {key: reference[key] for key in ('value', 'status', 'photos', 'references', 'contradictions')}
-            entry.update({key: reference[key] for key in ('name', 'visual_anchor') if reference.get(key)})
+            entry.update({key: reference[key] for key in ('name', 'visual_anchor', 'catalogue_photo_match')
+                          if reference.get(key)})
             if field in PHYSICAL_FIELDS:
                 entry['unit'] = 'kg' if field == 'weight_kg' else 'cm'
             facts[field].append(entry)
@@ -171,6 +174,12 @@ def reviewed_product_type(evidence):
     for row in documented:
         anchor = row.get('visual_anchor')
         replacement = concise_type(row['value'])
+        previous = list(dict.fromkeys(item['value'] for item in types
+                        if item['status'] in {'PHOTO_OBSERVATION', 'PHOTO_CANDIDATE', 'HYPOTHESIS'}
+                        and normalized_claim(item['value']) != normalized_claim(replacement)))
+        if row.get('catalogue_photo_match') and replacement:
+            return {'previous': previous, 'type': replacement, 'anchor': 'Збіг з офіційною фотографією каталогу',
+                    'photos': row['photos'], 'references': row['references']}
         if row['status'] != 'CORROBORATED_REFERENCE' or not anchor or replacement != row['value']:
             continue
         photos = set(row['photos'])
@@ -178,9 +187,6 @@ def reviewed_product_type(evidence):
                              if observed['status'] == 'PHOTO_OBSERVATION'
                              and normalized_claim(observed['value']) == normalized_claim(anchor)
                              for slot in observed.get('photos', []) if slot in photos})
-        previous = list(dict.fromkeys(item['value'] for item in types
-                        if item['status'] in {'PHOTO_OBSERVATION', 'PHOTO_CANDIDATE', 'HYPOTHESIS'}
-                        and normalized_claim(item['value']) != normalized_claim(replacement)))
         if supporting and previous:
             return {'previous': previous, 'type': replacement, 'anchor': anchor, 'photos': supporting,
                     'references': row['references']}

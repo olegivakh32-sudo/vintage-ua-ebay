@@ -64,6 +64,7 @@ from catalog_policy import (
 from catalogue_labels import catalogue_claims, load_catalogue, read_label_texts
 from identity_evidence import (RESEARCH_FIELD_GUIDANCE, RESEARCH_QUERY_GUIDANCE, TYPE_ANCHOR_GUIDANCE,
                                corroborated_value, identity_claims, normalized_claim)
+from museum_photo_evidence import museum_claims
 from hold_package import export_package, staged_import
 from listing_review import DIRECT, evidence_value, export_review, hold_seo_preview
 from carrier_policy import ukrposhta_battery_review
@@ -3229,7 +3230,8 @@ def _product_evidence_for_review(analysis, identification, market, items, seller
     observed = list(product_observations['fields']) if isinstance(product_observations['fields'], list) else []
     for field, key, value_key in (('marking', 'markings', 'literal'), ('symbol', 'symbols', 'description')):
         observed.extend({'field':field, 'value':record[value_key], 'photos':[record['photo']],
-                         'basis':'Visible transcription from the visual report', 'confidence':90}
+                         'basis':'Visible transcription from the visual report', 'confidence':90,
+                         'marking_kind': record.get('kind')}
                         for record in facts.get(key, []) if '[?]' not in record[value_key])
     assessed = assess_photo_observations(observed, len(items), summary_type=facts.get('object_type', ''))
     reference_decisions = []
@@ -3238,6 +3240,13 @@ def _product_evidence_for_review(analysis, identification, market, items, seller
     if not _single_catalogue_item(scope):
         for claim in references:
             claim.pop('visual_anchor', None)
+    elif os.environ.get('VINTAGE_VERIFY_PUBLIC_CATALOGUE') == '1':
+        candidate = _research_machine_json(identification, 'REFERENCE_OBJECT_JSON')
+        slots = candidate.get('photos')
+        if isinstance(slots, list):
+            digests = {slot: items[slot - 1].get('mobile_original_sha256') for slot in slots[:3]
+                       if type(slot) is int and 1 <= slot <= len(items)}
+            references.extend(museum_claims(candidate, _research_source_urls(identification, market) or (), digests))
     references.extend(catalogue_claims(_picker_catalogue_matches(analysis, items)))
     references.extend(catalogue_references)
     return (build_product_evidence(observed, references, seller, _p062_measurement_public_meta(measurements),
@@ -3257,7 +3266,7 @@ def _completed_sale_review(review):
         except (OSError, ValueError):
             records = []
     evidence = review['fields']
-    model = evidence_value(evidence, 'model', DIRECT)
+    model = (review.get('model_marking') or {}).get('code') or evidence_value(evidence, 'model', DIRECT)
     brand = evidence_value(evidence, 'brand', DIRECT)
     identity = f'{brand} {model}' if brand and model and not model.casefold().startswith(brand.casefold()) else model
     return completed_sale_valuation(records, {
@@ -5204,6 +5213,8 @@ IDENTITY_JSON {{"identity_status":"UNKNOWN","exact_model_confirmed":false,"confi
 IDENTITY_CLAIMS_JSON {{"claims":[{{"field":"model","value":"","photos":[1],"specimen_basis":null,"contradictions":[],"sources":[{{"url":"","kind":"CATALOG|MANUAL|MUSEUM|ARCHIVE|OTHER","document_id":"","match":"EXACT|ANALOG","excerpt":""}}]}}]}}
 {RESEARCH_FIELD_GUIDANCE}
 {TYPE_ANCHOR_GUIDANCE}
+REFERENCE_OBJECT_JSON {{"url":null,"type":null,"photos":[]}}
+Use REFERENCE_OBJECT_JSON only for an exact object candidate from a primary museum record that shows the object. Cite an observed URL and the matching photo numbers. A catalogue accession belongs in the source attribution. Keep model, operating range and actual physical measurements separate.
 State each proposed model, maker, country, period, type and material as a separate claim. Search the exact label, manufacturer manual/specification and an independent source before considering analogs. Include `weight_kg`, `length_cm`, `width_cm` and `height_cm` as separate numeric claims when documented for the exact variant. For those claims use `specimen_basis` NET for product mass and ITEM for physical product dimensions; exclude packaging, accessory dimensions and operating range. Cite seller photo numbers and exact URLs from the web search results. Capture a short exact excerpt and identifier for the underlying record, shared by mirrors. Describe discrepancies or competing values. Put uncertain matches in the analog analysis. Return an empty claims list when none is supportable.
 For powered items, include a separate battery claim from exact-variant documentation when available. State chemistry and whether the battery is installed, supplied or optional. Leave unknowns unasserted.
 Then concise Ukrainian sections: status, what it is, markings/OCR, distinctive features, checked candidates/mismatches, confirmed facts, unresolved facts, sources.
@@ -7336,7 +7347,8 @@ def final_listing(automatic_revision=None):
     valuation = None
     if product_evidence is not None:
         product_export = export_review(product_evidence, kind)
-        if product_export['identity_review']:
+        if product_export['identity_review'] or any(row.get('catalogue_photo_match')
+                                                    for row in product_evidence.get('research_note', [])):
             return _save_hold_listing(picker_id, analysis, identification, market, accepted,
                                       shipping_status='NEEDS_LISTING_REVIEW', seller=seller_evidence)
         valuation = _completed_sale_review(product_export)
@@ -7854,7 +7866,9 @@ def review_final_draft():
     if identity_review:
         previous = ', '.join(identity_review['previous'])
         frames = ', '.join(map(str, identity_review['photos']))
-        message = f"Тип уточнено за джерелами: {previous} → {identity_review['type']}. Ознака: {identity_review['anchor']}. Фото: {frames}."
+        kind = identity_review['type']
+        result = f'Тип уточнено за джерелами: {previous} → {kind}' if previous else f'Тип звірено з джерелом: {kind}'
+        message = f"{result}. Ознака: {identity_review['anchor']}. Фото: {frames}."
         identity_notice = f'<p>{html.escape(message)}</p>'
     if draft.get('hold_preview'):
         evidence = identity_notice + _product_evidence_html(draft['product_evidence'], show_unknown=True)
