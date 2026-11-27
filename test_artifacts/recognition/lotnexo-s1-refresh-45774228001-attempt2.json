@@ -1,0 +1,52 @@
+{
+  "run_id": 45774228001,
+  "run_attempt": 2,
+  "paid_requests": 0,
+  "photos_sent": 0,
+  "verification": {
+    "key_format": {
+      "present": true,
+      "nonblank": true,
+      "leading_whitespace": false,
+      "trailing_whitespace": false,
+      "internal_whitespace": false,
+      "line_break": false,
+      "quotes": false,
+      "bearer_prefix": false,
+      "non_ascii_or_control": false,
+      "openai_secret_key_prefix": true
+    },
+    "application": {
+      "calls_intercepted": 1,
+      "app_received_secret_unchanged": true,
+      "responses_url_matches": true,
+      "post_method": true,
+      "bearer_matches": true,
+      "holds_empty_body": true
+    },
+    "model": "gpt-4o-mini-2024-07-18",
+    "models_metadata": {
+      "http_status": 200,
+      "error_code": null,
+      "error_type": null,
+      "reason": "model_metadata_received"
+    },
+    "responses_without_key": {
+      "http_status": 401,
+      "error_code": null,
+      "error_type": "invalid_request_error",
+      "request_id": "req_447186c717a44efeb7d4349ab8f97781",
+      "reason": "provider_rejected_request"
+    },
+    "responses_with_key": {
+      "http_status": 400,
+      "error_code": "missing_required_parameter",
+      "error_type": "invalid_request_error",
+      "request_id": "req_e82209880d6b47d69427c772237fd974",
+      "reason": "expected_schema_rejection",
+      "missing_parameter": "model"
+    },
+    "responses_write_evidence": true,
+    "live_status": "completed"
+  }
+}
