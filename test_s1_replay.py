@@ -79,6 +79,21 @@ def replay(root):
 
 
 class S1ReplayTests(unittest.TestCase):
+    def test_single_subject_can_be_counted_before_its_exact_identity_is_known(self):
+        component = {'label': 'Iron pressure vessel with flange', 'role': 'PRODUCT', 'quantity': 1, 'photos': [1, 2]}
+        scope = {'scope': 'ONE_PHYSICAL_ITEM', 'physical_item_count': 1, 'confidence': 96,
+                 'components': [component], 'note': ''}
+        observation = {'field': 'type', 'value': 'Painted pressure vessel', 'confidence': 75, 'photos': [1],
+                       'basis': 'Same cylindrical shell visible from both sides'}
+        self.assertEqual(resolve_scope(scope, [observation], 3)['physical_item_count'], 1)
+        with_modifier = observation | {'value': 'Painted iron pressure-rated vessel'}
+        self.assertEqual(resolve_scope(scope, [with_modifier], 3)['physical_item_count'], 1)
+        self.assertEqual(resolve_scope(scope, [observation | {'photos': [3]}], 3)['scope'], 'UNCERTAIN')
+        self.assertEqual(resolve_scope(scope, [observation | {'value': 'Iron pressure gauge'}], 3)['scope'], 'UNCERTAIN')
+        accessory = {'label': 'Loose fitting', 'role': 'UNKNOWN', 'quantity': 1, 'photos': [2]}
+        self.assertEqual(resolve_scope(scope | {'components': [component, accessory]}, [observation], 3)['scope'],
+                         'UNCERTAIN')
+
     def test_archived_batch_keeps_evidence_and_advances_after_missing_response(self):
         with TemporaryDirectory() as directory:
             out, missing = replay(Path(directory))

@@ -24,7 +24,7 @@ from visual_protocol import VISUAL_TEXT
 class MultiviewTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(self.enterContext(TemporaryDirectory()))
-        self.plan = m12.frozen_plan(m12.MANIFEST, m12.ARCHIVE)
+        self.plan = m12.frozen_inputs(m12.MANIFEST, m12.ARCHIVE)
         self.phase = self.plan['stages'][m12.STAGE]
 
     def test_blind_package_and_references_are_separate_and_approved_limit_is_exact(self):
@@ -43,7 +43,11 @@ class MultiviewTests(unittest.TestCase):
         changed = self.root / 'changed.zip'
         changed.write_bytes(m12.ARCHIVE.read_bytes() + b'changed')
         with self.assertRaisesRegex(StopRun, 'FROZEN_PHOTOS_CHANGED'):
-            m12.frozen_plan(m12.MANIFEST, changed)
+            m12.frozen_inputs(m12.MANIFEST, changed)
+        real_sha = m12.sha
+        with patch.object(m12, 'sha', side_effect=lambda path: 'different' if path.suffix == '.py' else real_sha(path)):
+            with self.assertRaisesRegex(StopRun, 'FROZEN_ALGORITHM_CHANGED'):
+                m12.frozen_plan(m12.MANIFEST, m12.ARCHIVE)
         with ZipFile(changed, 'w') as z:
             z.writestr('answer-key.json', '[]')
         with self.assertRaisesRegex(StopRun, 'UNEXPECTED_ARCHIVE_ENTRIES'):
@@ -57,13 +61,15 @@ class MultiviewTests(unittest.TestCase):
                         env | {'LOTNEXO_M12_APPROVED_USD': '1.76339'},
                         env | {'LOTNEXO_M12_RESERVED': 'other'}, env | {'ENABLE_LIVE_PUBLISH': '1'}):
             with (patch.dict('os.environ', altered, clear=True), patch('sys.argv', argv),
-                  patch('builtins.print'), patch('multiview_acceptance.authorize') as auth):
+                  patch('builtins.print'), patch.object(m12, 'frozen_plan', return_value=self.plan),
+                  patch('multiview_acceptance.authorize') as auth):
                 self.assertEqual(m12.main(), 1)
                 auth.assert_not_called()
         preflight = self.root / 'preflight.json'
         with (patch.dict('os.environ', {'GITHUB_REF': m12.APPROVAL_REF, 'GITHUB_RUN_ATTEMPT': '1',
                                        'P094_PILOT_OPENAI_API_KEY': 'fixture-only'}, clear=True),
               patch('sys.argv', ['multiview_acceptance.py', '--preflight', str(preflight)]),
+              patch.object(m12, 'frozen_plan', return_value=self.plan),
               patch('multiview_acceptance.authorize') as auth, patch('multiview_acceptance.execute') as run):
             self.assertEqual(m12.main(), 0)
             auth.assert_called_once_with('fixture-only', preflight)

@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from acceptance_stage import sha
-from multiview_acceptance import ARCHIVE, ARTIFACTS, MANIFEST, STAGE, frozen_plan
+from multiview_acceptance import ARCHIVE, ARTIFACTS, MANIFEST, STAGE, frozen_inputs
 from visual_protocol import machine_object
 
 
@@ -172,7 +172,7 @@ if __name__ == '__main__':
     parser.add_argument('results', nargs='?', type=Path)
     parser.add_argument('--judgments', type=Path)
     args = parser.parse_args()
-    plan = frozen_plan(MANIFEST, ARCHIVE)
+    plan = frozen_inputs(MANIFEST, ARCHIVE)
     if args.results is None:
         expected = available_fields(plan)
         print(json.dumps({name: sum(name in fields for fields in expected.values()) for name in FIELDS}, indent=2))

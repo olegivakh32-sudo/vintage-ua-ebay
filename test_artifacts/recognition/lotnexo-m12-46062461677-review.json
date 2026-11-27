@@ -1,0 +1,1207 @@
+{
+  "fields": {
+    "identity": {
+      "eligible": 12,
+      "filled": 7,
+      "correct": 5,
+      "incorrect": 2,
+      "unconfirmed": 0,
+      "unknown": 5,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.5833333333333334,
+      "confirmed_completeness": 0.4166666666666667,
+      "accuracy_of_answers": 0.7142857142857143
+    },
+    "primary_source": {
+      "eligible": 12,
+      "filled": 5,
+      "correct": 3,
+      "incorrect": 2,
+      "unconfirmed": 0,
+      "unknown": 7,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.4166666666666667,
+      "confirmed_completeness": 0.25,
+      "accuracy_of_answers": 0.6
+    },
+    "brand": {
+      "eligible": 2,
+      "filled": 2,
+      "correct": 2,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 0,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 1.0,
+      "confirmed_completeness": 1.0,
+      "accuracy_of_answers": 1.0
+    },
+    "model": {
+      "eligible": 2,
+      "filled": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 2,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.0,
+      "confirmed_completeness": 0.0,
+      "accuracy_of_answers": null
+    },
+    "material": {
+      "eligible": 10,
+      "filled": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 10,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.0,
+      "confirmed_completeness": 0.0,
+      "accuracy_of_answers": null
+    },
+    "period": {
+      "eligible": 10,
+      "filled": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 10,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.0,
+      "confirmed_completeness": 0.0,
+      "accuracy_of_answers": null
+    },
+    "documentary_dimensions": {
+      "eligible": 11,
+      "filled": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 11,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.0,
+      "confirmed_completeness": 0.0,
+      "accuracy_of_answers": null
+    },
+    "documentary_weight": {
+      "eligible": 1,
+      "filled": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 1,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.0,
+      "confirmed_completeness": 0.0,
+      "accuracy_of_answers": null
+    }
+  },
+  "lots": {
+    "MV-201": {
+      "identity": {
+        "reference": [
+          "jar"
+        ],
+        "reported": "Ceramic handled jar",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "A handled ceramic jar matches the jar recorded at accession 1962.154."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1962.154",
+          "https://openaccess-api.clevelandart.org/api/artworks/137198"
+        ],
+        "reported": [
+          "https://www.clevelandart.org/art/1962.154"
+        ],
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "Proposed Cleveland accession 1962.154 is the exact record. The original draft did not verify or ingest it."
+        }
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "porcelain with underglaze painted decoration"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "1300s",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Diameter of mouth: 15.6 cm (6 1/8 in.); Overall: 39.4 x 37.5 cm (15 1/2 x 14 3/4 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-202": {
+      "identity": {
+        "reference": [
+          "inkwell",
+          "ink well"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/2018.289",
+          "https://openaccess-api.clevelandart.org/api/artworks/93173"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "favrile glass mosaic, bronze"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "c. 1898–1906",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 8 x 10.5 cm (3 1/8 x 4 1/8 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-203": {
+      "identity": {
+        "reference": [
+          "tall clock",
+          "grandfather clock",
+          "longcase clock"
+        ],
+        "reported": "Tall floor clock",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "A tall floor clock is a content-equivalent type for the longcase clock at accession 1992.70."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1992.70",
+          "https://openaccess-api.clevelandart.org/api/artworks/156855"
+        ],
+        "reported": [
+          "https://www.clevelandart.org/print/art/1992.70"
+        ],
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "The museum print URL identifies the exact accession 1992.70. The original draft did not verify or ingest it."
+        }
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "mahogany, teak with dial faces of gilded and patinated metal, glass"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "c. 1880",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 247.3 x 66 x 36.5 cm (97 3/8 x 26 x 14 3/8 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-204": {
+      "identity": {
+        "reference": [
+          "table fountain",
+          "fountain"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1924.859",
+          "https://openaccess-api.clevelandart.org/api/artworks/106841"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "gilt-silver and translucent enamels"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "c. 1320–40",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 33.8 x 25.4 x 26 cm (13 5/16 x 10 x 10 1/4 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-205": {
+      "identity": {
+        "reference": [
+          "hair comb",
+          "decorative comb"
+        ],
+        "reported": "Decorative hair comb",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "Decorative hair comb is the documented type at accession 1981.49."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1981.49",
+          "https://openaccess-api.clevelandart.org/api/artworks/150488"
+        ],
+        "reported": [
+          "https://www.clevelandart.org/print/art/1981.49"
+        ],
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "The museum print URL identifies the exact accession 1981.49. The original draft did not verify or ingest it."
+        }
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "horn, enamel and gold"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "c. 1900",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 15.4 x 9.4 x 3 cm (6 1/16 x 3 11/16 x 1 3/16 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-206": {
+      "identity": {
+        "reference": [
+          "scroll box",
+          "storage box for scrolls"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1990.15",
+          "https://openaccess-api.clevelandart.org/api/artworks/155420"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "lacquered wood inlaid with mother-of-pearl and twisted brass and copper wire"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "1800s",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 11.5 x 11.6 x 87 cm (4 1/2 x 4 9/16 x 34 1/4 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-207": {
+      "identity": {
+        "reference": [
+          "tunic"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1946.227",
+          "https://openaccess-api.clevelandart.org/api/artworks/124740"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "Alpaca wool: plain weave with embroidery and warp substitution"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "c. 300 BCE–200 CE",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 94 x 83.8 cm (37 x 33 in.); Mounted: 111.8 x 101.6 cm (44 x 40 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-208": {
+      "identity": {
+        "reference": [
+          "hurdy-gurdy",
+          "hurdy gurdy",
+          "vielle à roue"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1918.378",
+          "https://openaccess-api.clevelandart.org/api/artworks/98685"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "wood"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "1700s",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 74 x 33 cm (29 1/8 x 13 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-209": {
+      "identity": {
+        "reference": [
+          "basket",
+          "jar-shaped basket"
+        ],
+        "reported": "Woven basket",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "The photographed object is a woven basket according to the museum record."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1917.454",
+          "https://openaccess-api.clevelandart.org/api/artworks/97847"
+        ],
+        "reported": [
+          "https://www.clevelandart.org/art/1917.466"
+        ],
+        "status": "INCORRECT",
+        "review": {
+          "verdict": "INCORRECT",
+          "evidence": "Selected accession 1917.466 is a different basket. Exact 1917.454 is present in the saved search results but was omitted from the card."
+        }
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "Willow, bulrush; coiled (3 rods)"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "1910",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 12.5 x 18.5 cm (4 15/16 x 7 5/16 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-210": {
+      "identity": {
+        "reference": [
+          "seal",
+          "stamp seal"
+        ],
+        "reported": "Carved relief plaque",
+        "status": "INCORRECT",
+        "review": {
+          "verdict": "INCORRECT",
+          "evidence": "Carved relief plaque is the visual fallback. The primary record identifies a stamp seal with one-horned bull and inscription."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1973.161",
+          "https://openaccess-api.clevelandart.org/api/artworks/147417"
+        ],
+        "reported": [
+          "https://www.clevelandart.org/art/1973.160"
+        ],
+        "status": "INCORRECT",
+        "review": {
+          "verdict": "INCORRECT",
+          "evidence": "1973.160 is a two-horned bull seal. The matching object is 1973.161."
+        }
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "steatite"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "c. 2000 BCE",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 3.5 x 3.6 cm (1 3/8 x 1 7/16 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-211": {
+      "identity": {
+        "reference": [
+          "laptop",
+          "notebook computer"
+        ],
+        "reported": "laptop computer",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "The visible lid and two side views show a ThinkPad laptop."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://pcsupport.lenovo.com/us/en/products/laptops-and-netbooks/thinkpad-x-series-laptops/thinkpad-x220/?tabName=Manuals",
+          "https://psref.lenovo.com/syspool/Sys/PDF/withdrawnbook/ltwbook_WE_2012.pdf"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": [
+          "Lenovo"
+        ],
+        "reported": "Lenovo",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "Lenovo branding is visible on the lid and agrees with the Lenovo support record."
+        }
+      },
+      "model": {
+        "reference": [
+          "ThinkPad X220"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "material": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "period": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": {
+          "configuration": "without UltraBase, with 4-cell battery",
+          "length_cm": 30.5,
+          "width_cm": 20.65,
+          "height_cm_min": 1.9,
+          "height_cm_max": 3.46
+        },
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": {
+          "qualifier": "starting weight by battery configuration",
+          "4_cell_kg": 1.35,
+          "6_cell_kg": 1.5,
+          "9_cell_kg": 1.67
+        },
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      }
+    },
+    "MV-212": {
+      "identity": {
+        "reference": [
+          "docking station",
+          "laptop docking station"
+        ],
+        "reported": "Desktop computer unit",
+        "status": "INCORRECT",
+        "review": {
+          "verdict": "INCORRECT",
+          "evidence": "A desktop computer differs from the Dell docking station in the reference. The upper exposed docking connector is diagnostic."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://www.dell.com/support/product-details/en-pw/product/d-dck-expn-stn/resources/manuals"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": [
+          "Dell"
+        ],
+        "reported": "Dell",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "Dell branding is visible on the first frame and agrees with the Dell record."
+        }
+      },
+      "model": {
+        "reference": [
+          "PD01X"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "material": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "period": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    }
+  },
+  "cost": {
+    "metered_usd": "0.0913462",
+    "unsettled_reserve_usd": "0",
+    "lots": {
+      "MV-201": {
+        "metered_usd": "0.0126821",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 2,
+        "web_calls": 1,
+        "elapsed_request_ms": 13430,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      },
+      "MV-202": {
+        "metered_usd": "0.0007476",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 1,
+        "web_calls": 0,
+        "elapsed_request_ms": 5712,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          }
+        }
+      },
+      "MV-203": {
+        "metered_usd": "0.0123986",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 2,
+        "web_calls": 1,
+        "elapsed_request_ms": 12344,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      },
+      "MV-204": {
+        "metered_usd": "0.0007537",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 1,
+        "web_calls": 0,
+        "elapsed_request_ms": 6165,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          }
+        }
+      },
+      "MV-205": {
+        "metered_usd": "0.0128442",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 2,
+        "web_calls": 1,
+        "elapsed_request_ms": 16930,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      },
+      "MV-206": {
+        "metered_usd": "0.0005415",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 1,
+        "web_calls": 0,
+        "elapsed_request_ms": 5614,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          }
+        }
+      },
+      "MV-207": {
+        "metered_usd": "0.0006773",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 1,
+        "web_calls": 0,
+        "elapsed_request_ms": 5106,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          }
+        }
+      },
+      "MV-208": {
+        "metered_usd": "0.0006974",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 1,
+        "web_calls": 0,
+        "elapsed_request_ms": 5640,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          }
+        }
+      },
+      "MV-209": {
+        "metered_usd": "0.0129445",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 2,
+        "web_calls": 1,
+        "elapsed_request_ms": 15927,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      },
+      "MV-210": {
+        "metered_usd": "0.0126826",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 2,
+        "web_calls": 1,
+        "elapsed_request_ms": 13797,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      },
+      "MV-211": {
+        "metered_usd": "0.0120344",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 2,
+        "web_calls": 1,
+        "elapsed_request_ms": 10787,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      },
+      "MV-212": {
+        "metered_usd": "0.0123423",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 2,
+        "web_calls": 1,
+        "elapsed_request_ms": 14799,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      }
+    }
+  },
+  "stage_outcomes": {
+    "MV-201": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD"
+    },
+    "MV-202": {
+      "http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "messages": [
+        "Дослідження зупинилося. Доступні фото й попередні результати."
+      ],
+      "draft_status": "NO_DRAFT"
+    },
+    "MV-203": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD"
+    },
+    "MV-204": {
+      "http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "messages": [
+        "Дослідження зупинилося. Доступні фото й попередні результати."
+      ],
+      "draft_status": "NO_DRAFT"
+    },
+    "MV-205": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD"
+    },
+    "MV-206": {
+      "http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "messages": [
+        "Дослідження зупинилося. Доступні фото й попередні результати."
+      ],
+      "draft_status": "NO_DRAFT"
+    },
+    "MV-207": {
+      "http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "messages": [
+        "Дослідження зупинилося. Доступні фото й попередні результати."
+      ],
+      "draft_status": "NO_DRAFT"
+    },
+    "MV-208": {
+      "http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "messages": [
+        "Дослідження зупинилося. Доступні фото й попередні результати."
+      ],
+      "draft_status": "NO_DRAFT"
+    },
+    "MV-209": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD"
+    },
+    "MV-210": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD"
+    },
+    "MV-211": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD"
+    },
+    "MV-212": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD"
+    }
+  },
+  "admitted": [],
+  "actual_measurement_claims_requiring_review": {},
+  "pilot_identity_checkpoint_met": false,
+  "paid_run_status": "AWAIT_INDEPENDENT_REVIEW",
+  "launch_acceptance_decided": false
+}

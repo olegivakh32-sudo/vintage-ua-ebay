@@ -62,3 +62,22 @@ class MuseumPhotoEvidenceTests(unittest.TestCase):
                     'https://openaccess-api.clevelandart.org/api/artworks/111/../../unsafe',
                     'https://[broken'):
             self.assertIsNone(museum.record_key(url))
+
+    def test_exact_photo_can_verify_an_alternate_observed_record(self):
+        root = 'https://www.clevelandart.org/'
+        proposal = {'url': root + 'art/1980.123', 'type': 'wrong candidate', 'photos': [2]}
+        alternate = {'accession_number': '1980.124', 'title': 'Panel', 'type': 'Panel', 'technique': 'Lacquer'}
+        observed = [root + 'print/art/1980.123', root + 'art/1980.124', root + 'print/art/1980.124']
+        attempted = []
+
+        def load(key):
+            attempted.append(key[1])
+            return (alternate, {'matching'}) if key[1] == '1980.124' else (alternate, {'different'})
+
+        claims = museum.museum_claims(proposal, observed, {1: 'matching', 2: 'different photo'}, load=load)
+        self.assertEqual(attempted, ['1980.123', '1980.124'])
+        self.assertTrue(all(row['photos'] == [1] and row['references'][0]['url'].endswith('/1980.124')
+                            for row in claims))
+        self.assertIn('Lacquer', [row['value'] for row in claims])
+        self.assertFalse(any(row['field'] == 'type' for row in claims))
+        self.assertEqual(museum.museum_claims(proposal, observed[:1], {1: 'matching'}, load=load), [])

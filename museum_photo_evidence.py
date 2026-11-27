@@ -16,6 +16,7 @@ from identity_evidence import UNCERTAIN_CLAIM, normalized_claim
 API = 'https://openaccess-api.clevelandart.org/api/artworks/'
 IMAGE_HOST = 'openaccess-cdn.clevelandart.org'
 ACCESSION = r'[0-9]{4}\.[0-9]+(?:\.[A-Za-z0-9-]+)*'
+MAX_RECORDS_TO_VERIFY = 3
 
 
 def record_key(url):
@@ -28,7 +29,7 @@ def record_key(url):
     if page.scheme != 'https' or page.query or page.fragment:
         return None
     if page.netloc in {'clevelandart.org', 'www.clevelandart.org'}:
-        match = re.fullmatch(r'/art/(' + ACCESSION + r')/?', page.path)
+        match = re.fullmatch(r'/(?:print/)?art/(' + ACCESSION + r')/?', page.path)
         return ('accession_number', match[1]) if match else None
     if page.netloc == 'openaccess-api.clevelandart.org':
         match = re.fullmatch(r'/api/artworks/([0-9]{1,10})/?', page.path)
@@ -86,16 +87,24 @@ def verified_record(key):
 
 def museum_claims(candidate, observed_urls, photo_digests, *, load=verified_record):
     """Build internal documentation only when the search result and photo really match."""
-    key = record_key(candidate.get('url'))
-    if key is None or not any(record_key(url) == key for url in observed_urls):
+    if not photo_digests:
         return []
-    if not photo_digests or not (record := load(key)):
+    observed = {key for url in observed_urls if (key := record_key(url))}
+    proposed = record_key(candidate.get('url'))
+    # Try the model's observed candidate first, then other official records from the same search.
+    ordered = sorted(observed, key=lambda key: (key != proposed, key))[:MAX_RECORDS_TO_VERIFY]
+    matches, matched_keys = {}, set()
+    for key in ordered:
+        if record := load(key):
+            data, digests = record
+            photos = sorted(slot for slot, digest in photo_digests.items() if digest in digests)
+            if photos:
+                accession = data['accession_number']
+                matches.setdefault(accession, (data, photos))
+                matched_keys.add(key)
+    if len(matches) != 1:
         return []
-    data, digests = record
-    photos = sorted(slot for slot, digest in photo_digests.items() if digest in digests)
-    if not photos:
-        return []
-    accession = data['accession_number']
+    accession, (data, photos) = next(iter(matches.items()))
     source = f'https://www.clevelandart.org/art/{accession}'
     fields = [('research_note', 'Catalogue record', f"{accession} · {data['title']}")]
     fields.append(('research_note', 'Catalogue dimensions', data.get('measurements')))
@@ -105,7 +114,7 @@ def museum_claims(candidate, observed_urls, photo_digests, *, load=verified_reco
     else:
         fields.append(('material', None, technique))
     fields.append(('period', None, data.get('creation_date')))
-    kind = candidate.get('type')
+    kind = candidate.get('type') if proposed in matched_keys else None
     title_head = re.split(r'\s+(?:of|with|commemorating|depicting|showing)\s+', data['title'], maxsplit=1, flags=re.I)[0]
     type_labels = {normalized_claim(label) for label in (title_head, data.get('type')) if isinstance(label, str)}
     if isinstance(kind, str) and 3 <= len(kind) <= 65 and not UNCERTAIN_CLAIM.search(kind):

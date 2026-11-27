@@ -27,17 +27,22 @@ APPROVAL_REF = 'refs/tags/p094-lotnexo-m12-176340'
 CAP = sum(CONTINUATION_RESERVE.values()) * 12
 
 
-def frozen_plan(manifest, archive):
+def frozen_inputs(manifest, archive):
     if sha(manifest) != PLAN_SHA:
         raise StopRun('FROZEN_PLAN_CHANGED')
     plan = json.loads(manifest.read_bytes())
     phase = plan['stages'][STAGE]
     if sha(archive) != phase['blind_sha256']:
         raise StopRun('FROZEN_PHOTOS_CHANGED')
-    if any(sha(ROOT / name) != digest for name, digest in plan['algorithm_files'].items()):
-        raise StopRun('FROZEN_ALGORITHM_CHANGED')
     if sha(CHATGPT_PROMPT) != plan['chatgpt_prompt_sha256']:
         raise StopRun('COMPARISON_PROMPT_CHANGED')
+    return plan
+
+
+def frozen_plan(manifest, archive):
+    plan = frozen_inputs(manifest, archive)
+    if any(sha(ROOT / name) != digest for name, digest in plan['algorithm_files'].items()):
+        raise StopRun('FROZEN_ALGORITHM_CHANGED')
     return plan
 
 

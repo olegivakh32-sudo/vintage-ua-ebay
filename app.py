@@ -3237,16 +3237,18 @@ def _product_evidence_for_review(analysis, identification, market, items, seller
     reference_decisions = []
     references = _structured_identity_claims(identification, market, len(items), decisions=reference_decisions)
     scope = _scope_from_analysis(analysis) or {}
-    if not _single_catalogue_item(scope):
+    confirmed_single = _single_catalogue_item(scope)
+    if not confirmed_single:
         for claim in references:
             claim.pop('visual_anchor', None)
-    elif os.environ.get('VINTAGE_VERIFY_PUBLIC_CATALOGUE') == '1':
+    parts = scope.get('components') or []
+    sole_subject = (scope.get('scope') == 'ONE_PHYSICAL_ITEM' and scope.get('confidence', 0) >= 90
+                    and len(parts) == 1 and parts[0]['role'] == 'PRODUCT')
+    if (confirmed_single or sole_subject) and os.environ.get('VINTAGE_VERIFY_PUBLIC_CATALOGUE') == '1':
         candidate = _research_machine_json(identification, 'REFERENCE_OBJECT_JSON')
-        slots = candidate.get('photos')
-        if isinstance(slots, list):
-            digests = {slot: items[slot - 1].get('mobile_original_sha256') for slot in slots[:3]
-                       if type(slot) is int and 1 <= slot <= len(items)}
-            references.extend(museum_claims(candidate, _research_source_urls(identification, market) or (), digests))
+        digests = {slot: item['mobile_original_sha256'] for slot, item in enumerate(items, 1)
+                   if item.get('mobile_original_sha256')}
+        references.extend(museum_claims(candidate, _research_source_urls(identification, market) or (), digests))
     references.extend(catalogue_claims(_picker_catalogue_matches(analysis, items)))
     references.extend(catalogue_references)
     return (build_product_evidence(observed, references, seller, _p062_measurement_public_meta(measurements),
