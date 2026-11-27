@@ -1,0 +1,67 @@
+name: LOTNEXO S1 authorization only
+
+on:
+  push:
+    tags: [p094-lotnexo-s1-auth-20261127]
+
+permissions:
+  contents: read
+
+jobs:
+  authorize:
+    if: >-
+      github.repository == 'olegivakh32-sudo/vintage-ua-ebay' &&
+      github.ref == 'refs/tags/p094-lotnexo-s1-auth-20261127' &&
+      github.event.created && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    environment: p094-vision-pilot
+    env:
+      ALLOW_PAID_AI: '0'
+      ENABLE_LIVE_PUBLISH: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check frozen S1 inputs without a key
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/s1-auth-venv"
+          timeout 180s "$RUNNER_TEMP/s1-auth-venv/bin/python" -m pip install --quiet -r requirements.txt
+          "$RUNNER_TEMP/s1-auth-venv/bin/python" s1_acceptance.py \
+            test_artifacts/recognition/lotnexo-acceptance-stages-candidate.json \
+            test_artifacts/recognition/lotnexo-s1-10-blind.zip \
+            --algorithm-revision aea6136a4a4767eb85c7497ee8884a016bdc1ebe \
+            | tee "$RUNNER_TEMP/s1-auth-prepare.json"
+      - name: Verify model, Responses authorization and free token count
+        env:
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          timeout 55s "$RUNNER_TEMP/s1-auth-venv/bin/python" - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          import requests
+          from s1_acceptance import StopRun, authorize
+
+          report = Path(os.environ['RUNNER_TEMP']) / 's1-auth-preflight.json'
+          try:
+              authorize(os.environ.get('P094_PILOT_OPENAI_API_KEY'), report)
+          except (StopRun, OSError, ValueError, requests.RequestException) as error:
+              print(json.dumps({'stop': str(error) if isinstance(error, StopRun) else type(error).__name__}))
+              raise SystemExit(1) from None
+          finally:
+              if report.exists():
+                  print(report.read_text(encoding='utf-8'))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: lotnexo-s1-free-authorization
+          path: |
+            ${{ runner.temp }}/s1-auth-prepare.json
+            ${{ runner.temp }}/s1-auth-preflight.json
+          retention-days: 30
+          if-no-files-found: ignore
