@@ -1,0 +1,159 @@
+{
+  "source_algorithm_revision": "3cef70dbe268b35877de848c2cbe10f9b910f951",
+  "checked_on": "2026-11-27",
+  "new_paid_usd": "0",
+  "seo": [
+    {
+      "lot": "MV-101",
+      "title": "Plate salt-glazed stoneware",
+      "length": 27,
+      "identity_fields": {
+        "Type": "Plate"
+      },
+      "reviewed_public_claims": "NO_UNSUPPORTED_WORKING_CONDITION_PRICE_OR_WEIGHT",
+      "item_specifics_required_by_ebay": null,
+      "buyer_copy": "REVISE_REMOVE_INTERNAL_VERIFICATION_SENTENCE",
+      "search_specificity": "NEEDS_EDIT",
+      "reason": "Generic word order, misses observed pierced design.",
+      "candidate_title": "Pierced Salt-Glazed Stoneware Plate"
+    },
+    {
+      "lot": "MV-102",
+      "title": "Raspberry Pi 4 Model B Single-board computer",
+      "length": 44,
+      "identity_fields": {
+        "Type": "Single-board computer",
+        "Brand": "Raspberry Pi",
+        "Model": "Raspberry Pi 4 Model B"
+      },
+      "reviewed_public_claims": "NO_UNSUPPORTED_WORKING_CONDITION_PRICE_OR_WEIGHT",
+      "item_specifics_required_by_ebay": null,
+      "buyer_copy": "REVISE_REMOVE_INTERNAL_VERIFICATION_SENTENCE",
+      "search_specificity": "PASS",
+      "reason": "Contains exact maker, model and primary device type."
+    },
+    {
+      "lot": "MV-103",
+      "title": "Nintendo DOL-003 Video game controller",
+      "length": 38,
+      "identity_fields": {
+        "Type": "Video game controller",
+        "Brand": "Nintendo",
+        "Model": "DOL-003",
+        "Country/Region of Manufacture": "China"
+      },
+      "reviewed_public_claims": "NO_UNSUPPORTED_WORKING_CONDITION_PRICE_OR_WEIGHT",
+      "item_specifics_required_by_ebay": null,
+      "buyer_copy": "REVISE_REMOVE_INTERNAL_VERIFICATION_SENTENCE",
+      "search_specificity": "NEEDS_EDIT",
+      "reason": "Missing GameCube despite readable platform marking and matching archived model.",
+      "candidate_title": "Nintendo GameCube DOL-003 Controller"
+    }
+  ],
+  "shipping_controls": [
+    {
+      "lot": "P039",
+      "label": "CASIO-F91W1",
+      "item_basis": "MANUFACTURER_NOMINAL_SPECIFICATION",
+      "source_url": "https://www.casio.com/europe/watches/casio/product.F-91W-1/",
+      "received_item_cm": [
+        3.82,
+        3.52,
+        0.85
+      ],
+      "modelled_package_cm": [
+        7.9,
+        7.6,
+        4.9
+      ],
+      "modelled_package_kg": 0.15,
+      "carrier_base_usd": 7,
+      "display_price_usd": 10.99,
+      "duties_included": false,
+      "parcel_measured": false,
+      "carrier_reference_in_manufacturer_configuration": null
+    },
+    {
+      "lot": "P052",
+      "label": "NINTENDO-SWITCH-LCD",
+      "item_basis": "MANUFACTURER_NOMINAL_SPECIFICATION",
+      "source_url": "https://www.nintendo.com/us/gaming-systems/switch/tech-specs/",
+      "received_item_cm": [
+        23.876,
+        10.16,
+        2.8448
+      ],
+      "modelled_package_cm": [
+        29.9,
+        16.2,
+        8.9
+      ],
+      "modelled_package_kg": 0.58,
+      "carrier_base_usd": 18,
+      "display_price_usd": 21.99,
+      "duties_included": false,
+      "parcel_measured": false,
+      "carrier_reference_in_manufacturer_configuration": "BLOCK",
+      "local_check_existing_ordinary_draft": {
+        "scope": "LOCAL_SCREENING",
+        "revision": "2026-11-24.1",
+        "origin": "UA",
+        "destination": "US",
+        "customs_code_status": "UNVERIFIED",
+        "status": "CLEAR",
+        "rule": "NO_LOCAL_MATCH",
+        "trigger": ""
+      },
+      "carrier_policy_source": "https://www.ukrposhta.ua/ua/zaboroneni-vkladennia/"
+    },
+    {
+      "lot": "P053",
+      "label": "LOGITECH-MX-MASTER3S",
+      "item_basis": "MANUFACTURER_NOMINAL_SPECIFICATION",
+      "source_url": "https://support.logi.com/hc/en-au/articles/5218070669847-Specification-MX-Master-3S",
+      "received_item_cm": [
+        12.49,
+        8.43,
+        5.1
+      ],
+      "modelled_package_cm": [
+        16.5,
+        12.5,
+        9.1
+      ],
+      "modelled_package_kg": 0.27,
+      "carrier_base_usd": 12,
+      "display_price_usd": 15.99,
+      "duties_included": false,
+      "parcel_measured": false,
+      "carrier_reference_in_manufacturer_configuration": "BLOCK",
+      "local_check_existing_ordinary_draft": {
+        "scope": "LOCAL_SCREENING",
+        "revision": "2026-11-24.1",
+        "origin": "UA",
+        "destination": "US",
+        "customs_code_status": "UNVERIFIED",
+        "status": "CLEAR",
+        "rule": "NO_LOCAL_MATCH",
+        "trigger": ""
+      },
+      "carrier_policy_source": "https://www.ukrposhta.ua/ua/zaboroneni-vkladennia/"
+    }
+  ],
+  "category_access": {
+    "marketplace": "EBAY_US",
+    "sandbox_http": 400,
+    "production_http": 400,
+    "provider_error_id": 1002,
+    "message": "Missing access token",
+    "credentials_configured": false,
+    "verified_leaves": 0
+  },
+  "sold_evidence_check": {
+    "url": "https://www.ebay.com/itm/198655943777",
+    "sold_date": "2026-09-23",
+    "displayed_usd": "68.99",
+    "inclusion": "EXCLUDED",
+    "reason": "New listing with Best Offer available. Actual transaction amount and matching specimen condition are unverified."
+  }
+}
