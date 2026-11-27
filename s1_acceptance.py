@@ -85,23 +85,27 @@ class StageBudget:
 
     offline = False
 
-    def __init__(self, plan, directory):
+    def __init__(self, plan, directory, *, stage='S1', cap=CAP):
         self.plan = plan
+        self.stage = stage
+        self.cap = cap
+        phase = plan['stages'][stage]
+        self.photo_counts = phase.get('photo_counts', {})
         self.path = directory / 'run.json'
         self.attempts = []
         self.pending = None
         self.status = 'RUNNING'
         self.reason = None
-        self.sequence = [(lot, step) for lot in plan['stages']['S1']['lots'] for step in STEPS]
+        self.sequence = [(lot, step) for lot in phase['lots'] for step in STEPS]
         self.state = {
             'algorithm_revision': plan['algorithm_revision'],
             'reference_sha256': plan['reference_sha256'],
-            'blind_sha256': plan['stages']['S1']['blind_sha256'],
+            'blind_sha256': phase['blind_sha256'],
             'publication_disabled': True,
             'authenticated_model': MODEL,
             'pricing_verified': True,
             'reviewed_passed_stages': [],
-            'approved_usd': str(CAP),
+            'approved_usd': str(cap),
             'attempts': self.attempts,
         }
         # A pre-existing directory, including one left by a killed run, cannot resume.
@@ -113,7 +117,7 @@ class StageBudget:
                      if 'metered_usd' in row), Decimal(0))
         unsettled = sum((Decimal(row['reserved_usd']) for row in self.attempts
                          if row['status'] in {'IN_FLIGHT', 'STOPPED'} and 'metered_usd' not in row), Decimal(0))
-        durable_report(self.path, {'stage': 'S1', 'status': self.status, 'reason': self.reason, **self.state,
+        durable_report(self.path, {'stage': self.stage, 'status': self.status, 'reason': self.reason, **self.state,
                                   'metered_usd': str(known), 'unsettled_reserve_usd': str(unsettled)})
 
     def stop(self, reason):
@@ -147,6 +151,9 @@ class StageBudget:
     def usage(self, lot):
         return [row.copy() for row in self.attempts if row['lot'] == lot]
 
+    def research_input(self, original):
+        return compact_research(original)
+
     def bind(self, lot, original):
         if self.status != 'RUNNING':
             raise StopRun(self.reason or 'STAGE_FINISHED')
@@ -164,8 +171,13 @@ class StageBudget:
                    'service_tier': 'default', 'prompt_cache_options': {'mode': 'explicit', 'ttl': '30m'}}
         if step == 'photos':
             payload['text'] = VISUAL_TEXT
+            if lot in self.photo_counts:
+                images = sum(item.get('type') == 'input_image' for message in payload['input']
+                             for item in message['content'])
+                if images != self.photo_counts[lot]:
+                    self.stop('PHOTO_PAYLOAD_COUNT_MISMATCH')
         else:
-            payload.update(input=compact_research(payload['input']), tool_choice='required',
+            payload.update(input=self.research_input(payload['input']), tool_choice='required',
                            tools=[{'type': 'web_search', 'external_web_access': True, 'search_context_size': 'low'}],
                            max_tool_calls=self.plan['max_web_calls'])
         # Refuse out-of-order work before even the free token count.
@@ -197,7 +209,7 @@ class StageBudget:
         except (ValueError, AttributeError, requests.RequestException):
             self.stop('TOKEN_COUNT_UNAVAILABLE')
         self.state['free_input_count'] = {'lot': lot, 'step': step, 'input_tokens': size}
-        decision = check(self.plan, 'S1', self.state)
+        decision = check(self.plan, self.stage, self.state)
         if 'next' not in decision:
             self.stop(decision.get('stop', 'BUDGET_GATE_CLOSED'))
         row = {'lot': lot, 'step': step,
@@ -228,7 +240,7 @@ class StageBudget:
                     row['service_tier'] = result['service_tier']
                     if Decimal(row['metered_usd']) > Decimal(row['reserved_usd']):
                         raise StopRun(reason)
-                    reason = response_issue(result, step, row)
+                    reason = response_issue(result, step, row, photo_count=self.photo_counts.get(lot, 1))
                     if not reason:
                         row['status'] = 'COMPLETE'
                         return response
@@ -248,7 +260,7 @@ class StageBudget:
             self.save()
 
 
-def response_issue(result, step, row):
+def response_issue(result, step, row, *, photo_count=1):
     if result.get('status') != 'completed':
         details = result.get('incomplete_details')
         reason = details.get('reason') if isinstance(details, dict) else None
@@ -262,8 +274,9 @@ def response_issue(result, step, row):
         try:
             report = json.loads(text)
             photos = report['photos']
-            if (not visual_response_issue(result) and isinstance(photos, list) and len(photos) == 1
-                    and photos[0]['photo'] == 1 and photos[0]['role'] in PHOTO_ROLES
+            if (not visual_response_issue(result) and isinstance(photos, list) and len(photos) == photo_count
+                    and all(type(photo['photo']) is int and photo['role'] in PHOTO_ROLES for photo in photos)
+                    and {photo['photo'] for photo in photos} == set(range(1, photo_count + 1))
                     and isinstance(report['observations'], list)
                     and all(isinstance(report[key], dict) for key in ('facts', 'scope', 'physical'))
                     and isinstance(report['summary'], str)):
@@ -291,50 +304,54 @@ def execute(plan, archive, output):
     budget = StageBudget(plan, output)
     with TemporaryDirectory(prefix='lotnexo-s1-photos-') as temporary:
         lots = blind_inputs(archive, plan['stages']['S1'], Path(temporary))
-        rows = []
-        for lot, photos in lots.items():
-            started = monotonic()
-            try:
-                result = run({'lot': lot}, photos, PilotLimits(CAP), live_web=budget)
-            except StopRun:
-                raise
-            except OSError:
-                budget.stop('EVIDENCE_STORAGE_FAILURE')
-            except (RuntimeError, ValueError, TypeError, KeyError) as error:
-                if budget.status != 'RUNNING':
-                    raise StopRun(budget.reason or 'GATE_CLOSED') from error
-                reason = str(error) if isinstance(error, LotFailure) else 'APPLICATION_ERROR'
-                budget.skip_lot(lot, reason)
-                durable_report(output / f'{lot}-card.json', {
-                    'lot': lot, 'status': 'LOT_FAILED', 'reason': reason,
-                    'review_card': {'draft_status': 'NO_DRAFT', 'evidence': {}},
-                    'elapsed_ms': round((monotonic() - started) * 1000), 'admitted': False,
-                })
-                continue
-            result['elapsed_ms'] = round((monotonic() - started) * 1000)
-            durable_report(output / f'{lot}-card.json', result)
-            stages = result['stage_http']
+        run_lots(budget, lots, output)
+
+
+def run_lots(budget, lots, output):
+    rows = []
+    for lot, photos in lots.items():
+        started = monotonic()
+        try:
+            result = run({'lot': lot}, photos, PilotLimits(budget.cap), live_web=budget)
+        except StopRun:
+            raise
+        except OSError:
+            budget.stop('EVIDENCE_STORAGE_FAILURE')
+        except (RuntimeError, ValueError, TypeError, KeyError) as error:
             if budget.status != 'RUNNING':
-                raise StopRun(budget.reason or 'GATE_CLOSED')
-            draft = result['draft']
-            if (result['admitted'] or result['category_id'] or (draft and not draft.get('hold_preview'))
-                    or any(draft.get(key) for key in ('category_id', 'price', 'shipping_usd', 'seller_reviewed'))):
-                budget.state['critical_error'] = True
-                budget.stop('CRITICAL_QUALITY_FAILURE')
-            if any(status in (401, 403) for status in stages.values()):
-                budget.stop('APPLICATION_AUTHORIZATION_FAILURE')
-            if stages['visual'] != 200 or stages['research'] != 200 or stages['draft'] not in (200, 409):
-                failure = next((row['reason'] for row in reversed(budget.attempts)
-                                if row['lot'] == lot and row['status'] == 'LOT_FAILED'), 'APPLICATION_STAGE_FAILED')
-                budget.skip_lot(lot, failure)
-                continue
-            rows.append(prediction(result, budget.attempts))
-            durable_report(output / 'predictions.json', rows)
-        final = check(plan, 'S1', budget.state)
-        if final.get('stop') != 'AWAIT_INDEPENDENT_REVIEW':
-            budget.stop(final.get('stop', 'UNEXPECTED_FINAL_STATE'))
-        budget.status = 'AWAIT_INDEPENDENT_REVIEW'
-        budget.save()
+                raise StopRun(budget.reason or 'GATE_CLOSED') from error
+            reason = str(error) if isinstance(error, LotFailure) else 'APPLICATION_ERROR'
+            budget.skip_lot(lot, reason)
+            durable_report(output / f'{lot}-card.json', {
+                'lot': lot, 'status': 'LOT_FAILED', 'reason': reason,
+                'review_card': {'draft_status': 'NO_DRAFT', 'evidence': {}},
+                'elapsed_ms': round((monotonic() - started) * 1000), 'admitted': False,
+            })
+            continue
+        result['elapsed_ms'] = round((monotonic() - started) * 1000)
+        durable_report(output / f'{lot}-card.json', result)
+        stages = result['stage_http']
+        if budget.status != 'RUNNING':
+            raise StopRun(budget.reason or 'GATE_CLOSED')
+        draft = result['draft']
+        if (result['admitted'] or result['category_id'] or (draft and not draft.get('hold_preview'))
+                or any(draft.get(key) for key in ('category_id', 'price', 'shipping_usd', 'seller_reviewed'))):
+            budget.state['critical_error'] = True
+            budget.stop('CRITICAL_QUALITY_FAILURE')
+        if any(status in (401, 403) for status in stages.values()):
+            budget.stop('APPLICATION_AUTHORIZATION_FAILURE')
+        if stages['visual'] != 200 or stages['research'] != 200 or stages['draft'] not in (200, 409):
+            failure = next((row['reason'] for row in reversed(budget.attempts)
+                            if row['lot'] == lot and row['status'] == 'LOT_FAILED'), 'APPLICATION_STAGE_FAILED')
+            budget.skip_lot(lot, failure)
+            continue
+        rows.append(prediction(result, budget.attempts))
+        durable_report(output / 'predictions.json', rows)
+    final = check(budget.plan, budget.stage, budget.state)
+    if final.get('stop') != 'AWAIT_INDEPENDENT_REVIEW':
+        budget.stop(final.get('stop', 'UNEXPECTED_FINAL_STATE'))
+    budget.status = 'AWAIT_INDEPENDENT_REVIEW'
+    budget.save()
 
 
 def authorize(secret, report_path=None):

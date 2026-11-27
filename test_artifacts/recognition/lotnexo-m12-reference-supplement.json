@@ -1,0 +1,20 @@
+{
+  "MV-211": {
+    "source": "https://psref.lenovo.com/syspool/Sys/PDF/withdrawnbook/ltwbook_WE_2012.pdf",
+    "checked_on": "2026-11-27",
+    "configuration": "ThinkPad X220 laptop, not the X220 Tablet. Battery configuration of the photographed specimen is unknown.",
+    "documentary_dimensions": {
+      "configuration": "without UltraBase, with 4-cell battery",
+      "length_cm": 30.5,
+      "width_cm": 20.65,
+      "height_cm_min": 1.90,
+      "height_cm_max": 3.46
+    },
+    "documentary_weight": {
+      "qualifier": "starting weight by battery configuration",
+      "4_cell_kg": 1.35,
+      "6_cell_kg": 1.50,
+      "9_cell_kg": 1.67
+    }
+  }
+}

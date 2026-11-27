@@ -1,0 +1,79 @@
+{
+  "algorithm_revision": "e1255662c249e0c9f7574628b63ab0bd32bb8037",
+  "algorithm_files": {
+    "app.py": "23e5ba529cd249bc4550ae12398bb4e7cafa6b0b5298f0b11764f39b3ed345f9",
+    "catalogue_labels.py": "e6a9e3d49b64900b0352376bc98ce86be107e1d4ab2d79e561084c809003e5d7",
+    "identity_evidence.py": "76aed6de0ba4d6a5f7cf7ec8076f2e548a3da5d2a87f4044dd87bb7d27844e73",
+    "listing_review.py": "adc9d776abe94ca05a9a7c85c82577f9c16687ce7ce9a632a39839d5676578de",
+    "measurement_units.py": "8b2bb1ac9d5aea24591352e00166479f9dc8fccc56108eddcf03d210bebf0f52",
+    "mobile_photos.py": "69207423f25d4bbc82d45da44e844bbe045ffa5bc5e7d3cf6dae055e48ebdf52",
+    "museum_photo_evidence.py": "0642b5cf63f664efc4693fa1cff8bf3ae994ae22fdbbbb444d8d7d3c109a89d2",
+    "photo_assessment.py": "acd28d99ddcf59422a799708695e1953526e7309b3e0e26b075d2d06de8591be",
+    "product_codes.py": "30ae725a1c48c6cf8354cfe3edbf55af47c868f8324980ad07b636df6bf48dbb",
+    "product_evidence.py": "9cbce657f02a34a82a64f17a6ceb164b658e1a1bb2b92f3ec7bd45773c029e76",
+    "sellable_scope.py": "c2d942821b2ce2bf1d129a535e76ec9427abddf17500bc089ce6523e6d3b2354",
+    "visual_protocol.py": "247163a10ab5bfe1a9189f92e2db8ceba6feceaa36865b2edbfacdcb059bfa66",
+    "blind_live_pilot.py": "d69b7ed885967fee160ef45883bebe4c8a3cc87874e81ba9c1e8d17d7dc8486c"
+  },
+  "reference_sha256": "35487099f1fd36ca6a27b82a4f4d1877de28bce294ac2e723d43a21d82763037",
+  "reference_supplement_sha256": "7e660cab11d83af14f07b5793d27a862539dab4383aa29f1a76871cace8d4f27",
+  "model": "gpt-6-luna",
+  "service_tier": "default",
+  "research_effort": "low",
+  "search_context_size": "low",
+  "max_input_tokens_before_send": 24000,
+  "max_web_calls": 2,
+  "max_billed_input_tokens": {
+    "photos": 24000,
+    "research": 470000
+  },
+  "max_output_tokens": {
+    "photos": 2400,
+    "research": 7000
+  },
+  "per_step_reserve_usd": {
+    "photos": "0.0042",
+    "research": "0.14275"
+  },
+  "approval_required": true,
+  "publication_allowed": false,
+  "automatic_retry": false,
+  "stages": {
+    "M12": {
+      "lots": [
+        "MV-201",
+        "MV-202",
+        "MV-203",
+        "MV-204",
+        "MV-205",
+        "MV-206",
+        "MV-207",
+        "MV-208",
+        "MV-209",
+        "MV-210",
+        "MV-211",
+        "MV-212"
+      ],
+      "photo_counts": {
+        "MV-201": 3,
+        "MV-202": 3,
+        "MV-203": 3,
+        "MV-204": 3,
+        "MV-205": 3,
+        "MV-206": 3,
+        "MV-207": 3,
+        "MV-208": 3,
+        "MV-209": 3,
+        "MV-210": 3,
+        "MV-211": 3,
+        "MV-212": 2
+      },
+      "minimum_correct": 11,
+      "max_requests": 24,
+      "reserve_usd": "1.76340",
+      "blind_file": "lotnexo-multiview-independent-blind.zip",
+      "blind_sha256": "2ef832650531ccf18fe956258d221082ef5772a50471082c3d47f688b514a53f"
+    }
+  },
+  "chatgpt_prompt_sha256": "5827812b18329c7541988e63055294ac4fa491de217632a3458d5aed0db0fcfd"
+}

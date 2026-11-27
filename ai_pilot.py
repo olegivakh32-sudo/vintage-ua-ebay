@@ -17,6 +17,7 @@ import re
 from pathlib import Path
 import tempfile
 from time import monotonic
+from urllib.parse import parse_qs, urlsplit
 from unittest.mock import patch
 
 from PIL import Image, ImageOps
@@ -239,6 +240,27 @@ def visual_evidence_diagnostics(analysis, observations, evidence, candidate_type
             'unverified_type_candidate': text_value(candidate_type) or None}
 
 
+def _public_catalogue_url(url):
+    """Allow only the public record and JPEG endpoints used by this adapter."""
+    from museum_photo_evidence import ACCESSION, IMAGE_HOST, record_key
+
+    try:
+        page = urlsplit(url)
+    except ValueError:
+        return False
+    if page.scheme != 'https' or page.fragment:
+        return False
+    if page.netloc == 'openaccess-api.clevelandart.org':
+        if record_key(url):
+            return True
+        query = parse_qs(page.query)
+        return (page.path == '/api/artworks/' and set(query) == {'accession_number', 'limit'}
+                and query['limit'] == ['2'] and len(query['accession_number']) == 1
+                and bool(re.fullmatch(ACCESSION, query['accession_number'][0])))
+    return (page.netloc == IMAGE_HOST and not page.query
+            and bool(re.fullmatch(r'/' + ACCESSION + r'/[A-Za-z0-9._-]+\.jpg', page.path)))
+
+
 def run(data, photos, limits, *, live_web=None):
     import app as vintage
 
@@ -248,8 +270,15 @@ def run(data, photos, limits, *, live_web=None):
     actual_evidence = vintage._product_evidence_for_review
     if live_web is not None:
         live_web.prepare_catalogue(data['lot'], photos, vintage)
+    verify_catalogue = getattr(live_web, 'verify_public_catalogue', False) is True
 
     def request_guard(session, method, url, *args, **kwargs):
+        if verify_catalogue and method.upper() == 'GET':
+            if (_public_catalogue_url(url) and not session.auth and not kwargs.get('auth')
+                    and not any(key.casefold() == 'authorization' for key in session.headers)
+                    and not kwargs.get('headers') and not kwargs.get('params')):
+                kwargs['allow_redirects'] = False
+                return actual_request(session, method, url, *args, **kwargs)
         if method.upper() != 'POST' or url != vintage.OPENAI_URL:
             if callable(stop := getattr(live_web, 'stop', None)):
                 stop('UNAPPROVED_TRANSPORT')
@@ -307,7 +336,7 @@ def run(data, photos, limits, *, live_web=None):
     with ExitStack() as optional, tempfile.TemporaryDirectory(prefix='vintage-ai-pilot-') as tmp, patch.dict(os.environ, {
         'ALLOW_PAID_AI': '1', 'ENABLE_LIVE_PUBLISH': '0', 'ENABLE_BRAND_RESCAN': '0', 'HOLD_QUEUE_DIR': tmp,
         'VINTAGE_OPERATOR_PASSWORD': '', 'VINTAGE_ACCEPTANCE_SERVER': '0', 'RENDER': '',
-        'VINTAGE_VERIFY_PUBLIC_CATALOGUE': '0',
+        'VINTAGE_VERIFY_PUBLIC_CATALOGUE': '1' if verify_catalogue else '0',
     }), patch.object(vintage, 'ACTIVE_LOT_CHECKPOINT_DIR', tmp), patch.object(
         vintage, '_p054_openai_request', bounded_api
     ), patch.object(requests.Session, 'request', request_guard), patch.dict(vintage._MODEL_PRICING_PER_M, {
