@@ -1,0 +1,114 @@
+{
+  "algorithm_revision": "aea6136a4a4767eb85c7497ee8884a016bdc1ebe",
+  "reference_sha256": "6d7a66f48b7d7b2fe08747fb33e67150835feafb2c37fd7ec0d33e8cec3c30dd",
+  "input_sha256": "8185d2597d968b48dca3a1841c3af8d57dbe94f5520b298113785687dcac9db8",
+  "model": "gpt-6-luna",
+  "service_tier": "default",
+  "research_effort": "low",
+  "search_context_size": "low",
+  "max_input_tokens_before_send": 24000,
+  "max_web_calls": 2,
+  "max_billed_input_tokens": {
+    "photos": 24000,
+    "research": 470000
+  },
+  "max_output_tokens": {
+    "photos": 2400,
+    "research": 7000
+  },
+  "per_step_reserve_usd": {
+    "photos": "0.0042",
+    "research": "0.14275"
+  },
+  "approval_required": true,
+  "publication_allowed": false,
+  "automatic_retry": false,
+  "stages": {
+    "S1": {
+      "lots": [
+        "P001",
+        "P002",
+        "P003",
+        "P004",
+        "P006",
+        "P010",
+        "P013",
+        "P022",
+        "P039",
+        "P053"
+      ],
+      "types": 10,
+      "minimum_correct": 9,
+      "max_requests": 20,
+      "reserve_usd": "1.46950",
+      "blind_file": "lotnexo-s1-10-blind.zip",
+      "blind_sha256": "2a553c1333d5043712b497f4fd3b27b3e557cc0ca76aed9ca41fd342769496c7"
+    },
+    "S2": {
+      "lots": [
+        "P005",
+        "P007",
+        "P009",
+        "P011",
+        "P012",
+        "P014",
+        "P015",
+        "P016",
+        "P017",
+        "P019",
+        "P021",
+        "P024",
+        "P025",
+        "P026",
+        "P028",
+        "P031",
+        "P033",
+        "P036",
+        "P048",
+        "P052"
+      ],
+      "types": 14,
+      "minimum_correct": 18,
+      "max_requests": 40,
+      "reserve_usd": "2.93900",
+      "blind_file": "lotnexo-s2-20-blind.zip",
+      "blind_sha256": "8bfefd6fa3e642173aab82616bbceadfec63a69d1c41a92d9e63925de450eb82"
+    },
+    "S3": {
+      "lots": [
+        "P008",
+        "P018",
+        "P020",
+        "P023",
+        "P027",
+        "P029",
+        "P030",
+        "P032",
+        "P034",
+        "P035",
+        "P037",
+        "P038",
+        "P040",
+        "P041",
+        "P042",
+        "P043",
+        "P044",
+        "P045",
+        "P046",
+        "P047",
+        "P049",
+        "P050",
+        "P051",
+        "P054",
+        "P055",
+        "P056"
+      ],
+      "types": 13,
+      "minimum_correct": 24,
+      "max_requests": 52,
+      "reserve_usd": "3.82070",
+      "blind_file": "lotnexo-s3-26-blind.zip",
+      "blind_sha256": "428db3553239d3772a602d4192fdf701114b9dc4328f41ac84744eae162d896b"
+    }
+  }
+}

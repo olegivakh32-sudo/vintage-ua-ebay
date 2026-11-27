@@ -1,0 +1,184 @@
+{
+  "checked_on": "2026-11-27",
+  "archived_responses": true,
+  "new_paid_requests": 0,
+  "seo": [
+    {
+      "lot": "MV-101",
+      "previous_title": "Plate salt-glazed stoneware",
+      "title": "Pierced Salt-Glazed Stoneware Plate",
+      "title_chars": 35,
+      "description": "Item shown in the photos: Plate. Documented catalogue material: salt-glazed stoneware. Refer to the photographs for visible condition and included parts.",
+      "item_specifics": {
+        "Type": "Plate"
+      },
+      "exact_ocr_retained": "1998.257",
+      "opened_from_hold": true,
+      "category": {
+        "status": "UNVERIFIED",
+        "research_candidate": {
+          "category_id": 870,
+          "path": "Collectibles & Art > Pottery & Glass > Decorative Cookware, Dinnerware & Serveware > Decorative Pottery & Glassware > Salt Glazed Pottery",
+          "reason": "Unverified candidate: eBay lists Salt Glazed Pottery under this category (ID 870). ([ebay.com](https://www.ebay.com/b/Salt-Glazed-Pottery/870/bn_7023253747?utm_source=openai))"
+        },
+        "reason": "TAXONOMY_ACCESS_UNAVAILABLE"
+      },
+      "valuation": {
+        "status": "NEEDS_MATCHED_SALES",
+        "currency": "USD",
+        "price": null,
+        "sales": []
+      }
+    },
+    {
+      "lot": "MV-102",
+      "previous_title": "Raspberry Pi 4 Model B Single-board computer",
+      "title": "Raspberry Pi 4 Model B Single-board computer",
+      "title_chars": 44,
+      "description": "Item shown in the photos: Single-board computer. Visible model marking: Raspberry Pi 4 Model B. Refer to the photographs for visible condition and included parts.",
+      "item_specifics": {
+        "Type": "Single-board computer",
+        "Brand": "Raspberry Pi",
+        "Model": "Raspberry Pi 4 Model B"
+      },
+      "exact_ocr_retained": "Raspberry Pi 4 Model B\n© Raspberry Pi 2018\nFCC ID: 2ABCB-RPI4B\n20953-RPI4B\nMade in the UK\nGPIO",
+      "opened_from_hold": true,
+      "category": {
+        "status": "UNVERIFIED",
+        "research_candidate": {
+          "category_id": null,
+          "path": null,
+          "reason": "No verified eBay category path established."
+        },
+        "reason": "TAXONOMY_ACCESS_UNAVAILABLE"
+      },
+      "valuation": {
+        "status": "NEEDS_MATCHED_SALES",
+        "currency": "USD",
+        "price": null,
+        "sales": []
+      }
+    },
+    {
+      "lot": "MV-103",
+      "previous_title": "Nintendo DOL-003 Video game controller",
+      "title": "Nintendo GAMECUBE DOL-003 Controller",
+      "title_chars": 36,
+      "description": "Item shown in the photos: Video game controller. Visible model marking: DOL-003. Refer to the photographs for visible condition and included parts.",
+      "item_specifics": {
+        "Type": "Video game controller",
+        "Brand": "Nintendo",
+        "Model": "DOL-003",
+        "Country/Region of Manufacture": "China"
+      },
+      "exact_ocr_retained": "NINTENDO GAMECUBE Controller\nDOL-003\nMADE IN CHINA\nNintendo",
+      "opened_from_hold": true,
+      "category": {
+        "status": "UNVERIFIED",
+        "research_candidate": {
+          "category_id": "117042",
+          "path": "Video Games & Consoles > Video Game Accessories > Controllers & Attachments",
+          "reason": "eBay category search result lists Nintendo GameCube controllers under this category; candidate unverified."
+        },
+        "reason": "TAXONOMY_ACCESS_UNAVAILABLE"
+      },
+      "valuation": {
+        "status": "NEEDS_MATCHED_SALES",
+        "currency": "USD",
+        "price": null,
+        "sales": []
+      }
+    }
+  ],
+  "identification": {
+    "correct": 3,
+    "labelled": 3
+  },
+  "admitted": 0,
+  "carrier_controls": [
+    {
+      "lot": "P039",
+      "model": "CASIO-F91W1",
+      "input": "Battery: CR2016",
+      "item_source": "https://www.casio.com/europe/watches/casio/product.F-91W-1/",
+      "item_basis": "MANUFACTURER_NOMINAL_SPECIFICATION",
+      "physical_parcel_verified": false,
+      "calculator_base_usd": 7,
+      "route": {
+        "scope": "LOCAL_SCREENING",
+        "revision": "2026-11-27.1",
+        "origin": "UA",
+        "destination": "US",
+        "customs_code_status": "UNVERIFIED",
+        "status": "REVIEW",
+        "rule": "UKRPOSHTA_BATTERY_REVIEW",
+        "trigger": "CR2016",
+        "source": "https://www.ukrposhta.ua/ua/zaboroneni-vkladennia/"
+      },
+      "quality_gate": "Для маршруту Укрпошти потрібна перевірка батареї. Публікацію зупинено."
+    },
+    {
+      "lot": "P052",
+      "model": "NINTENDO-SWITCH-LCD",
+      "input": "Internal battery: rechargeable Li-Po 500 mAh",
+      "item_source": "https://www.nintendo.com/us/gaming-systems/switch/tech-specs/",
+      "item_basis": "MANUFACTURER_NOMINAL_SPECIFICATION",
+      "physical_parcel_verified": false,
+      "calculator_base_usd": 18,
+      "route": {
+        "scope": "LOCAL_SCREENING",
+        "revision": "2026-11-27.1",
+        "origin": "UA",
+        "destination": "US",
+        "customs_code_status": "UNVERIFIED",
+        "status": "BLOCK",
+        "rule": "UKRPOSHTA_INTERNATIONAL_LITHIUM",
+        "trigger": "Li-Po",
+        "source": "https://www.ukrposhta.ua/ua/zaboroneni-vkladennia/"
+      },
+      "quality_gate": "Для маршруту Укрпошти потрібна перевірка батареї. Публікацію зупинено."
+    },
+    {
+      "lot": "P053",
+      "model": "LOGITECH-MX-MASTER3S",
+      "input": "Internal battery: Li-ion",
+      "item_source": "https://support.logi.com/hc/en-au/articles/5218070669847-Specification-MX-Master-3S",
+      "item_basis": "MANUFACTURER_NOMINAL_SPECIFICATION",
+      "physical_parcel_verified": false,
+      "calculator_base_usd": 12,
+      "route": {
+        "scope": "LOCAL_SCREENING",
+        "revision": "2026-11-27.1",
+        "origin": "UA",
+        "destination": "US",
+        "customs_code_status": "UNVERIFIED",
+        "status": "BLOCK",
+        "rule": "UKRPOSHTA_INTERNATIONAL_LITHIUM",
+        "trigger": "Li-ion",
+        "source": "https://www.ukrposhta.ua/ua/zaboroneni-vkladennia/"
+      },
+      "quality_gate": "Для маршруту Укрпошти потрібна перевірка батареї. Публікацію зупинено."
+    }
+  ],
+  "sandbox_probe": {
+    "environment": "sandbox",
+    "marketplace": "EBAY_US",
+    "app_credentials": false,
+    "seller_token": false,
+    "taxonomy": "NOT_RUN",
+    "inventory": "NOT_RUN"
+  },
+  "last_public_sold_candidate": {
+    "url": "https://www.ebay.com/itm/198655943777",
+    "sold_date": "2026-09-23",
+    "displayed_usd": "68.99",
+    "inclusion": "EXCLUDED",
+    "reason": "New listing with Best Offer available. Actual transaction amount and matching specimen condition are unverified.",
+    "valuation": {
+      "status": "NEEDS_MATCHED_SALES",
+      "currency": "USD",
+      "price": null,
+      "sales": []
+    }
+  }
+}
