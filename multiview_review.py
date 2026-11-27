@@ -1,6 +1,7 @@
 """Grade only sealed results against the evaluator's separate references."""
 import argparse
 from collections import Counter
+from decimal import Decimal
 import json
 from pathlib import Path
 
@@ -108,6 +109,29 @@ def grade(expected, reported, judgments):
     return {'fields': metrics, 'lots': rows}
 
 
+def cost_summary(ledger, lots):
+    by_lot = {lot: [] for lot in lots}
+    for row in ledger['attempts']:
+        by_lot[row['lot']].append(row)
+    per_lot = {}
+    for lot, attempts in by_lot.items():
+        charged = [row for row in attempts if 'metered_usd' in row]
+        unsettled = [row for row in attempts if row['status'] in {'IN_FLIGHT', 'STOPPED'} and 'metered_usd' not in row]
+        per_lot[lot] = {
+            'metered_usd': str(sum((Decimal(row['metered_usd']) for row in charged), Decimal(0))),
+            'unsettled_reserve_usd': str(sum((Decimal(row['reserved_usd']) for row in unsettled), Decimal(0))),
+            'metered_responses': len(charged),
+            'web_calls': sum(row['web_calls'] for row in charged),
+            'elapsed_request_ms': sum(row.get('elapsed_ms', 0) for row in attempts),
+            'step_statuses': {row['step']: {'status': row['status'], 'reason': row.get('reason')}
+                              for row in attempts},
+        }
+    for field in ('metered_usd', 'unsettled_reserve_usd'):
+        if sum(Decimal(row[field]) for row in per_lot.values()) != Decimal(ledger[field]):
+            raise ValueError('Per-lot amounts disagree with the protected ledger')
+    return {field: ledger[field] for field in ('metered_usd', 'unsettled_reserve_usd')} | {'lots': per_lot}
+
+
 def review(plan, results, judgments=None):
     expected = available_fields(plan)
     ledger = json.loads((results / 'run.json').read_bytes())
@@ -135,7 +159,8 @@ def review(plan, results, judgments=None):
             claimed_actual[lot] = claims
     result = grade(expected, reported, judgments or {})
     identity = result['fields']['identity']
-    result.update(stage_outcomes=stages, admitted=admitted, actual_measurement_claims_requiring_review=claimed_actual,
+    result.update(cost=cost_summary(ledger, expected), stage_outcomes=stages, admitted=admitted,
+                  actual_measurement_claims_requiring_review=claimed_actual,
                   pilot_identity_checkpoint_met=(not identity['pending'] and not admitted
                                                  and identity['correct'] >= phase['minimum_correct']),
                   paid_run_status=ledger['status'], launch_acceptance_decided=False)

@@ -120,6 +120,10 @@ class MultiviewTests(unittest.TestCase):
         report = review(self.plan, output)
         self.assertEqual(report['fields']['identity']['pending'], 12)
         self.assertEqual(report['fields']['identity']['filled'], 12)
+        self.assertEqual(report['cost']['metered_usd'], ledger['metered_usd'])
+        self.assertEqual(report['cost']['lots']['MV-212']['metered_responses'], 2)
+        self.assertEqual(report['cost']['lots']['MV-212']['web_calls'], 1)
+        self.assertEqual(report['cost']['lots']['MV-212']['unsettled_reserve_usd'], '0')
         self.assertFalse(report['pilot_identity_checkpoint_met'])
         self.assertFalse(report['admitted'])
 
