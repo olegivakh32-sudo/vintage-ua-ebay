@@ -1,0 +1,147 @@
+{
+  "stage": "S1",
+  "status": "STOPPED_BEFORE_GENERATION",
+  "run_id": 45987944917,
+  "run_url": "https://github.com/olegivakh32-sudo/vintage-ua-ebay/actions/runs/45987944917",
+  "trigger_tag": "p094-lotnexo-s1-146950",
+  "run_attempt": 1,
+  "workflow_revision": "8ae7286fd807795f7a2a1b82d7d46a33f062e292",
+  "algorithm_revision": "aea6136a4a4767eb85c7497ee8884a016bdc1ebe",
+  "workflow_id": 432648638,
+  "workflow_state": "disabled_manually",
+  "artifact_id": 15192156894,
+  "artifact_sha256": "21f3c067f26c684a43a5f51f00a7c2258ad8dda30a0d5bde13e1d80a09160783",
+  "blind_archive_sha256": "2a553c1333d5043712b497f4fd3b27b3e557cc0ca76aed9ca41fd342769496c7",
+  "started_at": "2026-11-27T13:08:17+02:00",
+  "completed_at": "2026-11-27T13:08:51+02:00",
+  "workflow_job_seconds": 34,
+  "preparation": {
+    "stage": "S1",
+    "budget_usd": "1.46950",
+    "approval": "REQUIRED",
+    "requests": 0
+  },
+  "preflight": {
+    "model": "gpt-6-luna",
+    "metadata": {
+      "http_status": 401,
+      "error_code": "expired_secret_key",
+      "error_type": "invalid_request_error",
+      "reason": "provider_rejected_request"
+    },
+    "authorized": false
+  },
+  "global_reservation_created": false,
+  "generation_step": "SKIPPED",
+  "paid_requests": 0,
+  "total_paid_usd": "0.00",
+  "published_listings": 0,
+  "coverage": {
+    "planned_lots": 10,
+    "photos_sent": 0,
+    "evaluated_lots": 0
+  },
+  "accuracy": null,
+  "lots": [
+    {
+      "lot": "P001",
+      "status": "NOT_RUN",
+      "photo_sent": false,
+      "identity_correct": null,
+      "recognition_errors": null,
+      "elapsed_ms": null,
+      "paid_requests": 0,
+      "paid_usd": "0.00"
+    },
+    {
+      "lot": "P002",
+      "status": "NOT_RUN",
+      "photo_sent": false,
+      "identity_correct": null,
+      "recognition_errors": null,
+      "elapsed_ms": null,
+      "paid_requests": 0,
+      "paid_usd": "0.00"
+    },
+    {
+      "lot": "P003",
+      "status": "NOT_RUN",
+      "photo_sent": false,
+      "identity_correct": null,
+      "recognition_errors": null,
+      "elapsed_ms": null,
+      "paid_requests": 0,
+      "paid_usd": "0.00"
+    },
+    {
+      "lot": "P004",
+      "status": "NOT_RUN",
+      "photo_sent": false,
+      "identity_correct": null,
+      "recognition_errors": null,
+      "elapsed_ms": null,
+      "paid_requests": 0,
+      "paid_usd": "0.00"
+    },
+    {
+      "lot": "P006",
+      "status": "NOT_RUN",
+      "photo_sent": false,
+      "identity_correct": null,
+      "recognition_errors": null,
+      "elapsed_ms": null,
+      "paid_requests": 0,
+      "paid_usd": "0.00"
+    },
+    {
+      "lot": "P010",
+      "status": "NOT_RUN",
+      "photo_sent": false,
+      "identity_correct": null,
+      "recognition_errors": null,
+      "elapsed_ms": null,
+      "paid_requests": 0,
+      "paid_usd": "0.00"
+    },
+    {
+      "lot": "P013",
+      "status": "NOT_RUN",
+      "photo_sent": false,
+      "identity_correct": null,
+      "recognition_errors": null,
+      "elapsed_ms": null,
+      "paid_requests": 0,
+      "paid_usd": "0.00"
+    },
+    {
+      "lot": "P022",
+      "status": "NOT_RUN",
+      "photo_sent": false,
+      "identity_correct": null,
+      "recognition_errors": null,
+      "elapsed_ms": null,
+      "paid_requests": 0,
+      "paid_usd": "0.00"
+    },
+    {
+      "lot": "P039",
+      "status": "NOT_RUN",
+      "photo_sent": false,
+      "identity_correct": null,
+      "recognition_errors": null,
+      "elapsed_ms": null,
+      "paid_requests": 0,
+      "paid_usd": "0.00"
+    },
+    {
+      "lot": "P053",
+      "status": "NOT_RUN",
+      "photo_sent": false,
+      "identity_correct": null,
+      "recognition_errors": null,
+      "elapsed_ms": null,
+      "paid_requests": 0,
+      "paid_usd": "0.00"
+    }
+  ]
+}
