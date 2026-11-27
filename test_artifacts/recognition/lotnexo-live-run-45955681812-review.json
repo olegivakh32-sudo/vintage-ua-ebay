@@ -1,0 +1,497 @@
+{
+  "github_run": 45955681812,
+  "run_attempt": 1,
+  "git_commit": "8a5cc43671db9806fd6044c01be8464cf60ee8aa",
+  "workflow_state_after_run": "disabled_manually",
+  "artifact": {
+    "id": 15178691644,
+    "sha256": "e1e42967a129c051133e5d4930615fb51d077abe3c9c253a33daef0dc0b2cf8e"
+  },
+  "free_preflight": {
+    "model": "gpt-6-luna",
+    "metadata": {
+      "http_status": 200,
+      "error_code": null,
+      "error_type": null,
+      "reason": "model_metadata_received",
+      "returned_model": "gpt-6-luna"
+    },
+    "responses_authorization": {
+      "http_status": 400,
+      "error_code": "missing_required_parameter",
+      "error_type": "invalid_request_error",
+      "request_id": "req_8085af039242468ebd3096991b2df267",
+      "reason": "expected_schema_rejection",
+      "missing_parameter": "model"
+    },
+    "token_count": {
+      "http_status": 200,
+      "input_tokens": 13
+    }
+  },
+  "cost_usd": {
+    "basis": "PROVIDER_USAGE_STANDARD_RATES",
+    "prior": "0.0254528",
+    "new": "0.0361601",
+    "total": "0.0616129",
+    "budget": "0.50",
+    "remaining": "0.4383871",
+    "unsettled_reserve": "0"
+  },
+  "model_stages": [
+    {
+      "lot": "MV-101",
+      "stage": "photos",
+      "sent": false,
+      "reused": true,
+      "source_archive_sha256": "a45b390369797699ae13d2f6c63cc861018a394dee54195f1cf33c7e21f83ab2",
+      "reserved_usd": "0",
+      "http_status": 200,
+      "metered_usd": "0"
+    },
+    {
+      "lot": "MV-101",
+      "stage": "research",
+      "reserved_usd": "0.14275",
+      "sent": true,
+      "count_http": 200,
+      "preflight_input_tokens": 4980,
+      "http_status": 200,
+      "response_file": "MV-101-research-response.json",
+      "model": "gpt-6-luna",
+      "input_tokens": 8771,
+      "output_tokens": 323,
+      "reasoning_tokens": 138,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "web_calls": 1,
+      "metered_usd": "0.0110386",
+      "inference_ms": 5272,
+      "stage_ms": 5562
+    },
+    {
+      "lot": "MV-102",
+      "stage": "photos",
+      "reserved_usd": "0.0042",
+      "sent": true,
+      "count_http": 200,
+      "preflight_input_tokens": 2668,
+      "http_status": 200,
+      "response_file": "MV-102-photos-response.json",
+      "model": "gpt-6-luna",
+      "input_tokens": 2668,
+      "output_tokens": 941,
+      "reasoning_tokens": 152,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "web_calls": 0,
+      "metered_usd": "0.0007373",
+      "inference_ms": 8249,
+      "stage_ms": 8729
+    },
+    {
+      "lot": "MV-102",
+      "stage": "research",
+      "reserved_usd": "0.14275",
+      "sent": true,
+      "count_http": 200,
+      "preflight_input_tokens": 9798,
+      "http_status": 200,
+      "response_file": "MV-102-research-response.json",
+      "model": "gpt-6-luna",
+      "input_tokens": 13952,
+      "output_tokens": 725,
+      "reasoning_tokens": 203,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "web_calls": 1,
+      "metered_usd": "0.0117577",
+      "inference_ms": 8341,
+      "stage_ms": 8842
+    },
+    {
+      "lot": "MV-103",
+      "stage": "photos",
+      "reserved_usd": "0.0042",
+      "sent": true,
+      "count_http": 200,
+      "preflight_input_tokens": 3867,
+      "http_status": 200,
+      "response_file": "MV-103-photos-response.json",
+      "model": "gpt-6-luna",
+      "input_tokens": 3867,
+      "output_tokens": 897,
+      "reasoning_tokens": 233,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "web_calls": 0,
+      "metered_usd": "0.0008352",
+      "inference_ms": 7071,
+      "stage_ms": 7392
+    },
+    {
+      "lot": "MV-103",
+      "stage": "research",
+      "reserved_usd": "0.14275",
+      "sent": true,
+      "count_http": 200,
+      "preflight_input_tokens": 10922,
+      "http_status": 200,
+      "response_file": "MV-103-research-response.json",
+      "model": "gpt-6-luna",
+      "input_tokens": 15223,
+      "output_tokens": 538,
+      "reasoning_tokens": 63,
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "web_calls": 1,
+      "metered_usd": "0.0117913",
+      "inference_ms": 8597,
+      "stage_ms": 8956
+    }
+  ],
+  "lots": [
+    {
+      "lot": "MV-101",
+      "elapsed_ms_continuation": 7033,
+      "cost_usd_continuation": "0.0110386",
+      "cost_usd_total": "0.0364914",
+      "stage_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 409
+      },
+      "draft_status": "HOLD",
+      "category_candidate": {
+        "category_id": 870,
+        "path": "Collectibles & Art > Pottery & Glass > Decorative Cookware, Dinnerware & Serveware > Decorative Pottery & Glassware > Salt Glazed Pottery",
+        "reason": "Unverified candidate: eBay lists Salt Glazed Pottery under this category (ID 870). ([ebay.com](https://www.ebay.com/b/Salt-Glazed-Pottery/870/bn_7023253747?utm_source=openai))"
+      },
+      "category_id_verified": null,
+      "accepted_market_comps": {
+        "ACTIVE": 0,
+        "SOLD": 0
+      },
+      "evidence_fields": [
+        "condition",
+        "country",
+        "feature",
+        "height_cm",
+        "length_cm",
+        "marking",
+        "material",
+        "model",
+        "period",
+        "type",
+        "width_cm"
+      ],
+      "main_photo": 1,
+      "product_photo_order": [
+        1,
+        2
+      ],
+      "admitted": false
+    },
+    {
+      "lot": "MV-102",
+      "elapsed_ms_continuation": 19449,
+      "cost_usd_continuation": "0.0124950",
+      "cost_usd_total": "0.0124950",
+      "stage_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 409
+      },
+      "draft_status": "HOLD",
+      "category_candidate": {
+        "category_id": null,
+        "path": null,
+        "reason": "No verified eBay category path established."
+      },
+      "category_id_verified": null,
+      "accepted_market_comps": {
+        "ACTIVE": 0,
+        "SOLD": 0
+      },
+      "evidence_fields": [
+        "brand",
+        "feature",
+        "marking",
+        "model",
+        "symbol",
+        "type"
+      ],
+      "main_photo": 1,
+      "product_photo_order": [
+        1
+      ],
+      "admitted": false
+    },
+    {
+      "lot": "MV-103",
+      "elapsed_ms_continuation": 18109,
+      "cost_usd_continuation": "0.0126265",
+      "cost_usd_total": "0.0126265",
+      "stage_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 409
+      },
+      "draft_status": "HOLD",
+      "category_candidate": {
+        "category_id": "117042",
+        "path": "Video Games & Consoles > Video Game Accessories > Controllers & Attachments",
+        "reason": "eBay category search result lists Nintendo GameCube controllers under this category; candidate unverified."
+      },
+      "category_id_verified": null,
+      "accepted_market_comps": {
+        "ACTIVE": 0,
+        "SOLD": 0
+      },
+      "evidence_fields": [
+        "brand",
+        "country",
+        "feature",
+        "marking",
+        "material",
+        "model",
+        "symbol",
+        "type"
+      ],
+      "main_photo": 1,
+      "product_photo_order": [
+        1,
+        2,
+        3
+      ],
+      "admitted": false
+    }
+  ],
+  "strict_score": {
+    "objects": 3,
+    "admitted": 0,
+    "admission_rate": 0.0,
+    "minimum_admission_rate": null,
+    "missing_predictions": [],
+    "fields": {
+      "identity": {
+        "correct": 0,
+        "labelled": 3
+      },
+      "brand": {
+        "correct": 2,
+        "labelled": 2
+      },
+      "model": {
+        "correct": 2,
+        "labelled": 2
+      },
+      "ocr": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "period": {
+        "correct": 0,
+        "labelled": 1
+      },
+      "material": {
+        "correct": 0,
+        "labelled": 1
+      },
+      "country": {
+        "correct": 0,
+        "labelled": 1
+      },
+      "condition": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "completeness": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "defects": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "category_id": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "weight_kg": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "length_cm": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "width_cm": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "height_cm": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "product_photos": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "evidence_photos": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "main_photo": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "title_terms": {
+        "correct": 0,
+        "labelled": 0
+      },
+      "seo_passed": {
+        "correct": 0,
+        "labelled": 0
+      }
+    },
+    "unknown_by_field": {
+      "identity": 0,
+      "brand": 0,
+      "model": 0,
+      "ocr": 0,
+      "period": 1,
+      "material": 1,
+      "country": 1,
+      "condition": 0,
+      "completeness": 0,
+      "defects": 0,
+      "category_id": 0,
+      "weight_kg": 0,
+      "length_cm": 0,
+      "width_cm": 0,
+      "height_cm": 0,
+      "product_photos": 0,
+      "evidence_photos": 0,
+      "main_photo": 0,
+      "title_terms": 0,
+      "seo_passed": 0
+    },
+    "identity_abstentions": 0,
+    "identity_abstention_rate": 0.0,
+    "identity_target_met": false,
+    "critical_categories": [],
+    "admitted_without_category_reference": [],
+    "mismatches": {
+      "MV-101": [
+        "identity",
+        "period",
+        "material",
+        "country"
+      ],
+      "MV-102": [
+        "identity"
+      ],
+      "MV-103": [
+        "identity"
+      ]
+    },
+    "operations": {
+      "elapsed_ms": {
+        "reported": 3,
+        "total": 44591.0,
+        "median": 18109
+      },
+      "cost_usd": {
+        "reported": 3,
+        "total": 0.0361601,
+        "median": 0.012495
+      },
+      "manual_actions": {
+        "reported": 0,
+        "total": null,
+        "median": null
+      }
+    },
+    "passed": false
+  },
+  "semantic_type_manual": {
+    "correct": 3,
+    "labelled": 3,
+    "method": "Compare photographed object type to frozen reference"
+  },
+  "ocr_corrections": [
+    {
+      "lot": "MV-102",
+      "reported": "2ABCB-RP14B",
+      "documented": "2ABCB-RPI4B"
+    },
+    {
+      "lot": "MV-102",
+      "reported": "20953-RP14B",
+      "documented": "20953-RPI4B"
+    }
+  ],
+  "hold_replay": {
+    "mode": "LOCAL_HOLD_REPLAY_OF_LIVE_RESULTS",
+    "external_calls": 0,
+    "cache_cleared_before_reopen": true,
+    "lots": [
+      {
+        "lot": "MV-101",
+        "upload_http": 303,
+        "save_http": 303,
+        "open_http": 303,
+        "sqlite_status": "active",
+        "original_photos_sha256_match": 2,
+        "published": false,
+        "publish_gate_http": 409,
+        "draft_gate_http": 409,
+        "draft_gate_reason": "MISSING_PHYSICAL_MEASUREMENTS",
+        "restored_nonempty_fields": [
+          "analysis",
+          "identification",
+          "market",
+          "measurement"
+        ]
+      },
+      {
+        "lot": "MV-102",
+        "upload_http": 303,
+        "save_http": 303,
+        "open_http": 303,
+        "sqlite_status": "active",
+        "original_photos_sha256_match": 2,
+        "published": false,
+        "publish_gate_http": 409,
+        "draft_gate_http": 409,
+        "draft_gate_reason": "MISSING_PHYSICAL_MEASUREMENTS",
+        "restored_nonempty_fields": [
+          "analysis",
+          "identification",
+          "market",
+          "measurement"
+        ]
+      },
+      {
+        "lot": "MV-103",
+        "upload_http": 303,
+        "save_http": 303,
+        "open_http": 303,
+        "sqlite_status": "active",
+        "original_photos_sha256_match": 3,
+        "published": false,
+        "publish_gate_http": 409,
+        "draft_gate_http": 409,
+        "draft_gate_reason": "MISSING_PHYSICAL_MEASUREMENTS",
+        "restored_nonempty_fields": [
+          "analysis",
+          "identification",
+          "market",
+          "measurement"
+        ]
+      }
+    ]
+  },
+  "independent_chatgpt_comparison": "MISSING_PREDICTIONS"
+}
