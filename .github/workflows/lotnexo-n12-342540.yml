@@ -1,0 +1,88 @@
+name: LOTNEXO blind N12 acceptance
+
+on:
+  push:
+    tags: [p094-lotnexo-n12-342540]
+
+concurrency:
+  group: p094-lotnexo-n12-342540
+  cancel-in-progress: false
+
+jobs:
+  n12:
+    if: >-
+      github.repository == 'olegivakh32-sudo/vintage-ua-ebay' &&
+      github.ref == 'refs/tags/p094-lotnexo-n12-342540' &&
+      github.event.created && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    environment: p094-vision-pilot
+    permissions:
+      contents: write
+    env:
+      ENABLE_LIVE_PUBLISH: '0'
+      ALLOW_PAID_AI: '0'
+      ALGORITHM_REVISION: 2327c280a3605d8827b6745121c0df978566d12e
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /n12_acceptance.py
+            /multiview_acceptance.py
+            /test_artifacts/recognition/lotnexo-next-acceptance-plan.json
+            /test_artifacts/recognition/lotnexo-next12-blind.zip
+      - name: Isolate the frozen runtime and verify the blind archive
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/lotnexo-n12"
+          mkdir -m 700 "$root" "$root/runtime"
+          git archive "$ALGORITHM_REVISION" -- '*.py' ':(exclude)test_*.py' catalogue_identifiers.json requirements.txt static workspace_web \
+            | tar -x -C "$root/runtime"
+          cp n12_acceptance.py multiview_acceptance.py "$root/runtime/"
+          input="$root/runtime/test_artifacts/recognition"
+          mkdir -p "$input"
+          cp test_artifacts/recognition/{lotnexo-next-acceptance-plan.json,lotnexo-next12-blind.zip} "$input/"
+          cd "$root"
+          if ! command -v tesseract >/dev/null; then
+            timeout 60s sudo apt-get update -qq
+            timeout 60s sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-eng
+          fi
+          python3 -m venv .venv
+          timeout 180s .venv/bin/python -m pip install --quiet -r runtime/requirements.txt
+          env -u PYTHONPATH .venv/bin/python runtime/n12_acceptance.py > prepare.json
+      - name: Verify model access without generation
+        env:
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/lotnexo-n12"
+          timeout 45s env -u PYTHONPATH .venv/bin/python runtime/n12_acceptance.py --preflight preflight.json
+      - name: Claim one execution across all runners
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          timeout 25s gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref=refs/tags/p094-lotnexo-n12-342540-reserved -f sha="$GITHUB_SHA" > /dev/null
+      - name: Run N12 and retain evidence
+        env:
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+          LOTNEXO_N12_RESERVED: b14c08ebecb895c4ed8d957dadda0981fa29b2a873541c473e8dfd07c3bb564a
+          LOTNEXO_N12_APPROVED_USD: '3.42540'
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/lotnexo-n12"
+          timeout 76m env -u PYTHONPATH .venv/bin/python runtime/n12_acceptance.py --execute results
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: lotnexo-n12-evidence
+          path: |
+            ${{ runner.temp }}/lotnexo-n12/prepare.json
+            ${{ runner.temp }}/lotnexo-n12/preflight.json
+            ${{ runner.temp }}/lotnexo-n12/results/*.json
+          retention-days: 30
+          if-no-files-found: ignore

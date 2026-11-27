@@ -133,10 +133,13 @@ def cost_summary(ledger, lots):
 
 
 def review(plan, results, judgments=None):
-    expected = available_fields(plan)
+    return review_run(plan, STAGE, available_fields(plan), results, judgments)
+
+
+def review_run(plan, stage, expected, results, judgments=None):
     ledger = json.loads((results / 'run.json').read_bytes())
-    phase = plan['stages'][STAGE]
-    for key, value in {'stage': STAGE, 'algorithm_revision': plan['algorithm_revision'],
+    phase = plan['stages'][stage]
+    for key, value in {'stage': stage, 'algorithm_revision': plan['algorithm_revision'],
                        'blind_sha256': phase['blind_sha256'], 'reference_sha256': plan['reference_sha256']}.items():
         if ledger.get(key) != value:
             raise ValueError('Results do not match the sealed test')
@@ -152,7 +155,8 @@ def review(plan, results, judgments=None):
         card = json.loads(card_file.read_bytes()) if card_file.exists() else {}
         reported[lot] = reported_fields(row, card)
         stages[lot] = {'http': card.get('stage_http'), 'messages': card.get('stage_messages', []),
-                       'draft_status': (card.get('review_card') or {}).get('draft_status', 'NO_DRAFT')}
+                       'draft_status': (card.get('review_card') or {}).get('draft_status', 'NO_DRAFT'),
+                       'elapsed_ms': card.get('elapsed_ms')}
         if row.get('admitted') or card.get('admitted'):
             admitted.append(lot)
         if claims := {field: value for field, value in (row.get('measurement') or {}).items() if value is not None}:

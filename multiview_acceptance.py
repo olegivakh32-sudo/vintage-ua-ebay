@@ -81,8 +81,8 @@ class MultiviewBudget(StageBudget):
     # The application may check only a public record the model actually finds.
     verify_public_catalogue = True
 
-    def __init__(self, plan, destination):
-        super().__init__(plan, destination, stage=STAGE, cap=CAP)
+    def __init__(self, plan, destination, *, stage=STAGE, cap=CAP):
+        super().__init__(plan, destination, stage=stage, cap=cap)
 
     def research_input(self, original):
         result = super().research_input(original)
