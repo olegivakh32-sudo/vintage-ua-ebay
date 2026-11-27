@@ -3,7 +3,7 @@
 from measurement_units import metric_value
 
 MEASUREMENTS = frozenset({'weight_kg', 'length_cm', 'width_cm', 'height_cm'})
-FIELDS = frozenset({'brand', 'model', 'country', 'period', 'type', 'material'}) | MEASUREMENTS
+FIELDS = frozenset({'brand', 'model', 'country', 'period', 'type', 'material', 'battery'}) | MEASUREMENTS
 PRIMARY = frozenset({'CATALOG', 'MANUAL', 'MUSEUM', 'ARCHIVE'})
 UNKNOWN = frozenset({'unknown', 'unresolved', 'none', 'n/a', '—', 'невідомо'})
 

@@ -13,7 +13,7 @@ import requests
 
 from ai_pilot import PilotLimits, run
 from blind_live_pilot import API, CAP, LiveBudget, frozen_inputs, prediction, read_paid_checkpoint
-from listing_review import canonical_product_type, export_review
+from listing_review import canonical_product_type, export_review, hold_seo_preview
 from market_evidence import completed_sale_valuation
 from recognition_benchmark import score
 from test_blind_live_pilot import RECOGNITION, response
@@ -94,6 +94,28 @@ class LotnexoReviewTests(unittest.TestCase):
         self.assertIn('20953-RPI4B', rows[1]['ocr'])
         self.assertIn('FCC ID: 2ABCB-RP14B', rows[1]['ocr_raw'])
         self.assertEqual(rows[2]['model'], 'DOL-003')
+        drafts = [row['stored_draft'] for row in held]
+        self.assertEqual([draft['title'] for draft in drafts], [
+            'Pierced Salt-Glazed Stoneware Plate',
+            'Raspberry Pi 4 Model B Single-board computer',
+            'Nintendo GAMECUBE DOL-003 Controller',
+        ])
+        self.assertTrue(all(len(draft['title']) <= 80 and 'before listing' not in draft['description']
+                            for draft in drafts))
+
+    def test_photo_title_refinements_require_consistent_evidence_on_other_products(self):
+        def entry(value, status='PHOTO_OBSERVATION'):
+            return {'value': value, 'status': status, 'photos': [1]}
+
+        camera = {'type': [entry('Film camera')], 'brand': [entry('Northstar')], 'model': [entry('M-42')],
+                  'marking': [entry('Northstar Vision Camera')]}
+        self.assertEqual(hold_seo_preview(export_review(camera))['title'], 'Northstar Vision M-42 Camera')
+        camera['marking'].append(entry('Northstar Compact Camera'))
+        self.assertEqual(hold_seo_preview(export_review(camera))['title'], 'Northstar M-42 Film camera')
+        stand = {'type': [entry('Folding display stand')], 'feature': [entry('Folding hinges', 'PHOTO_CANDIDATE')]}
+        self.assertEqual(hold_seo_preview(export_review(stand, 'Display stand'))['title'], 'Display stand')
+        stand['feature'][0]['status'] = 'PHOTO_OBSERVATION'
+        self.assertEqual(hold_seo_preview(export_review(stand, 'Display stand'))['title'], 'Folding Display stand')
 
     def test_normalization_uses_observation_and_preserves_scope_ambiguity(self):
         evidence = {'type': [{'value': 'Drill or impact driver with case', 'status': 'PHOTO_OBSERVATION'}]}

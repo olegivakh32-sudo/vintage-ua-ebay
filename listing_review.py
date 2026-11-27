@@ -15,6 +15,7 @@ AMBIGUOUS_TYPE = re.compile(r'\b(?:or|possibly|probable|likely|assorted|unknown|
 IDENTIFIER = re.compile(r'[A-Z0-9]+(?:-[A-Z0-9]+)+')
 VISUAL_SUBSTITUTIONS = {frozenset(pair) for pair in ('I1', 'O0', 'S5', 'B8', 'Z2', 'G6')}
 CODE_RECORDS = Path(__file__).with_name('catalogue_identifiers.json')
+TITLE_FEATURE = re.compile(r'^(pierced|engraved|embossed|scalloped|folding|retractable|adjustable)\b', re.I)
 
 
 def evidence_value(evidence, field, statuses):
@@ -101,6 +102,34 @@ def corrected_ocr(text, corrections):
     return IDENTIFIER.sub(lambda match: replacements.get(match[0], match[0]), text or '')
 
 
+def _marked_product_family(evidence, kind, brand, model):
+    if not (brand and model and len(kind.split()) > 1):
+        return None
+    head = kind.split()[-1]
+    pattern = re.compile(rf'{re.escape(brand)} ([A-Za-z][A-Za-z0-9 -]{{1,24}}) {re.escape(head)}', re.I)
+    families = {}
+    for row in evidence.get('marking', []):
+        if row['status'] != 'PHOTO_OBSERVATION':
+            continue
+        match = pattern.fullmatch(row['value'])
+        if match and not AMBIGUOUS_TYPE.search(match[1]) and normalized_claim(match[1]) not in normalized_claim(model):
+            families.setdefault(normalized_claim(match[1]), match[1])
+    if len(families) == 1:
+        label = f'{brand} {next(iter(families.values()))} {model} {head.capitalize()}'
+        if len(label) <= 80:
+            return label
+    return None
+
+
+def _observed_title_feature(evidence):
+    observed = TITLE_FEATURE.match(photo_type(evidence))
+    if observed and any(row['status'] == 'PHOTO_OBSERVATION'
+                        and re.search(rf'\b{re.escape(observed[1])}\b', row['value'], re.I)
+                        for row in evidence.get('feature', [])):
+        return observed[1].capitalize()
+    return None
+
+
 def hold_seo_preview(review):
     """Build internal SEO text from checked fields, without pricing or shipping guesses."""
     kind = review['type']
@@ -115,9 +144,16 @@ def hold_seo_preview(review):
     for value in (model, brand):
         if value and normalized_claim(value) not in normalized_claim(title) and len(value) + len(title) < 80:
             title = f'{value} {title}'
+    title = _marked_product_family(evidence, kind, brand, model) or title
     title_material = material or reference_material
-    if title_material and len(f'{title} {title_material}') <= 80:
-        title += f' {title_material}'
+    feature = _observed_title_feature(evidence)
+    if title_material and normalized_claim(title_material) not in normalized_claim(title):
+        if title == kind and len(f'{title_material} {title}') <= 80:
+            title = f'{title_material.title() if title_material.islower() else title_material} {title}'
+        elif len(f'{title} {title_material}') <= 80:
+            title += f' {title_material}'
+    if feature and not re.search(rf'\b{re.escape(feature)}\b', title, re.I) and len(f'{feature} {title}') <= 80:
+        title = f'{feature} {title}'
     specifics = {'Type': kind}
     for label, value in (('Brand', brand), ('Model', model), ('Material', material),
                          ('Country/Region of Manufacture', evidence_value(evidence, 'country', DIRECT))):
@@ -133,7 +169,7 @@ def hold_seo_preview(review):
     defects = [row['value'] for row in evidence.get('defect', []) if row['status'] == 'PHOTO_OBSERVATION']
     if defects:
         details.append('Visible condition details: ' + ' '.join(defects))
-    details.append('Refer to the photographs for visible condition and included parts. Verify any details that the photos do not establish before listing.')
+    details.append('Refer to the photographs for visible condition and included parts.')
     return {'title': title, 'description': ' '.join(details), 'item_specifics': specifics,
             'condition_note': 'Review visible condition and included parts against the photos.',
             'seo_keywords': list(dict.fromkeys([kind, title]))}

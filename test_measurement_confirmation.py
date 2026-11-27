@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
@@ -87,6 +88,41 @@ class MeasurementConfirmationTests(unittest.TestCase):
         self.assertIn('materials=Unknown', prompt)
         self.assertNotIn('Forged', prompt)
 
+    def test_carrier_block_preserves_seo_and_measurements_without_quote_or_generation(self):
+        observed_type = {'field': 'type', 'value': 'Handheld console', 'photos': [1],
+                         'confidence': 95, 'basis': 'D-pad and built-in display'}
+        sources = [
+            {'url': 'https://manufacturer.example/manual', 'kind': 'MANUAL', 'document_id': 'Official manual'},
+            {'url': 'https://reviewer.example/specs', 'kind': 'OTHER', 'document_id': 'Independent specifications'},
+        ]
+        for source in sources:
+            source.update(match='EXACT', excerpt='Integrated Lithium-ion rechargeable battery')
+        claim = {'field': 'battery', 'value': 'Integrated Li‑ion battery', 'photos': [1], 'sources': sources}
+        analysis = 'PRODUCT_OBSERVATIONS_JSON ' + json.dumps({'fields': [observed_type]})
+        identification = 'IDENTITY_CLAIMS_JSON ' + json.dumps({'claims': [claim]})
+        identification += '\nWEB_TOOL_SOURCES_JSON ' + json.dumps({'urls': [row['url'] for row in sources]})
+        with (patch.dict(m.ANALYSIS_CACHE, {self.picker: analysis}),
+              patch.dict(m.IDENTIFICATION_CACHE, {self.picker: identification}),
+              patch.dict(m.LOT002_DRAFT_CACHE, clear=True),
+              patch.multiple(m, EBAY_CLIENT_ID=None, EBAY_CLIENT_SECRET=None, EBAY_REFRESH_TOKEN=None),
+              patch.object(m, '_p058_capture_current') as capture,
+              patch.object(m, 'call_openai', side_effect=AssertionError('Paid generation forbidden'))):
+            self.assertEqual(self.save(self.form()).location, '/picker/review-final-draft')
+            saved = m.LOT002_DRAFT_CACHE[self.picker]
+            self.assertEqual(saved['shipping_status'], 'NEEDS_CARRIER_REVIEW')
+            self.assertEqual(saved['compliance_review']['status'], 'BLOCK')
+            self.assertEqual(saved['product_export']['fields']['battery'][0]['status'], 'CORROBORATED_REFERENCE')
+            self.assertNotIn('shipping_usd', saved)
+            self.assertEqual(m.SELLER_MEASUREMENT_CACHE[self.picker]['weight_kg'], .50)
+            shipping = self.client.get('/picker/resume-shipping')
+            self.assertEqual(shipping.status_code, 409)
+            self.assertIn('BLOCK — Укрпошта', shipping.get_data(as_text=True))
+            self.assertNotIn('Рекомендована вартість доставки', shipping.get_data(as_text=True))
+            self.assertEqual(self.client.get('/picker/review-final-draft').status_code, 200)
+            capture.assert_called_once_with('SEO_HOLD')
+            self.assertEqual(self.client.post('/picker/final-listing',
+                                             data=self.fields(shipping.get_data(as_text=True))).status_code, 303)
+            capture.assert_called_with('SEO_HOLD')
     def test_checkpoint_restores_provenance_and_shipping_get_does_not_rewrite(self):
         form = self.form()
         self.assertEqual(self.save(form).status_code, 303)

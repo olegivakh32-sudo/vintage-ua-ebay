@@ -64,6 +64,7 @@ from catalogue_labels import catalogue_claims, load_catalogue, read_label_texts
 from identity_evidence import corroborated_value, identity_claims, normalized_claim
 from hold_package import export_package, staged_import
 from listing_review import DIRECT, evidence_value, export_review, hold_seo_preview
+from carrier_policy import ukrposhta_battery_review
 from market_evidence import comparable_reference, completed_sale_valuation
 from market_profit import (
     DOMESTIC_URL, EBAY_FEES_URL, EBAY_INTL_FEES_URL, OLX_FEES_URL, RATE_DOCS, TARIFFS_CHECKED, amount, basic_ebay_fee,
@@ -3068,6 +3069,7 @@ def _identity_claims_html(claims):
 _PRODUCT_FIELD_LABELS = {'type':'Тип', 'brand':'Виробник', 'model':'Модель', 'material':'Матеріал',
               'country':'Країна', 'period':'Період', 'condition':'Стан', 'defect':'Дефект',
               'completeness':'Комплектність', 'marking':'Напис', 'symbol':'Символ', 'feature':'Характеристика',
+              'battery':'Дані про батарею для доставки',
               'weight_kg':'Вага', 'length_cm':'Довжина', 'width_cm':'Ширина', 'height_cm':'Висота'}
 
 
@@ -3980,6 +3982,8 @@ def _p087_quality_block(draft):
     if not draft: return 'Чернетка відсутня.'
     if draft.get('hold_preview'):
         return 'Внутрішня SEO-чернетка HOLD. Для публікації потрібні виміри та перевірка оголошення.'
+    if _draft_carrier_review(draft):
+        return 'Для маршруту Укрпошти потрібна перевірка батареї. Публікацію зупинено.'
     title=str(draft.get('title') or '').strip()
     desc=str(draft.get('description') or '').strip()
     if not 30 <= len(title) <= 80 or len(desc.split()) < 25:
@@ -5162,6 +5166,7 @@ Return exactly these two blocks:
 IDENTITY_JSON {{"identity_status":"UNKNOWN","exact_model_confirmed":false,"confidence":0,"evidence_strength":0,"type":"UNKNOWN","brand":"UNKNOWN","model":"UNKNOWN","country":"UNKNOWN","period":"UNKNOWN","material":"UNKNOWN","match_count":0,"sources_summary":""}}
 IDENTITY_CLAIMS_JSON {{"claims":[{{"field":"model","value":"","photos":[1],"contradictions":[],"sources":[{{"url":"","kind":"CATALOG|MANUAL|MUSEUM|ARCHIVE|OTHER","document_id":"","match":"EXACT|ANALOG","excerpt":""}}]}}]}}
 State each proposed model, maker, country, period, type and material as a separate claim. Search the exact label, manufacturer manual/specification and an independent source before considering analogs. Include `weight_kg`, `length_cm`, `width_cm` and `height_cm` as separate numeric claims when documented for the exact variant. For those claims use `specimen_basis` NET for product mass and ITEM for physical product dimensions; exclude packaging, accessory dimensions and operating range. Cite seller photo numbers and exact URLs from the web search results. Capture a short exact excerpt and identifier for the underlying record, shared by mirrors. Describe discrepancies or competing values. Put uncertain matches in the analog analysis. Return an empty claims list when none is supportable.
+For powered items, include a separate battery claim from exact-variant documentation when available. State chemistry and whether the battery is installed, supplied or optional. Leave unknowns unasserted.
 Then concise Ukrainian sections: status, what it is, markings/OCR, distinctive features, checked candidates/mismatches, confirmed facts, unresolved facts, sources.
 
 === MARKET ===
@@ -7058,6 +7063,30 @@ def _shipping_quote(item_weight, L, W, H):
     return (L, W, H), (pL, pW, pH), packed, quote
 
 
+def _draft_carrier_review(draft):
+    fields = ('title', 'description', 'item_specifics', 'condition_note')
+    evidence = draft.get('product_evidence') or {}
+    return ukrposhta_battery_review(
+        texts=(draft.get(key) or '' for key in fields),
+        features=evidence.get('feature', []), battery_specs=evidence.get('battery', []),
+    )
+
+
+def _picker_carrier_review(picker_id, analysis, identification, market, measurements):
+    evidence, _, _ = _product_evidence_for_review(
+        analysis, identification, market, PHOTO_CACHE.get(picker_id) or [], {}, measurements)
+    return _draft_carrier_review({'product_evidence': evidence})
+
+
+def _carrier_review_html(result):
+    status = result['status']
+    message = ('Укрпошта забороняє міжнародне пересилання цього товару з літієвою батареєю.'
+               if status == 'BLOCK' else 'Потрібно перевірити наявність і тип батареї для міжнародної доставки.')
+    return (f'<h2>{status} — Укрпошта</h2><p>{message}</p>'
+            f'<p>Ознака для перевірки — {html.escape(result["trigger"])}.</p>'
+            f'<p><a href="{result["source"]}">Правила Укрпошти</a></p>')
+
+
 def _shipping_page(picker_id):
     label = _current_lot_label()
     saved = SELLER_MEASUREMENT_CACHE.get(picker_id)
@@ -7107,6 +7136,16 @@ def _shipping_page(picker_id):
                     cache[picker_id] = entry
             return page('Виміри лота', '<h2>Не вдалося зберегти виміри</h2>'
                         '<p>Попередні значення збережено. Повторіть підтвердження.</p>'), 503
+
+    carrier_review = _picker_carrier_review(picker_id, analysis, identification, market, accepted_measurement)
+    if carrier_review:
+        if request.method == 'POST':
+            return _save_hold_listing(picker_id, analysis, identification, market, accepted_measurement,
+                                      shipping_status='NEEDS_CARRIER_REVIEW')
+        return page(label+' Перевірка доставки', _carrier_review_html(carrier_review)
+                    + '<form action="/picker/final-listing" method="post">'
+                    + _measurement_form_fields(picker_id)
+                    + '<button>Зберегти SEO-чернетку в HOLD</button></form>'), 409
 
     item_weight, L, W, H = (accepted_measurement[key] for key in _MEASUREMENT_FIELDS)
     accepted_weight_source = accepted_measurement.get('weight_source', 'UNKNOWN')
@@ -7171,6 +7210,9 @@ def final_listing(automatic_revision=None):
     market = MARKET_CACHE.get(picker_id) or ''
     automatic = automatic_revision is not None or request.form.get('automatic') == 'yes'
     accepted = SELLER_MEASUREMENT_CACHE.get(picker_id) or (MEASUREMENT_CACHE.get(picker_id) if automatic else {}) or {}
+    if analysis and identification and market and _picker_carrier_review(picker_id, analysis, identification, market, accepted):
+        return _save_hold_listing(picker_id, analysis, identification, market, accepted,
+                                  shipping_status='NEEDS_CARRIER_REVIEW')
     measurements = [_p054_positive(accepted.get(key), limit)
                     for key, limit in zip(_MEASUREMENT_FIELDS, (101, 1001, 1001, 1001))]
     if not all(measurements):
@@ -7780,8 +7822,11 @@ def review_final_draft():
         text = '\n\n'.join((draft['title'], draft['description'], specifics))
         corrections = ' · '.join(f"{row['observed']} → {row['value']}"
                                  for row in draft['product_export']['ocr_corrections'])
+        carrier_review = _draft_carrier_review(draft)
+        carrier_notice = _carrier_review_html(carrier_review) if carrier_review else ''
         return page(label+' — SEO у HOLD', '<h2>SEO-чернетка збережена в HOLD</h2>'
                     '<p>Для публікації потрібні перевірка категорії, ціни та дані доставки.</p>'
+                    + carrier_notice +
                     f'<pre style="white-space:pre-wrap">{html.escape(text)}</pre>'
                     f'<p>{html.escape(corrections)}</p>{evidence}'
                     '<p><a href="/picker/hold-draft.json">Експорт доказів і SEO</a> · '
@@ -12758,7 +12803,10 @@ def ebay_current_sync():
     if request.method=='POST' and not _p058_csrf_valid():return page('Sync rejected','<h2>Оновлення відхилено: відкрийте перегляд змін ще раз.</h2>'),403
     writes_started=False;locals_progress={'writes_started':False}
     try:
-        draft=_current_draft();sku=_current_lot_sku();token=get_ebay_access_token()
+        draft=_current_draft()
+        if draft and _draft_carrier_review(draft):
+            return _p083_review_page(draft)
+        sku=_current_lot_sku();token=get_ebay_access_token()
         plan=_p063_plan(token,draft,sku)
         if request.method=='GET':
             signed=_p063_signer().dumps({'sku':sku,'offer_id':plan['offer_id'],'digest':plan['digest']})
@@ -12803,7 +12851,7 @@ def ebay_current_sync():
 
 def _p083_compliance(draft):
     """Conservative local policy screen for the current listing pipeline."""
-    evidence = {'scope': 'LOCAL_SCREENING', 'revision': '2026-11-24.1',
+    evidence = {'scope': 'LOCAL_SCREENING', 'revision': '2026-11-27.1',
                 'origin': 'UA', 'destination': 'US', 'customs_code_status': 'UNVERIFIED'}
     fields = ('title', 'description', 'category_path', 'category_name', 'item_specifics',
               'condition_note', 'primary_type', 'confirmed_material')
@@ -12812,6 +12860,9 @@ def _p083_compliance(draft):
     blocked = re.search(r'\b(?:live ammunition|functional firearms?|explosive ordnance)\b', plain, re.I)
     if blocked:
         return dict(evidence, status='BLOCK', rule='LOCAL_RESTRICTED_TERM', trigger=blocked[0])
+    carrier_review = _draft_carrier_review(draft)
+    if carrier_review:
+        return evidence | carrier_review
     review = re.search(
         r'\b(?:militaria|military|epaulettes?|shoulder boards?|collar tabs?|antique|antiquities|medals?|insignia|'
         r'ammunition|firearms?|ivory|cultural property)\b', plain, re.I)
@@ -12825,6 +12876,9 @@ def _p083_compliance(draft):
 
 def _p083_review_page(draft):
     result=_p083_compliance(draft)
+    if result.get('source'):
+        return page('Перевірка доставки', _carrier_review_html(result)
+                    + '<p>Публікацію зупинено.</p><a href="/picker/review-final-draft">Чернетка</a>'), 409
     if result['status'] == 'BLOCK':
         return page('Compliance BLOCK', '<h2>BLOCK — локальна політика публікації</h2><p>'
                     + html.escape(result['trigger']) + '</p><a href="/picker/review-final-draft">Чернетка</a>'), 409

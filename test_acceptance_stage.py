@@ -92,6 +92,26 @@ class AcceptanceStageTests(unittest.TestCase):
             self.assertFalse(tariff['includes_duties'])
         self.assertEqual(cases, {})
 
+    def test_route_policy_distinguishes_confirmed_chemistry_unknowns_and_unrelated_text(self):
+        cases = (
+            ('Built-in rechargeable Li-Po battery 500 mAh', 'BLOCK'),
+            ('Internal battery: Li-ion', 'BLOCK'),
+            ('Літієва батарея встановлена', 'BLOCK'),
+            ('Battery: CR2016', 'REVIEW'),
+            ('Lithium battery not included', 'REVIEW'),
+            ('Rechargeable battery, chemistry unknown', 'REVIEW'),
+            ('USB-C charging port', 'REVIEW'),
+            ('Battery: two alkaline AA cells included', 'CLEAR'),
+            ('Lithium glaze on decorative ceramics', 'CLEAR'),
+            ('Lipo Sculpture decorative figurine', 'CLEAR'),
+        )
+        for description, expected in cases:
+            with self.subTest(description=description):
+                draft = {'title': 'Detailed product listing', 'description': description}
+                self.assertEqual(m._p083_compliance(draft)['status'], expected)
+                if expected != 'CLEAR':
+                    self.assertIn('Укрпошти', m._p087_quality_block(draft))
+
     def test_shared_ocr_matches_unique_document_on_other_product_types(self):
         for kind, maker, model in [('Tape measure', 'Example Toolworks', 'Model 12'),
                                   ('Film camera', 'Example Optical', 'Model 42'),

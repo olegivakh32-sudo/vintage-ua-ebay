@@ -29,7 +29,9 @@ def write_json(path, data):
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 
-def freeze(archive, references, destination, manifest):
+def freeze(archive, references, destination, manifest, *, algorithm_revision=REVISION):
+    if not re.fullmatch(r'[a-f0-9]{40}', algorithm_revision):
+        raise ValueError('Expected a full Git commit SHA for the recognition algorithm')
     if sha(archive) != SOURCE_SHA:
         raise ValueError('Blind archive changed')
     labelled = json.loads(references.read_text(encoding='utf-8'))
@@ -43,7 +45,7 @@ def freeze(archive, references, destination, manifest):
         raise ValueError('Invalid stage partition')
     destination.mkdir(parents=True, exist_ok=True)
     plan = {
-        'algorithm_revision': REVISION, 'reference_sha256': sha(references), 'input_sha256': SOURCE_SHA,
+        'algorithm_revision': algorithm_revision, 'reference_sha256': sha(references), 'input_sha256': SOURCE_SHA,
         'model': MODEL, 'service_tier': 'default', 'research_effort': 'low', 'search_context_size': 'low',
         'max_input_tokens_before_send': BASE_TOKENS, 'max_web_calls': SEARCH_LIMIT,
         'max_billed_input_tokens': {'photos': BASE_TOKENS, 'research': CONTINUATION_INPUT},
@@ -153,13 +155,15 @@ if __name__ == '__main__':
     prepare = modes.add_parser('freeze')
     for flag in ('archive', 'references', 'destination', 'manifest'):
         prepare.add_argument(f'--{flag}', type=Path, required=True)
+    prepare.add_argument('--algorithm-revision', default=REVISION)
     validate = modes.add_parser('check')
     validate.add_argument('--plan', type=Path, required=True)
     validate.add_argument('--stage', choices=('S1', 'S2', 'S3'), required=True)
     validate.add_argument('--state', type=Path, required=True)
     args = parser.parse_args()
     if args.mode == 'freeze':
-        result = freeze(args.archive, args.references, args.destination, args.manifest)
+        result = freeze(args.archive, args.references, args.destination, args.manifest,
+                        algorithm_revision=args.algorithm_revision)
         print(json.dumps(result['stages'], indent=2))
     else:
         result = check(json.loads(args.plan.read_text()), args.stage, json.loads(args.state.read_text()))

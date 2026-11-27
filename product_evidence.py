@@ -112,7 +112,7 @@ def assess_photo_observations(observations, photo_count, *, summary_type=''):
 
 def build_product_evidence(observations, references, seller, measurement, photo_count, *, assessed=None):
     visual, _ = assessed if assessed is not None else assess_photo_observations(observations, photo_count)
-    facts = {field: list(visual.get(field, [])) for field in (*FIELDS, 'feature')}
+    facts = {field: list(visual.get(field, [])) for field in (*FIELDS, 'feature', 'battery')}
     for reference in references:
         field = reference['field']
         if field in facts:

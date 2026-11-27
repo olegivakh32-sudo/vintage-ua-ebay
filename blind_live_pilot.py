@@ -183,7 +183,8 @@ starting the next. Use null/empty arrays for unknowns. Each source URL must come
 IDENTITY_JSON {"type":null,"brand":null,"model":null,"country":null,"period":null,"material":null,"exact_model_confirmed":false}
 IDENTITY_CLAIMS_JSON {"claims":[{"field":"","value":null,"photos":[1],"specimen_basis":"NET|ITEM","contradictions":[],"sources":[{"url":"","kind":"CATALOG|MANUAL|MUSEUM|ARCHIVE|OTHER","document_id":"","match":"EXACT|ANALOG","excerpt":""}]}]}
 For market-only research use the identity template with null fields and an empty claims list.
-Otherwise use separate factual claims and short excerpts. Use NET item mass and ITEM dimensions only,
+Otherwise use separate factual claims and short excerpts. For powered items include documented battery
+chemistry and installed, supplied or optional status as a battery claim when known. Use NET item mass and ITEM dimensions only,
 never packaging. Record contradictions.
 === MARKET ===
 PRICE_JSON {"quick":null,"normal":null,"patient":null,"minimum":null}
