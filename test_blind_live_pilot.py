@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -7,9 +8,15 @@ from unittest.mock import Mock, patch
 import requests
 
 from ai_pilot import PilotLimits, run
-from blind_live_pilot import API, BASE_TOKENS, CAP, FULL_RESERVE, MODEL, LiveBudget, free_preflight, meter
+from blind_live_pilot import (
+    API, BASE_TOKENS, CAP, CONTINUATION_TOTAL, FULL_RESERVE, MODEL, LiveBudget,
+    free_preflight, frozen_inputs, meter, read_paid_checkpoint,
+)
 from test_mobile import m
 from visual_protocol import VISUAL_TEXT
+
+
+RECOGNITION = Path(__file__).parent / 'test_artifacts' / 'recognition'
 
 
 def response(data, status=200):
@@ -20,6 +27,75 @@ def response(data, status=200):
 
 
 class BlindPilotTests(unittest.TestCase):
+    def test_paid_checkpoint_reaches_hold_without_transport_or_shipping_prefill(self):
+        prior = read_paid_checkpoint(RECOGNITION / 'lotnexo-paid-45888499679.zip')
+        self.assertEqual(prior['previous_usd'], Decimal('0.0254528'))
+        usage = meter(prior['research'], 'research')
+        self.assertEqual((usage['output_tokens'], usage['reasoning_tokens'], usage['web_calls']), (4375, 3454, 2))
+        self.assertEqual(usage['metered_usd'], '0.0248227')
+        self.assertEqual(prior['previous_usd'] + CONTINUATION_TOTAL, Decimal('0.4621028'))
+        with (TemporaryDirectory() as tmp, patch.object(requests.Session, 'request') as transport,
+              patch.object(m, 'OPENAI_API_KEY', 'offline-fixture'), patch.dict('sys.modules', {'app': m})):
+            directory = Path(tmp)
+            photos = frozen_inputs(RECOGNITION / 'lotnexo-live-pilot-blind.zip', directory)['MV-101']
+            budget = LiveBudget(directory / 'run.json', checkpoint=prior, offline=True)
+            result = run({'lot': 'MV-101'}, photos, PilotLimits(CAP), live_web=budget)
+            transport.assert_not_called()
+            self.assertEqual(result['stage_http'], {'visual': 200, 'research': None, 'draft': None})
+            self.assertEqual(result['ocr'], '1998.257')
+            self.assertFalse(result['admitted'])
+            self.assertEqual(result['measurement'], {})
+            self.assertEqual(result['usage'], [{'stage': 'photos', 'sent': False, 'reused': True, 'metered_usd': '0'}])
+            card = result['review_card']
+            self.assertEqual(card['draft_status'], 'HOLD')
+            self.assertEqual(card['unverified_category'], {})
+            self.assertEqual(len(card['reference_decisions']), 8)
+            self.assertEqual({row['status'] for row in card['reference_decisions']}, {'HYPOTHESIS'})
+            fields = {field: row['value'] for field, rows in card['evidence'].items()
+                      for row in rows if row['status'] == 'CATALOGUE_REFERENCE'}
+            self.assertEqual(fields, {'type': 'Plate', 'material': 'salt-glazed stoneware', 'country': 'England',
+                                      'period': 'c. 1760', 'length_cm': 30.5, 'width_cm': 30.5, 'height_cm': 4.3})
+            with self.assertRaisesRegex(ValueError, 'images differ'):
+                budget.prepare_catalogue('MV-101', photos[::-1], m)
+
+    def test_continuation_sends_only_market_request_and_keeps_partial_usage(self):
+        prior = read_paid_checkpoint(RECOGNITION / 'lotnexo-paid-45888499679.zip')
+        with TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            photos = frozen_inputs(RECOGNITION / 'lotnexo-live-pilot-blind.zip', directory)['MV-101']
+            budget = LiveBudget(directory / 'run.json', checkpoint=prior)
+            budget.prepare_catalogue('MV-101', photos, m)
+            request = Mock(side_effect=[response({'input_tokens': 900}), response(prior['research'])])
+            ask = {'input': 'already billed', 'text': VISUAL_TEXT}
+            bound = budget.bind('MV-101', ask)
+            self.assertEqual(budget.send(request, None, {'json': bound}).status_code, 200)
+            request.assert_not_called()
+            ask = {'tools': [{'type': 'web_search'}], 'input': [{'role': 'user', 'content': [
+                {'type': 'input_text', 'text': 'verbose prompt'},
+                {'type': 'input_image', 'image_url': 'data:fixture'},
+            ]}]}
+            bound = budget.bind('MV-101', ask)
+            self.assertEqual(bound['max_output_tokens'], 7000)
+            self.assertEqual(bound['reasoning']['effort'], 'low')
+            self.assertEqual(bound['tools'][0]['search_context_size'], 'low')
+            self.assertEqual(bound['max_tool_calls'], 2)
+            content = bound['input'][0]['content']
+            self.assertEqual(len(content), 1)
+            self.assertIn('Research only missing market comparables', content[0]['text'])
+            self.assertNotIn('verbose prompt', content[0]['text'])
+            wire = bound | {'include': ['web_search_call.action.sources']}
+            with self.assertRaisesRegex(RuntimeError, 'no automatic retry'):
+                budget.send(request, None, {'json': wire, 'headers': {}})
+            self.assertEqual(request.call_count, 2)
+            report = json.loads(budget.report.read_text())
+            self.assertEqual(report['metered_usd'], '0.0248227')
+            self.assertEqual(report['unsettled_reserve_usd'], '0')
+            research = report['attempts'][1]
+            self.assertEqual(research['incomplete_reason'], 'max_output_tokens')
+            self.assertEqual(json.loads((directory / research['response_file']).read_text()), prior['research'])
+            with self.assertRaisesRegex(RuntimeError, 'Repeated'):
+                budget.bind('MV-102', {'input': 'second lot', 'text': VISUAL_TEXT})
+
     def test_meter_uses_billable_search_count_for_partial_responses(self):
         result = {'model': MODEL, 'service_tier': 'default', 'status': 'incomplete',
                   'usage': {'input_tokens': 26352, 'output_tokens': 4375},

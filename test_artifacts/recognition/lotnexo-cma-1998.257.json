@@ -1,0 +1,29 @@
+{
+  "checked_on": "2026-11-27",
+  "url": "https://www.clevelandart.org/art/1998.257",
+  "api_url": "https://openaccess-api.clevelandart.org/api/artworks/160422",
+  "licence": "CC0",
+  "accession": "1998.257",
+  "culture": "England, Staffordshire",
+  "source_photos": [
+    {
+      "url": "https://openaccess-cdn.clevelandart.org/1998.257/1998.257_web.jpg",
+      "sha256": "c3d4453358a9252ab24fa82ca967a0dd09e416a08c68d02e757e18800c66cfa4",
+      "blind_sha256": "9e8665758811ed4fe3321fc60ed705d25f981bd81469eec1079b9d066e22b494"
+    },
+    {
+      "url": "https://openaccess-cdn.clevelandart.org/1998.257/1998.257_alt0_web.jpg",
+      "sha256": "f12216693fe4165525bd62423334a299c22dd4f58503c07edc4a01274f4cb6ee",
+      "blind_sha256": "6fd3cb7a3dd97df662a565664da174574327924972e7adcaec436fdbd379eec5"
+    }
+  ],
+  "fields": {
+    "type": "Plate",
+    "material": "salt-glazed stoneware",
+    "country": "England",
+    "period": "c. 1760",
+    "length_cm": 30.5,
+    "width_cm": 30.5,
+    "height_cm": 4.3
+  }
+}

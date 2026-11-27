@@ -245,6 +245,8 @@ def run(data, photos, limits, *, live_web=None):
     client = vintage.app.test_client()
     actual_request = requests.Session.request
     actual_api = vintage._p054_openai_request
+    if live_web is not None:
+        live_web.prepare_catalogue(data['lot'], photos, vintage)
 
     def request_guard(session, method, url, *args, **kwargs):
         if method.upper() != 'POST' or url != vintage.OPENAI_URL:
@@ -332,7 +334,8 @@ def run(data, photos, limits, *, live_web=None):
 
         stage_a = prepare('photos')
         analysis = vintage.ANALYSIS_CACHE.get(picker, '')
-        stage_bc = prepare('research') if stage_a.status_code == 200 and not limits.vision_only else None
+        offline_replay = live_web is not None and live_web.offline
+        stage_bc = prepare('research') if stage_a.status_code == 200 and not (limits.vision_only or offline_replay) else None
         identification = vintage.IDENTIFICATION_CACHE.get(picker, '')
         market = vintage.MARKET_CACHE.get(picker, '')
         if market and live_web is None:
@@ -375,8 +378,10 @@ def run(data, photos, limits, *, live_web=None):
         evidence = draft.get('product_evidence') or visual_facts
         review = None
         if live_web is not None and analysis:
+            reviewed_identity = live_web.review_identification(data['lot'], vintage, identification, market)
             evidence, observations, references = vintage._product_evidence_for_review(
-                analysis, identification, market, vintage.PHOTO_CACHE.get(picker, []), {}, measurement)
+                analysis, reviewed_identity, market, vintage.PHOTO_CACHE.get(picker, []), {}, measurement,
+                catalogue_references=live_web.catalogue_references(data['lot']))
             evidence = evidence or {}
             candidates = vintage._research_machine_json(market, 'CATEGORY_CANDIDATE_JSON')
             review = {'title': draft.get('title'), 'evidence': evidence, 'observations': observations,
@@ -405,7 +410,8 @@ def run(data, photos, limits, *, live_web=None):
             'main_photo': order[0] if order else None,
             'symbols': facts.get('symbols', []), 'measurement': measurement,
             'analysis': analysis, 'identification': identification, 'market': market, 'draft': draft,
-            'usage': vintage.AI_USAGE_CACHE.get(picker, {}), 'actual_attempts': limits.attempts,
+            'usage': vintage.AI_USAGE_CACHE.get(picker, {}) if live_web is None else live_web.usage(data['lot']),
+            'actual_attempts': limits.attempts,
             'reserved_total_usd': str(limits.reserved_total),
             'reservations': [
                 {'model': row['model'], 'reserved_usd': str(row['reserved_usd'])}

@@ -2188,8 +2188,14 @@ def _p054_openai_request(payload, timeout=180, usage_picker_id=None, final_draft
                 in_tok = int(u.get("input_tokens") or u.get("prompt_tokens") or 0)
                 out_tok = int(u.get("output_tokens") or u.get("completion_tokens") or 0)
                 output = data.get("output")
-                web_calls = sum(1 for x in output if isinstance(x, dict) and x.get("type") == "web_search_call") \
-                    if isinstance(output, list) else 0
+                search_usage = (data.get("tool_usage") or {}).get("web_search") or {}
+                web_calls = search_usage.get("num_requests")
+                if type(web_calls) is not int or web_calls < 0:
+                    web_calls = sum(
+                        isinstance(x, dict) and x.get("type") == "web_search_call"
+                        and x.get("status") != "searching"
+                        for x in output
+                    ) if isinstance(output, list) else 0
                 model = str(data.get("model") or payload.get("model") or "").strip()
                 in_rate, out_rate = next(
                     (rates for name,rates in _MODEL_PRICING_PER_M.items() if model.startswith(name)),
@@ -3205,7 +3211,8 @@ def _structured_identity_claims(identification, market, photo_count, *, decision
     return identity_claims(records, known_urls, photo_count, _p054_source_host, decisions=decisions)
 
 
-def _product_evidence_for_review(analysis, identification, market, items, seller, measurements):
+def _product_evidence_for_review(analysis, identification, market, items, seller, measurements,
+                                 *, catalogue_references=()):
     product_observations = _research_machine_json(analysis, 'PRODUCT_OBSERVATIONS_JSON')
     if 'fields' not in product_observations:
         return None, [], []
@@ -3219,6 +3226,7 @@ def _product_evidence_for_review(analysis, identification, market, items, seller
     reference_decisions = []
     references = _structured_identity_claims(identification, market, len(items), decisions=reference_decisions)
     references.extend(catalogue_claims(_picker_catalogue_matches(analysis, items)))
+    references.extend(catalogue_references)
     return (build_product_evidence(observed, references, seller, _p062_measurement_public_meta(measurements),
                                    len(items), assessed=assessed), assessed[1], reference_decisions)
 

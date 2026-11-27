@@ -1,0 +1,588 @@
+{
+  "mode": "OFFLINE_REPLAY",
+  "archive_sha256": "c362598737440888911cde10a9a508367236d16495338aff4b814a747b14764f",
+  "previous_archive_sha256": "a45b390369797699ae13d2f6c63cc861018a394dee54195f1cf33c7e21f83ab2",
+  "previous_usd": "0.0254528",
+  "metered_usd": "0",
+  "unsettled_reserve_usd": "0",
+  "attempts": [
+    {
+      "lot": "MV-101",
+      "stage": "photos",
+      "sent": false,
+      "reused": true,
+      "source_archive_sha256": "a45b390369797699ae13d2f6c63cc861018a394dee54195f1cf33c7e21f83ab2",
+      "reserved_usd": "0",
+      "http_status": 200,
+      "metered_usd": "0"
+    }
+  ],
+  "lot": {
+    "lot": "MV-101",
+    "stage_http": {
+      "visual": 200,
+      "research": null,
+      "draft": null
+    },
+    "ocr": "1998.257",
+    "category_id": null,
+    "admitted": false,
+    "measurement": {},
+    "review_card": {
+      "title": null,
+      "evidence": {
+        "type": [
+          {
+            "value": "Pierced decorative plate or shallow platter; suitable for serving or display.",
+            "status": "PHOTO_OBSERVATION",
+            "photos": [
+              1,
+              2
+            ],
+            "basis": "Single scalloped plate with a flat central area and pierced lattice sections."
+          },
+          {
+            "value": "Plate with pierced lattice panels, scalloped edge and moulded basket-weave/scroll relief",
+            "status": "HYPOTHESIS",
+            "photos": [
+              1,
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "excerpt": "“This particular plate features intricate basket weave patterns, decorative frames, and scalloped edges”; the record also describes openwork lattice square cutouts."
+              }
+            ],
+            "contradictions": []
+          },
+          {
+            "value": "Plate",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "document_id": "1998.257",
+                "excerpt": "1998.257 • type: Plate"
+              }
+            ],
+            "contradictions": []
+          }
+        ],
+        "model": [
+          {
+            "value": "No commercial model or maker assigned in the museum record; exact model unconfirmed",
+            "status": "HYPOTHESIS",
+            "photos": [
+              1,
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "excerpt": "Catalogued simply as “Plate”; attribution is Staffordshire, not to a named maker."
+              }
+            ],
+            "contradictions": []
+          }
+        ],
+        "material": [
+          {
+            "value": "Ceramic",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              1,
+              2
+            ],
+            "basis": "Rigid, glazed-looking plate with a pale ceramic appearance."
+          },
+          {
+            "value": "Salt-glazed stoneware",
+            "status": "HYPOTHESIS",
+            "photos": [
+              1,
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "excerpt": "Medium: “salt-glazed stoneware”"
+              }
+            ],
+            "contradictions": []
+          },
+          {
+            "value": "salt-glazed stoneware",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "document_id": "1998.257",
+                "excerpt": "1998.257 • material: salt-glazed stoneware"
+              }
+            ],
+            "contradictions": []
+          }
+        ],
+        "country": [
+          {
+            "value": "England, Staffordshire",
+            "status": "HYPOTHESIS",
+            "photos": [
+              1,
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "excerpt": "“England, Staffordshire”"
+              }
+            ],
+            "contradictions": []
+          },
+          {
+            "value": "England",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "document_id": "1998.257",
+                "excerpt": "1998.257 • country: England"
+              }
+            ],
+            "contradictions": []
+          }
+        ],
+        "period": [
+          {
+            "value": "Circa 1760",
+            "status": "HYPOTHESIS",
+            "photos": [
+              1,
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "excerpt": "“c. 1760”"
+              }
+            ],
+            "contradictions": []
+          },
+          {
+            "value": "c. 1760",
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "document_id": "1998.257",
+                "excerpt": "1998.257 • period: c. 1760"
+              }
+            ],
+            "contradictions": []
+          }
+        ],
+        "condition": [
+          {
+            "value": "Small scattered specks and areas of discoloration are visible on the underside.",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              2
+            ],
+            "basis": "Visible surface marks on the underside."
+          }
+        ],
+        "marking": [
+          {
+            "value": "Red handwritten number: 1998.257",
+            "status": "PHOTO_CANDIDATE",
+            "photos": [
+              2
+            ],
+            "basis": "Red writing visible on the underside; characters appear to read 1998.257."
+          },
+          {
+            "value": "1998.257",
+            "status": "PHOTO_OBSERVATION",
+            "photos": [
+              2
+            ],
+            "basis": "Visible transcription from the visual report"
+          }
+        ],
+        "length_cm": [
+          {
+            "value": 30.5,
+            "status": "HYPOTHESIS",
+            "photos": [
+              1
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "excerpt": "Diameter: 30.5 cm (12 in.)."
+              }
+            ],
+            "contradictions": [],
+            "unit": "cm"
+          },
+          {
+            "value": 30.5,
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "document_id": "1998.257",
+                "excerpt": "1998.257 • length_cm: 30.5"
+              }
+            ],
+            "contradictions": [],
+            "unit": "cm"
+          }
+        ],
+        "width_cm": [
+          {
+            "value": 30.5,
+            "status": "HYPOTHESIS",
+            "photos": [
+              1
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "excerpt": "Diameter: 30.5 cm (12 in.)."
+              }
+            ],
+            "contradictions": [],
+            "unit": "cm"
+          },
+          {
+            "value": 30.5,
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "document_id": "1998.257",
+                "excerpt": "1998.257 • width_cm: 30.5"
+              }
+            ],
+            "contradictions": [],
+            "unit": "cm"
+          }
+        ],
+        "height_cm": [
+          {
+            "value": 4.3,
+            "status": "HYPOTHESIS",
+            "photos": [
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "excerpt": "Overall: 4.3 cm (1 11/16 in.)."
+              }
+            ],
+            "contradictions": [],
+            "unit": "cm"
+          },
+          {
+            "value": 4.3,
+            "status": "CATALOGUE_REFERENCE",
+            "photos": [
+              2
+            ],
+            "references": [
+              {
+                "url": "https://www.clevelandart.org/art/1998.257",
+                "kind": "MUSEUM",
+                "document_id": "1998.257",
+                "excerpt": "1998.257 • height_cm: 4.3"
+              }
+            ],
+            "contradictions": [],
+            "unit": "cm"
+          }
+        ],
+        "feature": [
+          {
+            "value": "Scalloped rim with pierced lattice panels and raised relief decoration.",
+            "status": "PHOTO_OBSERVATION",
+            "photos": [
+              1
+            ],
+            "basis": "Visible across the face of the plate.",
+            "name": "Decorative design"
+          }
+        ]
+      },
+      "observations": [
+        {
+          "index": 1,
+          "field": "type",
+          "status": "PHOTO_OBSERVATION",
+          "reasons": [],
+          "confidence": 91,
+          "photos": [
+            1,
+            2
+          ],
+          "output_field": "type"
+        },
+        {
+          "index": 2,
+          "field": "material",
+          "status": "PHOTO_CANDIDATE",
+          "reasons": [
+            "BELOW_CONFIRMATION_THRESHOLD"
+          ],
+          "confidence": 78,
+          "photos": [
+            1,
+            2
+          ],
+          "output_field": "material"
+        },
+        {
+          "index": 3,
+          "field": "feature",
+          "status": "PHOTO_OBSERVATION",
+          "reasons": [],
+          "confidence": 99,
+          "photos": [
+            1
+          ],
+          "output_field": "feature"
+        },
+        {
+          "index": 4,
+          "field": "marking",
+          "status": "PHOTO_CANDIDATE",
+          "reasons": [
+            "BELOW_CONFIRMATION_THRESHOLD"
+          ],
+          "confidence": 75,
+          "photos": [
+            2
+          ],
+          "output_field": "marking"
+        },
+        {
+          "index": 5,
+          "field": "condition",
+          "status": "PHOTO_CANDIDATE",
+          "reasons": [
+            "BELOW_CONFIRMATION_THRESHOLD"
+          ],
+          "confidence": 83,
+          "photos": [
+            2
+          ],
+          "output_field": "condition"
+        },
+        {
+          "index": 6,
+          "field": "marking",
+          "status": "PHOTO_OBSERVATION",
+          "reasons": [],
+          "confidence": 90,
+          "photos": [
+            2
+          ],
+          "output_field": "marking"
+        }
+      ],
+      "reference_decisions": [
+        {
+          "index": 1,
+          "field": "type",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1,
+            2
+          ]
+        },
+        {
+          "index": 2,
+          "field": "model",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1,
+            2
+          ]
+        },
+        {
+          "index": 3,
+          "field": "country",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1,
+            2
+          ]
+        },
+        {
+          "index": 4,
+          "field": "period",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1,
+            2
+          ]
+        },
+        {
+          "index": 5,
+          "field": "material",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1,
+            2
+          ]
+        },
+        {
+          "index": 6,
+          "field": "length_cm",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1
+          ]
+        },
+        {
+          "index": 7,
+          "field": "width_cm",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            1
+          ]
+        },
+        {
+          "index": 8,
+          "field": "height_cm",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ],
+          "photos": [
+            2
+          ]
+        }
+      ],
+      "market_check": {
+        "ok": false,
+        "reasons": [
+          "Normal Buy It Now was not explicitly parsed"
+        ],
+        "tiers": {
+          "quick": "",
+          "normal": "",
+          "patient": "",
+          "minimum": ""
+        },
+        "comparables": null,
+        "anchor": null
+      },
+      "unverified_category": {},
+      "draft_status": "HOLD"
+    }
+  }
+}
