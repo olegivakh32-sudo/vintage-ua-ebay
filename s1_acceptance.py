@@ -14,9 +14,10 @@ from zoneinfo import ZoneInfo
 
 import requests
 
-from acceptance_stage import LOCAL_LOT_FAILURES, METERED_LOT_FAILURES, STEPS, check, sha
+from acceptance_stage import LOCAL_LOT_FAILURES, METERED_LOT_FAILURES, check, sha, stage_steps
 from ai_pilot import PilotLimits, run, write_report
 from blind_live_pilot import API, MODEL, RESEARCH_BLOCKS, compact_research, free_preflight, meter, prediction
+from identity_evidence import ALTERNATE_RESEARCH_PREFIX
 from openai_auth_diagnostic import safe_error
 from visual_protocol import PHOTO_ROLES, VISUAL_TEXT, machine_object, visual_response_issue
 
@@ -96,7 +97,7 @@ class StageBudget:
         self.pending = None
         self.status = 'RUNNING'
         self.reason = None
-        self.sequence = [(lot, step) for lot in phase['lots'] for step in STEPS]
+        self.sequence = [(lot, step) for lot in phase['lots'] for step in stage_steps(plan)]
         self.state = {
             'algorithm_revision': plan['algorithm_revision'],
             'reference_sha256': plan['reference_sha256'],
@@ -154,6 +155,12 @@ class StageBudget:
     def research_input(self, original):
         return compact_research(original)
 
+    def finish_lot(self, lot):
+        i = len(self.attempts)
+        if i < len(self.sequence) and self.sequence[i] == (lot, 'alternate'):
+            self.attempts.append({'lot': lot, 'step': 'alternate', 'status': 'SKIPPED', 'reason': 'OPTIONAL_SEARCH_NOT_NEEDED'})
+            self.save()
+
     def bind(self, lot, original):
         if self.status != 'RUNNING':
             raise StopRun(self.reason or 'STAGE_FINISHED')
@@ -162,7 +169,10 @@ class StageBudget:
         if original.get('text') == VISUAL_TEXT and not original.get('tools'):
             step = 'photos'
         elif original.get('tools') == [{'type': 'web_search'}]:
-            step = 'research'
+            prompt = original['input'][0]['content'][0]['text']
+            step = 'alternate' if prompt.startswith(ALTERNATE_RESEARCH_PREFIX) else 'research'
+            if step not in stage_steps(self.plan):
+                self.stop('UNAPPROVED_STAGE')
         else:
             self.stop('UNAPPROVED_STAGE')
         payload = {'model': MODEL, 'input': deepcopy(original['input']),
@@ -177,7 +187,9 @@ class StageBudget:
                 if images != self.photo_counts[lot]:
                     self.stop('PHOTO_PAYLOAD_COUNT_MISMATCH')
         else:
-            payload.update(input=self.research_input(payload['input']), tool_choice='required',
+            if step == 'research':
+                payload['input'] = self.research_input(payload['input'])
+            payload.update(tool_choice='required',
                            tools=[{'type': 'web_search', 'external_web_access': True, 'search_context_size': 'low'}],
                            max_tool_calls=self.plan['max_web_calls'])
         # Refuse out-of-order work before even the free token count.
@@ -194,7 +206,7 @@ class StageBudget:
             self.stop('UNRESERVED_REQUEST')
         lot, step, payload = self.pending
         self.pending = None
-        if step == 'research':
+        if step != 'photos':
             payload['include'] = ['web_search_call.action.sources']
         if kwargs.get('json') != payload:
             self.stop('BOUND_REQUEST_CHANGED')
@@ -286,6 +298,12 @@ def response_issue(result, step, row, *, photo_count=1):
         return 'INVALID_VISUAL_SCHEMA'
     if not row['web_calls']:
         return 'SEARCH_NOT_EXECUTED'
+    if step == 'alternate':
+        identity = machine_object(text, 'IDENTITY_JSON')
+        claims = machine_object(text, 'IDENTITY_CLAIMS_JSON').get('claims')
+        if type(identity.get('exact_model_confirmed')) is not bool or not isinstance(claims, list):
+            return 'INVALID_RESEARCH_SCHEMA'
+        return None
     blocks = {block: machine_object(text, block) for block in RESEARCH_BLOCKS}
     types = {
         'IDENTITY_JSON': (bool,), 'IDENTITY_CLAIMS_JSON': (list,),
@@ -345,6 +363,7 @@ def run_lots(budget, lots, output):
                             if row['lot'] == lot and row['status'] == 'LOT_FAILED'), 'APPLICATION_STAGE_FAILED')
             budget.skip_lot(lot, failure)
             continue
+        budget.finish_lot(lot)
         rows.append(prediction(result, budget.attempts))
         durable_report(output / 'predictions.json', rows)
     final = check(budget.plan, budget.stage, budget.state)

@@ -62,7 +62,7 @@ from catalog_policy import (
     selectable_aspects,
 )
 from catalogue_labels import catalogue_claims, load_catalogue, read_label_texts
-from identity_evidence import (ALTERNATE_MODEL, ALTERNATE_OUTPUT_TOKENS, ALTERNATE_SEARCH_CALLS,
+from identity_evidence import (ALTERNATE_MODEL, ALTERNATE_OUTPUT_TOKENS, ALTERNATE_RESEARCH_PREFIX, ALTERNATE_SEARCH_CALLS,
                                RESEARCH_FIELD_GUIDANCE, RESEARCH_QUERY_GUIDANCE, TYPE_ANCHOR_GUIDANCE,
                                corroborated_value, identity_claims, normalized_claim)
 from museum_photo_evidence import museum_claims
@@ -5188,7 +5188,7 @@ def _p026_alternate_research(analysis, items, identification, market, photo_cont
         _save_active_lot_checkpoint()
     early = {field: value[:120] for field in ('type', 'brand', 'model')
              if isinstance(value := initial.get(field), str)}
-    prompt = f'''Verify an unresolved identity using a different search strategy. The first pass is complete.
+    prompt = f'''{ALTERNATE_RESEARCH_PREFIX} The first pass is complete.
 Initial, unconfirmed labels (test alternatives, do not repeat as a query): {json.dumps(early, ensure_ascii=False)}
 Numbered observation and OCR data, including uncertain clues: {json.dumps(photo_context, ensure_ascii=False)}
 Use literal distinguishing marks or a view showing the physical interfaces, fasteners, controls or outline.

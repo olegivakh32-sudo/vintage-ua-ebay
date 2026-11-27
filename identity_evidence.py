@@ -10,6 +10,7 @@ UNKNOWN = frozenset({'unknown', 'unresolved', 'none', 'n/a', '—', 'невід�
 ALTERNATE_MODEL = 'gpt-6-luna'
 ALTERNATE_OUTPUT_TOKENS = 3600
 ALTERNATE_SEARCH_CALLS = 2
+ALTERNATE_RESEARCH_PREFIX = 'Verify an unresolved identity using a different search strategy.'
 FIELD_ALIASES = {'manufacturer': 'brand', 'maker': 'brand', 'model_number': 'model',
                  'country_of_manufacture': 'country', 'year': 'period', 'date': 'period',
                  'era': 'period', 'materials': 'material'}

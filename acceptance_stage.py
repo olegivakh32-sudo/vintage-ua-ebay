@@ -32,6 +32,10 @@ def write_json(path, data):
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 
+def stage_steps(plan):
+    return (*STEPS, 'alternate') if plan.get('allow_alternate_identity_search') is True else STEPS
+
+
 def freeze(archive, references, destination, manifest, *, algorithm_revision=REVISION):
     if not re.fullmatch(r'[a-f0-9]{40}', algorithm_revision):
         raise ValueError('Expected a full Git commit SHA for the recognition algorithm')
@@ -88,7 +92,7 @@ def freeze(archive, references, destination, manifest, *, algorithm_revision=REV
 def check(plan, stage, state):
     """Return a stop or the single next step. A reviewed result is required after each batch."""
     phase = plan['stages'][stage]
-    expected = [(lot, kind) for lot in phase['lots'] for kind in STEPS]
+    expected = [(lot, kind) for lot in phase['lots'] for kind in stage_steps(plan)]
     if state.get('algorithm_revision') != plan['algorithm_revision'] or state.get('reference_sha256') != plan['reference_sha256']:
         return {'stop': 'FROZEN_INPUT_CHANGED'}
     if state.get('blind_sha256') != phase['blind_sha256']:
@@ -118,11 +122,14 @@ def check(plan, stage, state):
             return {'stop': 'DUPLICATE_OR_OUT_OF_ORDER'}
         status = row.get('status')
         if status == 'SKIPPED':
+            optional_skip = (kind == 'alternate' and lot not in blocked_lots
+                             and row.get('reason') == 'OPTIONAL_SEARCH_NOT_NEEDED')
             if (set(row) != {'lot', 'step', 'status', 'reason'}
                     or not isinstance(row['reason'], str)
-                    or row['reason'] not in LOCAL_LOT_FAILURES | METERED_LOT_FAILURES):
+                    or (not optional_skip and row['reason'] not in LOCAL_LOT_FAILURES | METERED_LOT_FAILURES)):
                 return {'stop': 'INVALID_SKIP_RECORD'}
-            blocked_lots.add(lot)
+            if not optional_skip:
+                blocked_lots.add(lot)
             continue
         if lot in blocked_lots:
             return {'stop': 'DUPLICATE_OR_OUT_OF_ORDER'}
@@ -135,7 +142,7 @@ def check(plan, stage, state):
             return {'stop': 'PROVIDER_FAILURE_OR_UNCERTAIN_CHARGE'}
         usage = {'input_tokens': (1, plan['max_billed_input_tokens'][kind]),
                  'output_tokens': (0, plan['max_output_tokens'][kind]),
-                 'web_calls': (0, plan['max_web_calls'] if kind == 'research' else 0)}
+                 'web_calls': (0, plan['max_web_calls'] if kind != 'photos' else 0)}
         if any(type(row.get(key)) is not int or not low <= row[key] <= high for key, (low, high) in usage.items()):
             return {'stop': 'UNEXPECTED_USAGE'}
         try:

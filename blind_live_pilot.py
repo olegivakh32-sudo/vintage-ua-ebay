@@ -15,7 +15,8 @@ from zipfile import BadZipFile, ZipFile
 import requests
 
 from ai_pilot import PilotLimits, run, write_report
-from identity_evidence import RESEARCH_FIELD_GUIDANCE, RESEARCH_QUERY_GUIDANCE, TYPE_ANCHOR_GUIDANCE, normalized_claim
+from identity_evidence import (ALTERNATE_OUTPUT_TOKENS, ALTERNATE_SEARCH_CALLS, RESEARCH_FIELD_GUIDANCE,
+                               RESEARCH_QUERY_GUIDANCE, TYPE_ANCHOR_GUIDANCE, normalized_claim)
 from listing_review import DOCUMENTED, corrected_ocr, export_review
 from openai_auth_diagnostic import safe_error
 from visual_protocol import VISUAL_TEXT, machine_object, visual_response_issue
@@ -56,6 +57,10 @@ RESERVE = {
 }
 FULL_RESERVE = len(LOTS) * sum(RESERVE.values())
 CONTINUATION_INPUT = 3 * BASE_TOKENS + 3 * SEARCH_TOKENS + 2 * CONTINUATION_OUTPUT
+ALTERNATE_INPUT = ((1 + ALTERNATE_SEARCH_CALLS) * (BASE_TOKENS + SEARCH_TOKENS)
+                   + ALTERNATE_SEARCH_CALLS * ALTERNATE_OUTPUT_TOKENS)
+ALTERNATE_RESERVE = usd(ALTERNATE_INPUT, ALTERNATE_OUTPUT_TOKENS, ALTERNATE_SEARCH_CALLS,
+                        long_context=True, written=ALTERNATE_INPUT)
 CONTINUATION_RESERVE = RESERVE | {
     'research': usd(CONTINUATION_INPUT, CONTINUATION_OUTPUT, SEARCH_LIMIT,
                     long_context=True, written=CONTINUATION_INPUT),
@@ -411,6 +416,8 @@ def meter(result, stage, *, continuation=False):
     output_limit = VISUAL_OUTPUT if stage == 'photos' else RESEARCH_OUTPUT
     if stage == 'research' and continuation:
         input_limit, output_limit = CONTINUATION_INPUT, CONTINUATION_OUTPUT
+    elif stage == 'alternate':
+        input_limit, output_limit = ALTERNATE_INPUT, ALTERNATE_OUTPUT_TOKENS
     if (result.get('model') != MODEL or result.get('service_tier') != 'default'
             or any(type(value) is not int or value < 0 for value in (inputs, outputs, cached, written, searches))
             or not 0 < inputs <= input_limit or outputs > output_limit or cached + written > inputs

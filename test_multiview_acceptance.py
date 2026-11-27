@@ -11,7 +11,8 @@ from zipfile import ZipFile
 import requests
 
 from ai_pilot import _public_catalogue_url
-from blind_live_pilot import API
+from blind_live_pilot import ALTERNATE_INPUT, ALTERNATE_RESERVE, API
+from identity_evidence import ALTERNATE_OUTPUT_TOKENS, ALTERNATE_RESEARCH_PREFIX
 import multiview_acceptance as m12
 from multiview_review import FIELDS, available_fields, grade, review
 from s1_acceptance import StopRun, response_issue
@@ -84,6 +85,44 @@ class MultiviewTests(unittest.TestCase):
             duplicate = VISUAL | {'photos': [VISUAL['photos'][0] for _ in range(3)]}
             self.assertEqual(response_issue(reply(output_text=json.dumps(duplicate)), 'photos', {}, photo_count=3),
                              'INVALID_VISUAL_SCHEMA')
+
+    def test_alternate_has_a_separate_reserve_and_cannot_repeat(self):
+        cap = m12.CAP + ALTERNATE_RESERVE * 12
+        phase = self.phase | {'photo_counts': {}, 'reserve_usd': str(cap)}
+        plan = self.plan | {'allow_alternate_identity_search': True, 'stages': {m12.STAGE: phase},
+                           'max_output_tokens': self.plan['max_output_tokens'] | {'alternate': ALTERNATE_OUTPUT_TOKENS},
+                           'max_billed_input_tokens': self.plan['max_billed_input_tokens'] | {'alternate': ALTERNATE_INPUT},
+                           'per_step_reserve_usd': self.plan['per_step_reserve_usd'] | {'alternate': str(ALTERNATE_RESERVE)}}
+        from s1_acceptance import StageBudget
+        lot = phase['lots'][0]
+        budget = StageBudget(plan, self.root / 'alternate', stage=m12.STAGE, cap=cap)
+        def invoke(bound, content=None):
+            if content:
+                bound['include'] = ['web_search_call.action.sources']
+            def fake(session, method, url, **kwargs):
+                if url.endswith('/input_tokens'):
+                    return response({'input_tokens': 2000})
+                self.assertEqual(url, f'{API}/responses')
+                out = [{'type': 'web_search_call'}] if content else []
+                return response(reply(output=out, output_text=content or json.dumps(VISUAL)))
+            with patch.dict('sys.modules', {'app': m}):
+                budget.send(fake, None, {'json': bound, 'headers': {}})
+
+        invoke(budget.bind(lot, {'text': VISUAL_TEXT, 'input': []}))
+        def research(prompt):
+            return {'tools': [{'type': 'web_search'}], 'input': [{'role': 'user', 'content': [
+                {'type': 'input_text', 'text': prompt},
+            ]}]}
+        invoke(budget.bind(lot, research('initial research')), RESEARCH)
+        alternate = research(ALTERNATE_RESEARCH_PREFIX)
+        wire = budget.bind(lot, alternate)
+        self.assertEqual(wire['max_output_tokens'], ALTERNATE_OUTPUT_TOKENS)
+        self.assertEqual(wire['input'], alternate['input'])
+        invoke(wire, RESEARCH.split('=== MARKET ===')[0])
+        self.assertEqual(budget.attempts[-1]['reserved_usd'], str(ALTERNATE_RESERVE))
+        self.assertEqual(budget.attempts[-1]['step'], 'alternate')
+        with self.assertRaisesRegex(StopRun, 'DUPLICATE_OR_OUT_OF_ORDER'):
+            budget.bind(lot, alternate)
 
     def test_full_blind_cohort_with_synthetic_provider(self):
         lots = m12.blind_inputs(m12.ARCHIVE, self.phase, self.root)

@@ -34,5 +34,25 @@
       "max_base_usd": "7.34750",
       "max_with_alternate_usd": "14.27250"
     }
+  },
+  "recognition_algorithm_sha256": {
+    "app.py": "ffb1818fa3b75d2e31def23a93973f9e2e5b689de571ef68df77cfc5c6d991b4",
+    "blind_live_pilot.py": "00bbb3f2da2baba2926d57633e8c73ff71753c9967c511b4a66f62a4f22ecb75",
+    "catalogue_labels.py": "e6a9e3d49b64900b0352376bc98ce86be107e1d4ab2d79e561084c809003e5d7",
+    "identity_evidence.py": "3910d11ff4adc7de17596c0864a79102e633e0181bbfeb55a5f931172e194baa",
+    "listing_review.py": "adc9d776abe94ca05a9a7c85c82577f9c16687ce7ce9a632a39839d5676578de",
+    "measurement_units.py": "8b2bb1ac9d5aea24591352e00166479f9dc8fccc56108eddcf03d210bebf0f52",
+    "mobile_photos.py": "69207423f25d4bbc82d45da44e844bbe045ffa5bc5e7d3cf6dae055e48ebdf52",
+    "museum_photo_evidence.py": "936d16ec19c862924e8e78e8e368c68e7d47f482b68e6951e4fce0b266f11b4b",
+    "photo_assessment.py": "acd28d99ddcf59422a799708695e1953526e7309b3e0e26b075d2d06de8591be",
+    "product_codes.py": "30ae725a1c48c6cf8354cfe3edbf55af47c868f8324980ad07b636df6bf48dbb",
+    "product_evidence.py": "5bdc79909dd8666c6213aea4254bbbf55631df334b2fef05d29eaad2809d3475",
+    "sellable_scope.py": "97cf29167fc24e0d2601b49cbfb5b390eadb66445dd15d9967eb573ddd129177",
+    "visual_protocol.py": "829c7acba8e4f2073204edbd05132909dcbabd0783c06d12809568644ee6fba7"
+  },
+  "budget_runtime_sha256": {
+    "acceptance_stage.py": "f0c05f0e344fc5121066fa6edb83f023f9d09d4bf7a5c17ea121d823f2ac96f4",
+    "ai_pilot.py": "a7654e3e3d867e8a970dde7f0ca808eb6f7c83404f5ce000d79aa8d78bd08342",
+    "s1_acceptance.py": "0eb2f88bc55cdb02e28afb292aa9c9ca617f37be6903dfca2708aa074394f79b"
   }
 }
