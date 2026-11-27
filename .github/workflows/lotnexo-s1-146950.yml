@@ -1,0 +1,88 @@
+name: LOTNEXO independent S1 acceptance
+
+on:
+  push:
+    tags: [p094-lotnexo-s1-146950]
+
+concurrency:
+  group: p094-lotnexo-s1-146950
+  cancel-in-progress: false
+
+jobs:
+  s1:
+    if: >-
+      github.repository == 'olegivakh32-sudo/vintage-ua-ebay' &&
+      github.ref == 'refs/tags/p094-lotnexo-s1-146950' &&
+      github.event.created && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: p094-vision-pilot
+    permissions:
+      contents: write
+    env:
+      ENABLE_LIVE_PUBLISH: '0'
+      ALLOW_PAID_AI: '0'
+      ALGORITHM_REVISION: aea6136a4a4767eb85c7497ee8884a016bdc1ebe
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /s1_acceptance.py
+            /test_artifacts/recognition/lotnexo-acceptance-stages-candidate.json
+            /test_artifacts/recognition/lotnexo-s1-10-blind.zip
+      - name: Isolate the frozen runtime and verify the blind archive
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/lotnexo-s1"
+          mkdir -m 700 "$root" "$root/runtime"
+          git archive "$ALGORITHM_REVISION" -- '*.py' ':(exclude)test_*.py' catalogue_identifiers.json requirements.txt static workspace_web \
+            | tar -x -C "$root/runtime"
+          cp s1_acceptance.py "$root/runtime/"
+          cp test_artifacts/recognition/lotnexo-acceptance-stages-candidate.json "$root/plan.json"
+          cp test_artifacts/recognition/lotnexo-s1-10-blind.zip "$root/photos.zip"
+          cd "$root"
+          if ! command -v tesseract >/dev/null; then
+            timeout 60s sudo apt-get update -qq
+            timeout 60s sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-eng
+          fi
+          python3 -m venv .venv
+          timeout 180s .venv/bin/python -m pip install --quiet -r runtime/requirements.txt
+          env -u PYTHONPATH .venv/bin/python runtime/s1_acceptance.py \
+            plan.json photos.zip --algorithm-revision "$ALGORITHM_REVISION" > prepare.json
+      - name: Verify model access without generation
+        env:
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/lotnexo-s1"
+          timeout 45s env -u PYTHONPATH .venv/bin/python runtime/s1_acceptance.py plan.json photos.zip \
+            --algorithm-revision "$ALGORITHM_REVISION" --preflight preflight.json
+      - name: Claim one execution across all runners
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          timeout 25s gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref=refs/tags/p094-lotnexo-s1-146950-reserved -f sha="$GITHUB_SHA" > /dev/null
+      - name: Run S1 and retain evidence
+        env:
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+          LOTNEXO_S1_RESERVED: c22c46084eb98f2a59b1c3c8ff6880cbfd56528a2e08895fce355aed5929edc4
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/lotnexo-s1"
+          timeout 48m env -u PYTHONPATH .venv/bin/python runtime/s1_acceptance.py plan.json photos.zip \
+            --algorithm-revision "$ALGORITHM_REVISION" --execute results
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: lotnexo-s1-evidence
+          path: |
+            ${{ runner.temp }}/lotnexo-s1/prepare.json
+            ${{ runner.temp }}/lotnexo-s1/preflight.json
+            ${{ runner.temp }}/lotnexo-s1/results/*.json
+          retention-days: 30
+          if-no-files-found: ignore
