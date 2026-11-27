@@ -24,7 +24,7 @@ from visual_protocol import PHOTO_ROLES, VISUAL_TEXT, machine_object, visual_res
 PLAN_SHA = 'c22c46084eb98f2a59b1c3c8ff6880cbfd56528a2e08895fce355aed5929edc4'
 CAP = Decimal('1.46950')
 RATES_EXPIRE = date(2026, 12, 11)
-APPROVAL_REF = 'refs/tags/p094-lotnexo-s1-146950'
+APPROVAL_REF = 'refs/tags/p094-lotnexo-s1-146950-r2'
 COUNT_FIELDS = ('model', 'input', 'reasoning', 'tools', 'tool_choice', 'text', 'truncation')
 
 

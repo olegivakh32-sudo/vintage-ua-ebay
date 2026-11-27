@@ -1,8 +1,8 @@
-name: LOTNEXO independent S1 acceptance
+name: LOTNEXO independent S1 acceptance r2
 
 on:
   push:
-    tags: [p094-lotnexo-s1-146950]
+    tags: [p094-lotnexo-s1-146950-r2]
 
 concurrency:
   group: p094-lotnexo-s1-146950
@@ -12,7 +12,7 @@ jobs:
   s1:
     if: >-
       github.repository == 'olegivakh32-sudo/vintage-ua-ebay' &&
-      github.ref == 'refs/tags/p094-lotnexo-s1-146950' &&
+      github.ref == 'refs/tags/p094-lotnexo-s1-146950-r2' &&
       github.event.created && github.run_attempt == 1
     runs-on: ubuntu-latest
     timeout-minutes: 55

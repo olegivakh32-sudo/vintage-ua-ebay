@@ -12,7 +12,7 @@ import requests
 
 from blind_live_pilot import API, MODEL
 from ebay_sandbox_probe import production_taxonomy
-from s1_acceptance import CAP, StageBudget, StopRun, authorize, execute, frozen_plan, main
+from s1_acceptance import APPROVAL_REF, CAP, PLAN_SHA, StageBudget, StopRun, authorize, execute, frozen_plan, main
 from s1_review import review
 from test_blind_live_pilot import RECOGNITION, response
 from test_mobile import m
@@ -85,12 +85,22 @@ class SealedS1Tests(unittest.TestCase):
     def test_execute_requires_protected_tag_first_attempt_and_reservation(self):
         args = ['s1_acceptance.py', str(PLAN), str(ARCHIVE), '--algorithm-revision', ALGORITHM,
                 '--execute', str(self.root / 'result')]
-        for env in ({}, {'GITHUB_REF': 'refs/tags/p094-lotnexo-s1-146950', 'GITHUB_RUN_ATTEMPT': '2'},
-                    {'GITHUB_REF': 'refs/tags/p094-lotnexo-s1-146950', 'GITHUB_RUN_ATTEMPT': '1'}):
+        reserved = {'LOTNEXO_S1_RESERVED': PLAN_SHA, 'ENABLE_LIVE_PUBLISH': '0'}
+        for env in ({},
+                    reserved | {'GITHUB_REF': 'refs/tags/p094-lotnexo-s1-146950', 'GITHUB_RUN_ATTEMPT': '1'},
+                    reserved | {'GITHUB_REF': APPROVAL_REF, 'GITHUB_RUN_ATTEMPT': '2'},
+                    {'GITHUB_REF': APPROVAL_REF, 'GITHUB_RUN_ATTEMPT': '1'}):
             with (patch.dict('os.environ', env, clear=True), patch('sys.argv', args),
                   patch('builtins.print'), patch('s1_acceptance.authorize') as preflight):
                 self.assertEqual(main(), 1)
                 preflight.assert_not_called()
+        approved = reserved | {'GITHUB_REF': APPROVAL_REF, 'GITHUB_RUN_ATTEMPT': '1',
+                               'P094_PILOT_OPENAI_API_KEY': 'fixture-key'}
+        with (patch.dict('os.environ', approved, clear=True), patch('sys.argv', args),
+              patch('s1_acceptance.authorize') as preflight, patch('s1_acceptance.execute') as run_s1):
+            self.assertEqual(main(), 0)
+            preflight.assert_called_once_with('fixture-key')
+            run_s1.assert_called_once_with(self.plan, ARCHIVE, self.root / 'result')
         with (patch('s1_acceptance.datetime') as clock,
               patch('s1_acceptance.free_preflight', return_value=({'model': MODEL}, False)) as no_access):
             clock.now.return_value.date.return_value = date(2026, 11, 27)
