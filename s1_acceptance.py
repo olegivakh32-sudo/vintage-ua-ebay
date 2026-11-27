@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 
-from acceptance_stage import check, sha
+from acceptance_stage import LOCAL_LOT_FAILURES, METERED_LOT_FAILURES, STEPS, check, sha
 from ai_pilot import PilotLimits, run, write_report
 from blind_live_pilot import API, MODEL, RESEARCH_BLOCKS, compact_research, free_preflight, meter, prediction
 from openai_auth_diagnostic import safe_error
@@ -29,6 +29,10 @@ COUNT_FIELDS = ('model', 'input', 'reasoning', 'tools', 'tool_choice', 'text', '
 
 
 class StopRun(RuntimeError):
+    pass
+
+
+class LotFailure(RuntimeError):
     pass
 
 
@@ -88,6 +92,7 @@ class StageBudget:
         self.pending = None
         self.status = 'RUNNING'
         self.reason = None
+        self.sequence = [(lot, step) for lot in plan['stages']['S1']['lots'] for step in STEPS]
         self.state = {
             'algorithm_revision': plan['algorithm_revision'],
             'reference_sha256': plan['reference_sha256'],
@@ -116,6 +121,19 @@ class StageBudget:
         self.status, self.reason = 'STOPPED', reason
         self.save()
         raise StopRun(reason)
+
+    def skip_lot(self, lot, reason):
+        if reason not in LOCAL_LOT_FAILURES | METERED_LOT_FAILURES:
+            self.stop('INVALID_SKIP_RECORD')
+        if self.status != 'RUNNING' or any(row['status'] == 'IN_FLIGHT' for row in self.attempts):
+            self.stop('PROVIDER_FAILURE_OR_UNCERTAIN_CHARGE')
+        self.pending = None
+        position = len(self.attempts)
+        for name, step in self.sequence[position:]:
+            if name != lot:
+                break
+            self.attempts.append({'lot': lot, 'step': step, 'status': 'SKIPPED', 'reason': reason})
+        self.save()
 
     def prepare_catalogue(self, lot, photos, vintage):
         pass
@@ -152,8 +170,7 @@ class StageBudget:
                            max_tool_calls=self.plan['max_web_calls'])
         # Refuse out-of-order work before even the free token count.
         self.state.pop('free_input_count', None)
-        order = [(item, kind) for item in self.plan['stages']['S1']['lots'] for kind in ('photos', 'research')]
-        if len(self.attempts) >= len(order) or order[len(self.attempts)] != (lot, step):
+        if len(self.attempts) >= len(self.sequence) or self.sequence[len(self.attempts)] != (lot, step):
             self.stop('DUPLICATE_OR_OUT_OF_ORDER')
         self.pending = lot, step, deepcopy(payload)
         return payload
@@ -222,6 +239,10 @@ class StageBudget:
         finally:
             row['elapsed_ms'] = round((monotonic() - started) * 1000)
             if row['status'] != 'COMPLETE':
+                if reason in METERED_LOT_FAILURES and 'metered_usd' in row:
+                    row.update(status='LOT_FAILED', reason=reason)
+                    self.save()
+                    raise LotFailure(reason)
                 row['status'] = 'STOPPED'
                 self.stop(reason)
             self.save()
@@ -275,20 +296,38 @@ def execute(plan, archive, output):
             started = monotonic()
             try:
                 result = run({'lot': lot}, photos, PilotLimits(CAP), live_web=budget)
-            except (RuntimeError, ValueError, OSError):
-                budget.stop(budget.reason or 'APPLICATION_ERROR')
+            except StopRun:
+                raise
+            except OSError:
+                budget.stop('EVIDENCE_STORAGE_FAILURE')
+            except (RuntimeError, ValueError, TypeError, KeyError) as error:
+                if budget.status != 'RUNNING':
+                    raise StopRun(budget.reason or 'GATE_CLOSED') from error
+                reason = str(error) if isinstance(error, LotFailure) else 'APPLICATION_ERROR'
+                budget.skip_lot(lot, reason)
+                durable_report(output / f'{lot}-card.json', {
+                    'lot': lot, 'status': 'LOT_FAILED', 'reason': reason,
+                    'review_card': {'draft_status': 'NO_DRAFT', 'evidence': {}},
+                    'elapsed_ms': round((monotonic() - started) * 1000), 'admitted': False,
+                })
+                continue
             result['elapsed_ms'] = round((monotonic() - started) * 1000)
             durable_report(output / f'{lot}-card.json', result)
             stages = result['stage_http']
             if budget.status != 'RUNNING':
                 raise StopRun(budget.reason or 'GATE_CLOSED')
-            if stages['visual'] != 200 or stages['research'] != 200 or stages['draft'] not in (200, 409):
-                budget.stop('APPLICATION_STAGE_FAILED')
             draft = result['draft']
             if (result['admitted'] or result['category_id'] or (draft and not draft.get('hold_preview'))
                     or any(draft.get(key) for key in ('category_id', 'price', 'shipping_usd', 'seller_reviewed'))):
                 budget.state['critical_error'] = True
                 budget.stop('CRITICAL_QUALITY_FAILURE')
+            if any(status in (401, 403) for status in stages.values()):
+                budget.stop('APPLICATION_AUTHORIZATION_FAILURE')
+            if stages['visual'] != 200 or stages['research'] != 200 or stages['draft'] not in (200, 409):
+                failure = next((row['reason'] for row in reversed(budget.attempts)
+                                if row['lot'] == lot and row['status'] == 'LOT_FAILED'), 'APPLICATION_STAGE_FAILED')
+                budget.skip_lot(lot, failure)
+                continue
             rows.append(prediction(result, budget.attempts))
             durable_report(output / 'predictions.json', rows)
         final = check(plan, 'S1', budget.state)

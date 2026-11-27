@@ -19,6 +19,9 @@ STAGES = {
     'S2': '005 007 009 011 012 014 015 016 017 019 021 024 025 026 028 031 033 036 048 052',
 }
 STEPS = ('photos', 'research')
+METERED_LOT_FAILURES = frozenset({'INCOMPLETE_RESPONSE', 'INVALID_VISUAL_SCHEMA',
+                                  'INVALID_RESEARCH_SCHEMA', 'SEARCH_NOT_EXECUTED'})
+LOCAL_LOT_FAILURES = frozenset({'APPLICATION_STAGE_FAILED', 'APPLICATION_ERROR', 'ARCHIVED_RESPONSE_UNAVAILABLE'})
 
 
 def sha(path):
@@ -108,11 +111,27 @@ def check(plan, stage, state):
     if not isinstance(attempts, list) or len(attempts) > len(expected):
         return {'stop': 'REQUEST_LIMIT'}
     spent = Decimal(0)
+    blocked_lots = set()
     for position, row in enumerate(attempts):
         lot, kind = expected[position]
         if not isinstance(row, dict) or (row.get('lot'), row.get('step')) != (lot, kind):
             return {'stop': 'DUPLICATE_OR_OUT_OF_ORDER'}
-        if row.get('status') != 'COMPLETE' or row.get('model') != plan['model'] or row.get('service_tier') != plan['service_tier']:
+        status = row.get('status')
+        if status == 'SKIPPED':
+            if (set(row) != {'lot', 'step', 'status', 'reason'}
+                    or not isinstance(row['reason'], str)
+                    or row['reason'] not in LOCAL_LOT_FAILURES | METERED_LOT_FAILURES):
+                return {'stop': 'INVALID_SKIP_RECORD'}
+            blocked_lots.add(lot)
+            continue
+        if lot in blocked_lots:
+            return {'stop': 'DUPLICATE_OR_OUT_OF_ORDER'}
+        reason = row.get('reason')
+        if status == 'LOT_FAILED' and isinstance(reason, str) and reason in METERED_LOT_FAILURES:
+            blocked_lots.add(lot)
+        elif status != 'COMPLETE':
+            return {'stop': 'PROVIDER_FAILURE_OR_UNCERTAIN_CHARGE'}
+        if row.get('model') != plan['model'] or row.get('service_tier') != plan['service_tier']:
             return {'stop': 'PROVIDER_FAILURE_OR_UNCERTAIN_CHARGE'}
         usage = {'input_tokens': (1, plan['max_billed_input_tokens'][kind]),
                  'output_tokens': (0, plan['max_output_tokens'][kind]),
@@ -137,6 +156,8 @@ def check(plan, stage, state):
             return {'stop': 'IDENTITY_THRESHOLD_FAILED', 'metered_usd': str(spent)}
         return {'result': 'STAGE_PASSED', 'metered_usd': str(spent)}
     lot, kind = expected[len(attempts)]
+    if lot in blocked_lots:
+        return {'stop': 'APPEND_SKIPPED_STEP'}
     left = Decimal(plan['per_step_reserve_usd'][kind])
     if spent + left > min(reserved, approved):
         return {'stop': 'BUDGET_EXHAUSTED'}

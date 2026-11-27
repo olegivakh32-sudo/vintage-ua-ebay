@@ -251,6 +251,8 @@ def run(data, photos, limits, *, live_web=None):
 
     def request_guard(session, method, url, *args, **kwargs):
         if method.upper() != 'POST' or url != vintage.OPENAI_URL:
+            if callable(stop := getattr(live_web, 'stop', None)):
+                stop('UNAPPROVED_TRANSPORT')
             raise RuntimeError('Зовнішній запит поза межами пілота.')
         kwargs['allow_redirects'] = False
         if live_web is not None:
@@ -383,7 +385,7 @@ def run(data, photos, limits, *, live_web=None):
         with client.session_transaction() as session:
             order = session.get('photo_order', [])
         evidence = draft.get('product_evidence') or visual_facts
-        review = None
+        review = {'draft_status': 'NO_DRAFT', 'evidence': {}} if live_web is not None else None
         if live_web is not None and analysis:
             reviewed_identity = live_web.review_identification(data['lot'], vintage, identification, market)
             evidence, observations, references = vintage._product_evidence_for_review(
@@ -391,10 +393,15 @@ def run(data, photos, limits, *, live_web=None):
                 catalogue_references=live_web.catalogue_references(data['lot']))
             evidence = evidence or {}
             candidates = vintage._research_machine_json(market, 'CATEGORY_CANDIDATE_JSON')
+            status = 'NO_DRAFT'
+            if draft:
+                status = 'DRAFT'
+                if draft.get('hold_preview'):
+                    status = 'HOLD' if vintage._p058_has_saved_draft(picker, draft) else 'NOT_SAVED'
             review = {'title': draft.get('title'), 'evidence': evidence, 'observations': observations,
                       'reference_decisions': references, 'market_check': vintage._market_price_quality(market),
                       'unverified_category': candidates,
-                      'draft_status': 'DRAFT' if draft and not draft.get('hold_preview') else 'HOLD'}
+                      'draft_status': status}
         observed = {
             field: list(dict.fromkeys(row['value'] for row in evidence.get(field, [])
                                       if row['status'] in {'PHOTO_OBSERVATION', 'SELLER_VERIFIED'}))
@@ -415,6 +422,7 @@ def run(data, photos, limits, *, live_web=None):
             'stage_messages': [stage.json['error'] for stage in (stage_a, stage_bc, stage_d)
                                if stage is not None and stage.status_code >= 400 and stage.is_json],
             'photo_roles': vintage.PHOTO_ROLE_CACHE.get(picker, {}), 'ebay_photo_order': order,
+            'sellable_scope': vintage.ITEM_STRUCTURE_CACHE.get(picker) or {},
             'main_photo': order[0] if order else None,
             'symbols': facts.get('symbols', []), 'measurement': measurement,
             'analysis': analysis, 'identification': identification, 'market': market, 'draft': draft,

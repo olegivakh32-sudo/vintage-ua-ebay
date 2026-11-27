@@ -95,6 +95,29 @@ class IdentityEvidenceTests(unittest.TestCase):
         self.assertEqual(report['estimates'], {})
         self.assertIn('копія того самого документа', m._p054_evidence_html({'reference_evidence': report}))
 
+    def test_reference_fields_keep_their_subject_and_units(self):
+        claims = [
+            dict(self.claim, field='manufacturer', value='Example Maker'),
+            dict(self.claim, field='materials', value='Possibly bronze'),
+            dict(self.claim, field='period/variant', value='1920 portrait series'),
+            dict(self.claim, field='weight_g', value=55, specimen_basis='NET'),
+            dict(self.claim, field='length', value='12 mm', specimen_basis='ITEM'),
+            dict(self.claim, field='width', value='12', specimen_basis='ITEM'),
+            dict(self.claim, field='height_cm', value=12, specimen_basis='PACKAGING'),
+        ]
+        report = self.consensus(claims)
+        rows = report['identity_claims']
+        self.assertEqual([(row['field'], row['value'], row['status']) for row in rows], [
+            ('brand', 'Example Maker', 'CORROBORATED_REFERENCE'),
+            ('material', 'Possibly bronze', 'HYPOTHESIS'),
+            ('research_note', '1920 portrait series', 'HYPOTHESIS'),
+            ('weight_kg', .055, 'CORROBORATED_REFERENCE'),
+            ('length_cm', 1.2, 'CORROBORATED_REFERENCE'),
+        ])
+        self.assertEqual(rows[2]['name'], 'period/variant')
+        self.assertEqual(report['reference_decisions'][-2]['reasons'], ['INVALID_MEASUREMENT'])
+        self.assertEqual(report['reference_decisions'][-1]['reasons'], ['WRONG_MEASUREMENT_SCOPE'])
+
     def test_quality_mark_is_retained_as_ocr_without_promoting_it_to_maker(self):
         facts = m._auto_facts_from_analysis('AUTO_FACTS_JSON: {"materials":12,"brand":"XYZ",'
                                             '"markings":[{"photo":1,"literal":"XYZ","language":"uk","kind":"QUALITY_MARK"}]}')

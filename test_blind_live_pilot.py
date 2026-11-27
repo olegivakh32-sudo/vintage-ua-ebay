@@ -47,7 +47,7 @@ class BlindPilotTests(unittest.TestCase):
             self.assertEqual(result['measurement'], {})
             self.assertEqual(result['usage'], [{'stage': 'photos', 'sent': False, 'reused': True, 'metered_usd': '0'}])
             card = result['review_card']
-            self.assertEqual(card['draft_status'], 'HOLD')
+            self.assertEqual(card['draft_status'], 'NO_DRAFT')
             self.assertEqual(card['unverified_category'], {})
             self.assertEqual(len(card['reference_decisions']), 8)
             self.assertEqual({row['status'] for row in card['reference_decisions']}, {'HYPOTHESIS'})

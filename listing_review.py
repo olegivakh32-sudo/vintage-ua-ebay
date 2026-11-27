@@ -5,13 +5,11 @@ from pathlib import Path
 import re
 
 from identity_evidence import normalized_claim
-from product_evidence import PHYSICAL_FIELDS, photo_type, text_value
+from product_evidence import AMBIGUOUS_TYPE, PHYSICAL_FIELDS, TYPE_TAIL, concise_type, photo_type, text_value
 
 
 DIRECT = {'SELLER_VERIFIED', 'PHOTO_OBSERVATION'}
 DOCUMENTED = {'CATALOGUE_REFERENCE', 'CORROBORATED_REFERENCE'}
-TYPE_TAIL = re.compile(r'\s+(?:with|featuring|equipped with|having|for)\s+|[;\n]', re.I)
-AMBIGUOUS_TYPE = re.compile(r'\b(?:or|possibly|probable|likely|assorted|unknown|uncertain)\b', re.I)
 IDENTIFIER = re.compile(r'[A-Z0-9]+(?:-[A-Z0-9]+)+')
 VISUAL_SUBSTITUTIONS = {frozenset(pair) for pair in ('I1', 'O0', 'S5', 'B8', 'Z2', 'G6')}
 CODE_RECORDS = Path(__file__).with_name('catalogue_identifiers.json')
@@ -38,7 +36,7 @@ def canonical_product_type(evidence, suggested=''):
         if (text_value(value, 65) and not AMBIGUOUS_TYPE.search(value)
                 and re.search(r'(?<!\w)' + re.escape(normalized_claim(value)) + r'(?!\w)', normalized)):
             return value.strip()
-    return phrase if 2 < len(phrase) <= 65 and not AMBIGUOUS_TYPE.search(phrase) else ''
+    return concise_type(phrase) if len(phrase) > 2 else ''
 
 
 def _identifier_corrections(evidence):
@@ -166,6 +164,13 @@ def hold_seo_preview(review):
         details.append(f'Material: {material}.')
     elif reference_material:
         details.append(f'Documented catalogue material: {reference_material}.')
+    period = evidence_value(evidence, 'period', DOCUMENTED | {'SELLER_VERIFIED'})
+    if period:
+        details.append(f'Recorded period: {period}.')
+    for field, label in zip(PHYSICAL_FIELDS, ('Item Weight', 'Item Length', 'Item Width', 'Item Height')):
+        measurement = review.get('measurements', {}).get(field, {}).get('actual')
+        if type(measurement) in (int, float):
+            specifics[label] = f"{measurement:g} {'kg' if field == 'weight_kg' else 'cm'}"
     defects = [row['value'] for row in evidence.get('defect', []) if row['status'] == 'PHOTO_OBSERVATION']
     if defects:
         details.append('Visible condition details: ' + ' '.join(defects))

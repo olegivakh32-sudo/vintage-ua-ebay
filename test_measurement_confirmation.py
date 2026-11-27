@@ -105,10 +105,11 @@ class MeasurementConfirmationTests(unittest.TestCase):
               patch.dict(m.IDENTIFICATION_CACHE, {self.picker: identification}),
               patch.dict(m.LOT002_DRAFT_CACHE, clear=True),
               patch.multiple(m, EBAY_CLIENT_ID=None, EBAY_CLIENT_SECRET=None, EBAY_REFRESH_TOKEN=None),
-              patch.object(m, '_p058_capture_current') as capture,
+              patch.object(m, '_p058_capture_current', wraps=m._p058_capture_current) as capture,
               patch.object(m, 'call_openai', side_effect=AssertionError('Paid generation forbidden'))):
             self.assertEqual(self.save(self.form()).location, '/picker/review-final-draft')
             saved = m.LOT002_DRAFT_CACHE[self.picker]
+            self.assertTrue(m._p058_has_saved_draft(self.picker, saved))
             self.assertEqual(saved['shipping_status'], 'NEEDS_CARRIER_REVIEW')
             self.assertEqual(saved['compliance_review']['status'], 'BLOCK')
             self.assertEqual(saved['product_export']['fields']['battery'][0]['status'], 'CORROBORATED_REFERENCE')

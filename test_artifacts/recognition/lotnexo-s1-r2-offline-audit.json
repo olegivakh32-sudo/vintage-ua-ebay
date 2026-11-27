@@ -1,0 +1,749 @@
+{
+  "baseline": "eab780e45c3ba03bd452e6b4de9fca015358e51a",
+  "archive_sha256": "1c17da2c5ef393a4e14ef2d80d09d7dec39b34f183fd0d9998ad9bd10ec3ee29",
+  "paid_requests_this_replay": 0,
+  "cost_usd_this_replay": "0",
+  "historical_metered_usd": "0.0964136",
+  "completed_archived_responses_used": 17,
+  "reference_hidden_during_replay": true,
+  "old_reported_hold": 9,
+  "sqlite_verified_hold": 5,
+  "hold_statuses": {
+    "NO_DRAFT": 5,
+    "HOLD": 5
+  },
+  "execution_outcome": "AWAIT_INDEPENDENT_REVIEW",
+  "missing_archived_responses": [
+    [
+      "P039",
+      "research"
+    ],
+    [
+      "P053",
+      "photos"
+    ]
+  ],
+  "skipped_steps": [
+    {
+      "lot": "P039",
+      "step": "research",
+      "status": "SKIPPED",
+      "reason": "ARCHIVED_RESPONSE_UNAVAILABLE"
+    },
+    {
+      "lot": "P053",
+      "step": "photos",
+      "status": "SKIPPED",
+      "reason": "ARCHIVED_RESPONSE_UNAVAILABLE"
+    },
+    {
+      "lot": "P053",
+      "step": "research",
+      "status": "SKIPPED",
+      "reason": "ARCHIVED_RESPONSE_UNAVAILABLE"
+    }
+  ],
+  "strict_coverage": {
+    "labelled": 10,
+    "predictions": 8
+  },
+  "strict_identity_before": {
+    "correct": 0,
+    "labelled": 10
+  },
+  "strict_identity_after": {
+    "correct": 0,
+    "labelled": 10
+  },
+  "strict_field_scores": {
+    "brand": {
+      "correct": 0,
+      "labelled": 1
+    },
+    "model": {
+      "correct": 0,
+      "labelled": 1
+    },
+    "material": {
+      "correct": 0,
+      "labelled": 7
+    },
+    "period": {
+      "correct": 0,
+      "labelled": 7
+    },
+    "category_id": {
+      "correct": 0,
+      "labelled": 0
+    }
+  },
+  "research_notes_retained": 9,
+  "source_comparison_basis": "Exact URL host and path from sealed documents, not a semantic equivalence test.",
+  "independent_chatgpt_predictions_available": false,
+  "lots": [
+    {
+      "lot": "P001",
+      "archived_responses": {
+        "photos": "completed",
+        "research": "completed"
+      },
+      "stages_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 409
+      },
+      "scope": {
+        "status": "ONE_PHYSICAL_ITEM",
+        "count": 1
+      },
+      "visual_stage_type": "Ornamental pendant-shaped object for decoration; exact function is not established by the photo.",
+      "final_type": null,
+      "type_reference": "brooch",
+      "hold_status": "NO_DRAFT",
+      "draft_title": null,
+      "category_status": null,
+      "compliance_status": null,
+      "shipping_status": null,
+      "known_market_valuation": null,
+      "queries": [
+        "enamelled bronze pendant diamond geometric quatrefoil spots archaeological pendant",
+        "site:ebay.com \"enamel\" pendant diamond blue orange antique",
+        "eBay ancient enamel pendant bronze artifact category"
+      ],
+      "distinct_search_urls": 24,
+      "reference_url_in_web_tool_sources": false,
+      "research_field_decisions": [
+        {
+          "index": 1,
+          "field": "type",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE"
+          ],
+          "sources": []
+        },
+        {
+          "index": 2,
+          "field": "research_note",
+          "input_field": "visual analogue",
+          "status": "CONTESTED",
+          "reasons": [
+            "INTERNAL_RESEARCH_NOTE",
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE",
+            "SOURCE_CONTRADICTION"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "NONEXACT_SOURCE"
+            }
+          ]
+        }
+      ],
+      "confirmed_or_documented_fields": {},
+      "research_notes": [
+        {
+          "input_field": "visual analogue",
+          "status": "CONTESTED",
+          "value": "A Roman bronze lozenge-shaped enamelled pendant is a close shape-and-construction analogue, but does not establish this item's date, origin, material, or authenticity."
+        }
+      ]
+    },
+    {
+      "lot": "P002",
+      "archived_responses": {
+        "photos": "completed",
+        "research": "completed"
+      },
+      "stages_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 409
+      },
+      "scope": {
+        "status": "ONE_PHYSICAL_ITEM",
+        "count": 1
+      },
+      "visual_stage_type": "Human-figure decorative figurine or sculpture",
+      "final_type": null,
+      "type_reference": "figurine",
+      "hold_status": "NO_DRAFT",
+      "draft_title": null,
+      "category_status": null,
+      "compliance_status": null,
+      "shipping_status": null,
+      "known_market_valuation": null,
+      "queries": [
+        "bronze figurine stylized human spiral ears gold archaeological sculpture",
+        "site:ebay.com \"spiral\" bronze figurine human statue"
+      ],
+      "distinct_search_urls": 23,
+      "reference_url_in_web_tool_sources": false,
+      "research_field_decisions": [
+        {
+          "index": 1,
+          "field": "type",
+          "status": "CONTESTED",
+          "reasons": [
+            "UNCERTAIN_VALUE",
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE",
+            "SOURCE_CONTRADICTION"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "NONEXACT_SOURCE"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "field": "material",
+          "status": "CONTESTED",
+          "reasons": [
+            "UNCERTAIN_VALUE",
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE",
+            "SOURCE_CONTRADICTION"
+          ],
+          "sources": []
+        }
+      ],
+      "confirmed_or_documented_fields": {},
+      "research_notes": []
+    },
+    {
+      "lot": "P003",
+      "archived_responses": {
+        "photos": "completed",
+        "research": "completed"
+      },
+      "stages_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "scope": {
+        "status": "ONE_PHYSICAL_ITEM",
+        "count": 1
+      },
+      "visual_stage_type": "Round portrait medallion with raised relief and surrounding inscription; commemorative or decorative object.",
+      "final_type": "Round portrait medallion",
+      "type_reference": "medal",
+      "hold_status": "HOLD",
+      "draft_title": "Round portrait medallion",
+      "category_status": "UNVERIFIED",
+      "compliance_status": "REVIEW",
+      "shipping_status": "NEEDS_VERIFIED_MEASUREMENTS",
+      "known_market_valuation": "NEEDS_MATCHED_SALES",
+      "queries": [
+        "\"LVDOVICVS MAGNVS REX CHRISTIANISS\" medallion",
+        "Louis XIV medallion \"LVDOVICVS MAGNVS REX CHRISTIANISS\" museum"
+      ],
+      "distinct_search_urls": 19,
+      "reference_url_in_web_tool_sources": false,
+      "research_field_decisions": [
+        {
+          "index": 1,
+          "field": "research_note",
+          "input_field": "type/depicted person",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "INTERNAL_RESEARCH_NOTE",
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "NONEXACT_SOURCE"
+            },
+            {
+              "index": 2,
+              "reason": "NONEXACT_SOURCE"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "field": "research_note",
+          "input_field": "period/variant",
+          "status": "REJECTED",
+          "reasons": [
+            "INTERNAL_RESEARCH_NOTE",
+            "MISSING_OR_INVALID_VALUE"
+          ],
+          "sources": []
+        }
+      ],
+      "confirmed_or_documented_fields": {},
+      "research_notes": [
+        {
+          "input_field": "type/depicted person",
+          "status": "HYPOTHESIS",
+          "value": "Portrait medallion depicting Louis XIV, facing right; rim inscription reads LVDOVICVS MAGNVS REX CHRISTIANISS."
+        }
+      ]
+    },
+    {
+      "lot": "P004",
+      "archived_responses": {
+        "photos": "completed",
+        "research": "completed"
+      },
+      "stages_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "scope": {
+        "status": "ONE_PHYSICAL_ITEM",
+        "count": 1
+      },
+      "visual_stage_type": "Retractable tape measure for measuring lengths; the tape blade is shown extended from its housing.",
+      "final_type": "Retractable tape measure",
+      "type_reference": "tape measure",
+      "hold_status": "HOLD",
+      "draft_title": "Stanley PowerLock 25; 33-425 Retractable tape measure",
+      "category_status": "UNVERIFIED",
+      "compliance_status": "REVIEW",
+      "shipping_status": "NEEDS_VERIFIED_MEASUREMENTS",
+      "known_market_valuation": "NEEDS_MATCHED_SALES",
+      "queries": [
+        "site:stanleytools.com 33-425 PowerLock 25 tape measure",
+        "STANLEY 33-425 PowerLock 25 tape measure manual catalog",
+        "site:ebay.com \"33-425\" \"PowerLock\" tape measure"
+      ],
+      "distinct_search_urls": 26,
+      "reference_url_in_web_tool_sources": true,
+      "research_field_decisions": [
+        {
+          "index": 1,
+          "field": "type",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "field": "brand",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "field": "model",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "field": "length_cm",
+          "input_field": "length",
+          "status": "REJECTED",
+          "reasons": [
+            "INVALID_MEASUREMENT"
+          ],
+          "sources": []
+        },
+        {
+          "index": 5,
+          "field": "material",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ]
+        },
+        {
+          "index": 6,
+          "field": "research_note",
+          "input_field": "blade lock",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "INTERNAL_RESEARCH_NOTE",
+            "TOO_FEW_INDEPENDENT_SOURCES"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "ACCEPTED_CITATION"
+            }
+          ]
+        },
+        {
+          "index": 7,
+          "field": "research_note",
+          "input_field": "condition",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "INTERNAL_RESEARCH_NOTE",
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE"
+          ],
+          "sources": []
+        }
+      ],
+      "confirmed_or_documented_fields": {
+        "brand": "Stanley",
+        "model": "PowerLock 25; 33-425"
+      },
+      "research_notes": [
+        {
+          "input_field": "blade lock",
+          "status": "HYPOTHESIS",
+          "value": "Side blade-lock control"
+        },
+        {
+          "input_field": "condition",
+          "status": "HYPOTHESIS",
+          "value": "Visible scuffs and scratches on housing"
+        }
+      ]
+    },
+    {
+      "lot": "P006",
+      "archived_responses": {
+        "photos": "completed",
+        "research": "completed"
+      },
+      "stages_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "scope": {
+        "status": "ONE_PHYSICAL_ITEM",
+        "count": 1
+      },
+      "visual_stage_type": "Printed artwork depicting a religious meal scene; intended for display.",
+      "final_type": "Printed artwork depicting a religious meal scene",
+      "type_reference": "print",
+      "hold_status": "HOLD",
+      "draft_title": "Printed artwork depicting a religious meal scene",
+      "category_status": "UNVERIFIED",
+      "compliance_status": "REVIEW",
+      "shipping_status": "NEEDS_VERIFIED_MEASUREMENTS",
+      "known_market_valuation": "NEEDS_MATCHED_SALES",
+      "queries": [
+        "Albrecht Dürer Last Supper 1523 engraving monogram AD moon window museum",
+        "Dürer The Last Supper 1523 woodcut engraving catalogue monogram"
+      ],
+      "distinct_search_urls": 27,
+      "reference_url_in_web_tool_sources": false,
+      "research_field_decisions": [
+        {
+          "index": 1,
+          "field": "research_note",
+          "input_field": "subject and likely source",
+          "status": "CONTESTED",
+          "reasons": [
+            "INTERNAL_RESEARCH_NOTE",
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE",
+            "SOURCE_CONTRADICTION"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "NONEXACT_SOURCE"
+            },
+            {
+              "index": 2,
+              "reason": "NONEXACT_SOURCE"
+            }
+          ]
+        }
+      ],
+      "confirmed_or_documented_fields": {},
+      "research_notes": [
+        {
+          "input_field": "subject and likely source",
+          "status": "CONTESTED",
+          "value": "The Last Supper; composition appears related to Albrecht Dürer's 1523 woodcut of the same subject, but this photograph does not establish that the item is an original impression or identify a specific copy or edition."
+        }
+      ]
+    },
+    {
+      "lot": "P010",
+      "archived_responses": {
+        "photos": "completed",
+        "research": "completed"
+      },
+      "stages_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "scope": {
+        "status": "ONE_PHYSICAL_ITEM",
+        "count": 1
+      },
+      "visual_stage_type": "Coin-like round object with two different sides; purpose: coin or currency-like object.",
+      "final_type": "Coin-like round object",
+      "type_reference": "coin",
+      "hold_status": "HOLD",
+      "draft_title": "Coin-like round object",
+      "category_status": "UNVERIFIED",
+      "compliance_status": "REVIEW",
+      "shipping_status": "NEEDS_VERIFIED_MEASUREMENTS",
+      "known_market_valuation": "NEEDS_MATCHED_SALES",
+      "queries": [
+        "coin standing warrior reverse horseman gold Indo-Greek coin standing king",
+        "gold coin standing king holding spear reverse horseman Greek inscription museum"
+      ],
+      "distinct_search_urls": 18,
+      "reference_url_in_web_tool_sources": false,
+      "research_field_decisions": [
+        {
+          "index": 1,
+          "field": "type",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE"
+          ],
+          "sources": []
+        },
+        {
+          "index": 2,
+          "field": "research_note",
+          "input_field": "authenticity",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "INTERNAL_RESEARCH_NOTE",
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE"
+          ],
+          "sources": []
+        }
+      ],
+      "confirmed_or_documented_fields": {},
+      "research_notes": [
+        {
+          "input_field": "authenticity",
+          "status": "HYPOTHESIS",
+          "value": "Not established; the image alone does not establish whether this is an ancient coin, reproduction, or other coin-like object."
+        }
+      ]
+    },
+    {
+      "lot": "P013",
+      "archived_responses": {
+        "photos": "completed",
+        "research": "completed"
+      },
+      "stages_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "scope": {
+        "status": "ONE_PHYSICAL_ITEM",
+        "count": 1
+      },
+      "visual_stage_type": "Low, wide ceramic vessel with an open top; suitable for holding or containing items. Specific purpose is not established by the photo.",
+      "final_type": "Low, wide ceramic vessel",
+      "type_reference": "bowl",
+      "hold_status": "HOLD",
+      "draft_title": "Low, wide ceramic vessel",
+      "category_status": "UNVERIFIED",
+      "compliance_status": "REVIEW",
+      "shipping_status": "NEEDS_VERIFIED_MEASUREMENTS",
+      "known_market_valuation": "NEEDS_MATCHED_SALES",
+      "queries": [
+        "antique celadon glazed ceramic bowl planter wide low vessel museum",
+        "site:ebay.com/b/ \"Ceramic Planters\" eBay category"
+      ],
+      "distinct_search_urls": 27,
+      "reference_url_in_web_tool_sources": false,
+      "research_field_decisions": [
+        {
+          "index": 1,
+          "field": "research_note",
+          "input_field": "form and finish",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "INTERNAL_RESEARCH_NOTE",
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE"
+          ],
+          "sources": []
+        },
+        {
+          "index": 2,
+          "field": "research_note",
+          "input_field": "visible condition",
+          "status": "HYPOTHESIS",
+          "reasons": [
+            "INTERNAL_RESEARCH_NOTE",
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE"
+          ],
+          "sources": []
+        }
+      ],
+      "confirmed_or_documented_fields": {},
+      "research_notes": [
+        {
+          "input_field": "form and finish",
+          "status": "HYPOTHESIS",
+          "value": "Low, rounded open vessel with pale green-gray glaze"
+        },
+        {
+          "input_field": "visible condition",
+          "status": "HYPOTHESIS",
+          "value": "Small brownish spots along the rim and light marks near the lower exterior"
+        }
+      ]
+    },
+    {
+      "lot": "P022",
+      "archived_responses": {
+        "photos": "completed",
+        "research": "completed"
+      },
+      "stages_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 409
+      },
+      "scope": {
+        "status": "ONE_PHYSICAL_ITEM",
+        "count": 1
+      },
+      "visual_stage_type": "Round carved relief plaque or disk, apparently intended for decorative display.",
+      "final_type": null,
+      "type_reference": "plate",
+      "hold_status": "NO_DRAFT",
+      "draft_title": null,
+      "category_status": null,
+      "compliance_status": null,
+      "shipping_status": null,
+      "known_market_valuation": null,
+      "queries": [
+        "Maya carved relief plaque round figure glyphs museum disk",
+        "Maya carved stone disk relief seated figure glyphs museum plaque"
+      ],
+      "distinct_search_urls": 23,
+      "reference_url_in_web_tool_sources": false,
+      "research_field_decisions": [
+        {
+          "index": 1,
+          "field": "research_note",
+          "input_field": "visual resemblance",
+          "status": "CONTESTED",
+          "reasons": [
+            "INTERNAL_RESEARCH_NOTE",
+            "TOO_FEW_INDEPENDENT_SOURCES",
+            "NO_PRIMARY_SOURCE",
+            "SOURCE_CONTRADICTION"
+          ],
+          "sources": [
+            {
+              "index": 1,
+              "reason": "NONEXACT_SOURCE"
+            }
+          ]
+        }
+      ],
+      "confirmed_or_documented_fields": {},
+      "research_notes": [
+        {
+          "input_field": "visual resemblance",
+          "status": "CONTESTED",
+          "value": "The frontal figure, cartouche-like framing and scrollwork resemble features described for Maya picture plaques; this resemblance does not establish cultural origin, age, material or authenticity."
+        }
+      ]
+    },
+    {
+      "lot": "P039",
+      "archived_responses": {
+        "photos": "completed"
+      },
+      "stages_http": {
+        "visual": 200,
+        "research": 500,
+        "draft": null
+      },
+      "scope": {
+        "status": "ONE_PHYSICAL_ITEM",
+        "count": 1
+      },
+      "visual_stage_type": "Digital wristwatch for telling time; watch with attached strap and visible display.",
+      "final_type": null,
+      "type_reference": "digital wristwatch",
+      "hold_status": "NO_DRAFT",
+      "draft_title": null,
+      "category_status": null,
+      "compliance_status": null,
+      "shipping_status": null,
+      "known_market_valuation": null,
+      "queries": [],
+      "distinct_search_urls": 0,
+      "reference_url_in_web_tool_sources": null,
+      "research_field_decisions": [],
+      "confirmed_or_documented_fields": {},
+      "research_notes": []
+    },
+    {
+      "lot": "P053",
+      "archived_responses": {},
+      "stages_http": {
+        "visual": 502,
+        "research": null,
+        "draft": null
+      },
+      "scope": {
+        "status": null,
+        "count": null
+      },
+      "visual_stage_type": null,
+      "final_type": null,
+      "type_reference": "wireless mouse",
+      "hold_status": "NO_DRAFT",
+      "draft_title": null,
+      "category_status": null,
+      "compliance_status": null,
+      "shipping_status": null,
+      "known_market_valuation": null,
+      "queries": [],
+      "distinct_search_urls": 0,
+      "reference_url_in_web_tool_sources": null,
+      "research_field_decisions": [],
+      "confirmed_or_documented_fields": {},
+      "research_notes": []
+    }
+  ]
+}

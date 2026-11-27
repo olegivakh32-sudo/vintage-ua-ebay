@@ -26,6 +26,13 @@ NO_VISIBLE_DEFECT = re.compile(
     r'(?:видимих\s+)?(?:дефектів|пошкоджень)\s+(?:не\s+(?:видно|виявлено)|немає))[.!]?$',
     re.I,
 )
+TYPE_TAIL = re.compile(r'\s+(?:with|featuring|equipped with|having|for)\s+|[;\n]', re.I)
+AMBIGUOUS_TYPE = re.compile(r'\b(?:or|possibly|probable|likely|assorted|unknown|uncertain)\b', re.I)
+
+
+def concise_type(value):
+    phrase = TYPE_TAIL.split(value, maxsplit=1)[0].strip(' .,:/-')
+    return phrase if text_value(phrase, 65) and not AMBIGUOUS_TYPE.search(value) else ''
 
 
 def no_visible_defect(value):
@@ -112,11 +119,13 @@ def assess_photo_observations(observations, photo_count, *, summary_type=''):
 
 def build_product_evidence(observations, references, seller, measurement, photo_count, *, assessed=None):
     visual, _ = assessed if assessed is not None else assess_photo_observations(observations, photo_count)
-    facts = {field: list(visual.get(field, [])) for field in (*FIELDS, 'feature', 'battery')}
+    facts = {field: list(visual.get(field, [])) for field in (*FIELDS, 'feature', 'battery', 'research_note')}
     for reference in references:
         field = reference['field']
         if field in facts:
             entry = {key: reference[key] for key in ('value', 'status', 'photos', 'references', 'contradictions')}
+            if reference.get('name'):
+                entry['name'] = reference['name']
             if field in PHYSICAL_FIELDS:
                 entry['unit'] = 'kg' if field == 'weight_kg' else 'cm'
             facts[field].append(entry)
@@ -157,13 +166,17 @@ def photo_type(evidence):
     values = {normalized_claim(row['value']): row['value'] for row in rows
               if row['status'] in {'SELLER_VERIFIED', 'PHOTO_OBSERVATION'}}
     if not values:
-        candidates = {normalized_claim(row['value']) for row in rows if row['status'] == 'PHOTO_CANDIDATE'}
+        candidates = {normalized_claim(concise_type(row['value'])) for row in rows
+                      if row['status'] == 'PHOTO_CANDIDATE'}
+        if '' in candidates or any(row['status'] == 'CONTESTED' for row in rows):
+            return ''
         if len(candidates) != 1:
             return ''
         for row in rows:
-            key = normalized_claim(row['value'])
+            key = normalized_claim(concise_type(row['value']))
             if row['status'] == 'CORROBORATED_REFERENCE' and key in candidates and any(
                 candidate['status'] == 'PHOTO_CANDIDATE'
+                and normalized_claim(concise_type(candidate['value'])) == key
                 and set(candidate.get('photos', [])) & set(row.get('photos', []))
                 for candidate in rows
             ):

@@ -12,7 +12,7 @@ import requests
 
 from blind_live_pilot import API, MODEL
 from ebay_sandbox_probe import production_taxonomy
-from s1_acceptance import APPROVAL_REF, CAP, PLAN_SHA, StageBudget, StopRun, authorize, execute, frozen_plan, main
+from s1_acceptance import APPROVAL_REF, CAP, PLAN_SHA, LotFailure, StageBudget, StopRun, authorize, execute, frozen_plan, main
 from s1_review import review
 from test_blind_live_pilot import RECOGNITION, response
 from test_mobile import m
@@ -157,11 +157,12 @@ class SealedS1Tests(unittest.TestCase):
             self.assertFalse(kwargs['allow_redirects'])
             return response(reply(status='incomplete', incomplete_details={'reason': 'max_output_tokens'}))
 
-        with self.assertRaisesRegex(StopRun, 'INCOMPLETE_RESPONSE'):
+        with self.assertRaisesRegex(LotFailure, 'INCOMPLETE_RESPONSE'):
             budget.send(transport, None, {'json': wire, 'headers': {}})
         saved = json.loads(budget.path.read_text())
         self.assertGreater(Decimal(saved['metered_usd']), 0)
         self.assertEqual(saved['unsettled_reserve_usd'], '0')
+        self.assertEqual(saved['attempts'][0]['status'], 'LOT_FAILED')
         self.assertTrue((budget.path.parent / 'P001-photos-response.json').exists())
 
     def test_http_network_usage_and_schema_failures_close_approval(self):
@@ -173,7 +174,6 @@ class SealedS1Tests(unittest.TestCase):
             (response(reply(usage={'input_tokens': 24001, 'output_tokens': 2200})), 'UNEXPECTED_USAGE'),
             (response(reply(model='another-model')), 'UNEXPECTED_USAGE'),
             (response(reply(service_tier='priority')), 'UNEXPECTED_USAGE'),
-            (response(reply(output_text='{}')), 'INVALID_VISUAL_SCHEMA'),
         ]
         for index, (result, reason) in enumerate(cases):
             with self.subTest(reason=reason, index=index):
@@ -204,10 +204,15 @@ class SealedS1Tests(unittest.TestCase):
                 research = budget.bind('P001', {'tools': [{'type': 'web_search'}], 'input': [
                     {'role': 'user', 'content': [{'type': 'input_text', 'text': 'Generic fixture'}]},
                 ]}) | {'include': ['web_search_call.action.sources']}
-                with self.assertRaisesRegex(StopRun, reason):
+                expected_error = StopRun if reason == 'UNEXPECTED_USAGE' else LotFailure
+                with self.assertRaisesRegex(expected_error, reason):
                     budget.send(transport, None, {'json': research, 'headers': {}})
                 self.assertEqual(transport.call_count, 4)
-                with self.assertRaises(StopRun):
+                if reason == 'UNEXPECTED_USAGE':
+                    with self.assertRaises(StopRun):
+                        budget.bind('P002', {'input': 'fixture', 'text': VISUAL_TEXT})
+                else:
+                    self.assertEqual(budget.status, 'RUNNING')
                     budget.bind('P002', {'input': 'fixture', 'text': VISUAL_TEXT})
                 self.assertEqual(transport.call_count, 4)
 
