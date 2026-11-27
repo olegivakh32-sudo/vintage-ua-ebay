@@ -1,0 +1,866 @@
+{
+  "run_id": 46011779924,
+  "run_attempt": 1,
+  "tag": "p094-lotnexo-s1-146950-r2",
+  "workflow_id": 432800754,
+  "workflow_state": "disabled_manually",
+  "workflow_revision": "e7ade1fe51152d1c28a6b9d174f4d53ea31dc558",
+  "artifact_id": 15202599866,
+  "artifact_sha256": "1c17da2c5ef393a4e14ef2d80d09d7dec39b34f183fd0d9998ad9bd10ec3ee29",
+  "stage_status": "STOPPED",
+  "stage_reason": "APPLICATION_STAGE_FAILED",
+  "approved_usd": "1.46950",
+  "metered_usd": "0.0964136",
+  "unsettled_reserve_usd": "0",
+  "paid_requests": 17,
+  "request_totals": {
+    "elapsed_ms": 107261,
+    "input_tokens": 112311,
+    "output_tokens": 10365,
+    "web_calls": 8
+  },
+  "photos_processed": 9,
+  "photo_and_research_completed": 8,
+  "published_listings": 0,
+  "strict_evaluation": {
+    "algorithm_revision": "aea6136a4a4767eb85c7497ee8884a016bdc1ebe",
+    "reference_sha256": "6d7a66f48b7d7b2fe08747fb33e67150835feafb2c37fd7ec0d33e8cec3c30dd",
+    "lotnexo_predictions_sha256": "421358f4a59a86d444fecf33d700f20f7cd99c08dcfb666d3ef1725b2c6fd316",
+    "reference_coverage": [
+      {
+        "lot": "P001",
+        "documentary_dimensions": true,
+        "documentary_net_weight": false,
+        "actual_specimen_weight": false,
+        "verified_category": false,
+        "verified_sale_or_parcel_reference": false
+      },
+      {
+        "lot": "P002",
+        "documentary_dimensions": true,
+        "documentary_net_weight": false,
+        "actual_specimen_weight": false,
+        "verified_category": false,
+        "verified_sale_or_parcel_reference": false
+      },
+      {
+        "lot": "P003",
+        "documentary_dimensions": true,
+        "documentary_net_weight": false,
+        "actual_specimen_weight": false,
+        "verified_category": false,
+        "verified_sale_or_parcel_reference": false
+      },
+      {
+        "lot": "P004",
+        "documentary_dimensions": false,
+        "documentary_net_weight": false,
+        "actual_specimen_weight": false,
+        "verified_category": false,
+        "verified_sale_or_parcel_reference": false
+      },
+      {
+        "lot": "P006",
+        "documentary_dimensions": true,
+        "documentary_net_weight": false,
+        "actual_specimen_weight": false,
+        "verified_category": false,
+        "verified_sale_or_parcel_reference": false
+      },
+      {
+        "lot": "P010",
+        "documentary_dimensions": true,
+        "documentary_net_weight": false,
+        "actual_specimen_weight": false,
+        "verified_category": false,
+        "verified_sale_or_parcel_reference": false
+      },
+      {
+        "lot": "P013",
+        "documentary_dimensions": true,
+        "documentary_net_weight": false,
+        "actual_specimen_weight": false,
+        "verified_category": false,
+        "verified_sale_or_parcel_reference": false
+      },
+      {
+        "lot": "P022",
+        "documentary_dimensions": true,
+        "documentary_net_weight": false,
+        "actual_specimen_weight": false,
+        "verified_category": false,
+        "verified_sale_or_parcel_reference": false
+      },
+      {
+        "lot": "P039",
+        "documentary_dimensions": true,
+        "documentary_net_weight": true,
+        "actual_specimen_weight": false,
+        "verified_category": false,
+        "verified_sale_or_parcel_reference": false
+      },
+      {
+        "lot": "P053",
+        "documentary_dimensions": true,
+        "documentary_net_weight": true,
+        "actual_specimen_weight": false,
+        "verified_category": false,
+        "verified_sale_or_parcel_reference": false
+      }
+    ],
+    "strict_lotnexo": {
+      "objects": 10,
+      "admitted": 0,
+      "admission_rate": 0.0,
+      "minimum_admission_rate": null,
+      "missing_predictions": [
+        "P039",
+        "P053"
+      ],
+      "fields": {
+        "identity": {
+          "correct": 0,
+          "labelled": 10
+        },
+        "brand": {
+          "correct": 0,
+          "labelled": 1
+        },
+        "model": {
+          "correct": 0,
+          "labelled": 1
+        },
+        "ocr": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "period": {
+          "correct": 0,
+          "labelled": 7
+        },
+        "material": {
+          "correct": 0,
+          "labelled": 7
+        },
+        "country": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "condition": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "completeness": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "defects": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "category_id": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "weight_kg": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "length_cm": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "width_cm": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "height_cm": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "product_photos": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "evidence_photos": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "main_photo": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "title_terms": {
+          "correct": 0,
+          "labelled": 0
+        },
+        "seo_passed": {
+          "correct": 0,
+          "labelled": 0
+        }
+      },
+      "unknown_by_field": {
+        "identity": 5,
+        "brand": 1,
+        "model": 1,
+        "ocr": 0,
+        "period": 7,
+        "material": 7,
+        "country": 0,
+        "condition": 0,
+        "completeness": 0,
+        "defects": 0,
+        "category_id": 0,
+        "weight_kg": 0,
+        "length_cm": 0,
+        "width_cm": 0,
+        "height_cm": 0,
+        "product_photos": 0,
+        "evidence_photos": 0,
+        "main_photo": 0,
+        "title_terms": 0,
+        "seo_passed": 0
+      },
+      "identity_abstentions": 5,
+      "identity_abstention_rate": 0.5,
+      "identity_target_met": false,
+      "critical_categories": [],
+      "admitted_without_category_reference": [],
+      "mismatches": {
+        "P001": [
+          "identity",
+          "period",
+          "material"
+        ],
+        "P002": [
+          "identity",
+          "period",
+          "material"
+        ],
+        "P003": [
+          "identity",
+          "period",
+          "material"
+        ],
+        "P004": [
+          "identity"
+        ],
+        "P006": [
+          "identity",
+          "period",
+          "material"
+        ],
+        "P010": [
+          "identity",
+          "period",
+          "material"
+        ],
+        "P013": [
+          "identity",
+          "period",
+          "material"
+        ],
+        "P022": [
+          "identity",
+          "period",
+          "material"
+        ],
+        "P039": [
+          "identity"
+        ],
+        "P053": [
+          "identity",
+          "brand",
+          "model"
+        ]
+      },
+      "operations": {
+        "elapsed_ms": {
+          "reported": 8,
+          "total": 108973.0,
+          "median": 13476.0
+        },
+        "cost_usd": {
+          "reported": 8,
+          "total": 0.0957289,
+          "median": 0.01189565
+        },
+        "manual_actions": {
+          "reported": 0,
+          "total": null,
+          "median": null
+        }
+      },
+      "passed": false
+    },
+    "preliminary_identity_threshold": false,
+    "manual_review_required": [
+      "documentary dimensions by named component and configuration",
+      "documentary net weight",
+      "source authenticity and exact-model match",
+      "SEO and factual claims",
+      "category hierarchy and current required aspects",
+      "verified completed sales",
+      "packed measurements and carrier eligibility",
+      "unknown fields and unsupported asserted facts"
+    ]
+  },
+  "manual_final_type_evaluation": {
+    "correct": 3,
+    "planned_lots": 10,
+    "completed_research": 8,
+    "correct_lots": [
+      "P003",
+      "P004",
+      "P006"
+    ],
+    "visual_only_correct_lots": [
+      "P039"
+    ],
+    "policy": "Only a product class retained in final output with a clear semantic match counts"
+  },
+  "scope_stop_replay": {
+    "scope": "MULTIPLE_PHYSICAL_ITEMS",
+    "physical_item_count": 4,
+    "confidence": 83,
+    "note": "Visible watch, attached product tag, box, and separate molded insert; tag string is treated as part of the tag.",
+    "source": "STAGE_A"
+  },
+  "replay_network_calls": 0,
+  "lots": [
+    {
+      "lot": "P001",
+      "verdict": "WRONG_CANDIDATE_BROOCH_AS_PENDANT",
+      "stage_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 409
+      },
+      "elapsed_ms": 12882,
+      "metered_usd": "0.0116678",
+      "requests": [
+        {
+          "step": "photos",
+          "input_tokens": 1780,
+          "output_tokens": 489,
+          "elapsed_ms": 4407,
+          "metered_usd": "0.0004225",
+          "web_calls": 0
+        },
+        {
+          "step": "research",
+          "input_tokens": 10458,
+          "output_tokens": 399,
+          "elapsed_ms": 6856,
+          "metered_usd": "0.0112453",
+          "web_calls": 1
+        }
+      ],
+      "accepted_identity": null,
+      "research_identity": "Lozenge-shaped enamel-decorated pendant (generic type; archaeological attribution unverified)",
+      "photo_facts": {
+        "type": [],
+        "brand": [],
+        "model": [],
+        "material": [],
+        "marking": []
+      },
+      "actual_measurements": {
+        "weight_kg": null,
+        "length_cm": null,
+        "width_cm": null,
+        "height_cm": null
+      },
+      "seo_title": null,
+      "item_specifics": null,
+      "hold_preview_present": false,
+      "hold_replay": null,
+      "misleading_hold_status": true,
+      "admitted": false
+    },
+    {
+      "lot": "P002",
+      "verdict": "AMBIGUOUS_FIGURINE_OR_PENDANT",
+      "stage_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 409
+      },
+      "elapsed_ms": 14070,
+      "metered_usd": "0.0119394",
+      "requests": [
+        {
+          "step": "photos",
+          "input_tokens": 1847,
+          "output_tokens": 566,
+          "elapsed_ms": 4650,
+          "metered_usd": "0.0004677",
+          "web_calls": 0
+        },
+        {
+          "step": "research",
+          "input_tokens": 12127,
+          "output_tokens": 518,
+          "elapsed_ms": 8503,
+          "metered_usd": "0.0114717",
+          "web_calls": 1
+        }
+      ],
+      "accepted_identity": null,
+      "research_identity": "Stylized human-figure pendant or small sculpture",
+      "photo_facts": {
+        "type": [],
+        "brand": [],
+        "model": [],
+        "material": [],
+        "marking": []
+      },
+      "actual_measurements": {
+        "weight_kg": null,
+        "length_cm": null,
+        "width_cm": null,
+        "height_cm": null
+      },
+      "seo_title": null,
+      "item_specifics": null,
+      "hold_preview_present": false,
+      "hold_replay": null,
+      "misleading_hold_status": true,
+      "admitted": false
+    },
+    {
+      "lot": "P003",
+      "verdict": "CORRECT_MEDAL_AS_PORTRAIT_MEDALLION",
+      "stage_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "elapsed_ms": 14299,
+      "metered_usd": "0.0124140",
+      "requests": [
+        {
+          "step": "photos",
+          "input_tokens": 2048,
+          "output_tokens": 816,
+          "elapsed_ms": 6808,
+          "metered_usd": "0.0006128",
+          "web_calls": 0
+        },
+        {
+          "step": "research",
+          "input_tokens": 14962,
+          "output_tokens": 610,
+          "elapsed_ms": 6383,
+          "metered_usd": "0.0118012",
+          "web_calls": 1
+        }
+      ],
+      "accepted_identity": "Round portrait medallion",
+      "research_identity": "Louis XIV portrait medal/medallion obverse; exact issue undetermined",
+      "photo_facts": {
+        "type": [
+          "Round portrait medallion with raised relief and surrounding inscription; commemorative or decorative object."
+        ],
+        "brand": [],
+        "model": [],
+        "material": [],
+        "marking": []
+      },
+      "actual_measurements": {
+        "weight_kg": null,
+        "length_cm": null,
+        "width_cm": null,
+        "height_cm": null
+      },
+      "seo_title": "Round portrait medallion",
+      "item_specifics": {
+        "Type": "Round portrait medallion"
+      },
+      "hold_preview_present": true,
+      "hold_replay": {
+        "active_sqlite_record": true,
+        "reopened_after_cache_clear": true,
+        "publishing_blocked": true,
+        "original_photo_sha256": "e065d8dcae9f0541df24eee1ea0691ff5c89907b3ab209f259773669c76eec40",
+        "title": "Round portrait medallion"
+      },
+      "misleading_hold_status": false,
+      "admitted": false
+    },
+    {
+      "lot": "P004",
+      "verdict": "CORRECT_TAPE_MEASURE",
+      "stage_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "elapsed_ms": 15116,
+      "metered_usd": "0.0125850",
+      "requests": [
+        {
+          "step": "photos",
+          "input_tokens": 1952,
+          "output_tokens": 716,
+          "elapsed_ms": 5616,
+          "metered_usd": "0.0005532",
+          "web_calls": 0
+        },
+        {
+          "step": "research",
+          "input_tokens": 15643,
+          "output_tokens": 935,
+          "elapsed_ms": 8046,
+          "metered_usd": "0.0120318",
+          "web_calls": 1
+        }
+      ],
+      "accepted_identity": "Retractable tape measure",
+      "research_identity": "Retractable tape measure",
+      "photo_facts": {
+        "type": [
+          "Retractable tape measure for measuring lengths; the tape blade is shown extended from its housing."
+        ],
+        "brand": [
+          "Stanley"
+        ],
+        "model": [
+          "PowerLock 25; 33-425"
+        ],
+        "material": [],
+        "marking": [
+          "STANLEY",
+          "PowerLock 25",
+          "33-425"
+        ]
+      },
+      "actual_measurements": {
+        "weight_kg": null,
+        "length_cm": null,
+        "width_cm": null,
+        "height_cm": null
+      },
+      "seo_title": "Stanley PowerLock 25; 33-425 Retractable tape measure",
+      "item_specifics": {
+        "Type": "Retractable tape measure",
+        "Brand": "Stanley",
+        "Model": "PowerLock 25; 33-425"
+      },
+      "hold_preview_present": true,
+      "hold_replay": {
+        "active_sqlite_record": true,
+        "reopened_after_cache_clear": true,
+        "publishing_blocked": true,
+        "original_photo_sha256": "84fbed644c6c3fa32d6298f9db9b66c2c56d1b128b8b0ea963c411c34bb8b598",
+        "title": "Stanley PowerLock 25; 33-425 Retractable tape measure"
+      },
+      "misleading_hold_status": false,
+      "admitted": false
+    },
+    {
+      "lot": "P006",
+      "verdict": "CORRECT_PRINT_WRONG_1523_RESEARCH_LEAD",
+      "stage_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "elapsed_ms": 17459,
+      "metered_usd": "0.0119772",
+      "requests": [
+        {
+          "step": "photos",
+          "input_tokens": 1813,
+          "output_tokens": 734,
+          "elapsed_ms": 7259,
+          "metered_usd": "0.0005483",
+          "web_calls": 0
+        },
+        {
+          "step": "research",
+          "input_tokens": 10694,
+          "output_tokens": 719,
+          "elapsed_ms": 8811,
+          "metered_usd": "0.0114289",
+          "web_calls": 1
+        }
+      ],
+      "accepted_identity": "Printed artwork depicting a religious meal scene",
+      "research_identity": "Religious print depicting the Last Supper, apparently after Albrecht Dürer",
+      "photo_facts": {
+        "type": [
+          "Printed artwork depicting a religious meal scene; intended for display."
+        ],
+        "brand": [],
+        "model": [],
+        "material": [],
+        "marking": []
+      },
+      "actual_measurements": {
+        "weight_kg": null,
+        "length_cm": null,
+        "width_cm": null,
+        "height_cm": null
+      },
+      "seo_title": "Printed artwork depicting a religious meal scene",
+      "item_specifics": {
+        "Type": "Printed artwork depicting a religious meal scene"
+      },
+      "hold_preview_present": true,
+      "hold_replay": {
+        "active_sqlite_record": true,
+        "reopened_after_cache_clear": true,
+        "publishing_blocked": true,
+        "original_photo_sha256": "8f9bd2b27ba03a6c261c3f931d03bdfa35815e00cbe47c4b9ba670a892ca480c",
+        "title": "Printed artwork depicting a religious meal scene"
+      },
+      "misleading_hold_status": false,
+      "admitted": false
+    },
+    {
+      "lot": "P010",
+      "verdict": "BROAD_COIN_LIKE_FORM",
+      "stage_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "elapsed_ms": 11921,
+      "metered_usd": "0.0116607",
+      "requests": [
+        {
+          "step": "photos",
+          "input_tokens": 1595,
+          "output_tokens": 692,
+          "elapsed_ms": 5758,
+          "metered_usd": "0.0005055",
+          "web_calls": 0
+        },
+        {
+          "step": "research",
+          "input_tokens": 10107,
+          "output_tokens": 289,
+          "elapsed_ms": 5039,
+          "metered_usd": "0.0111552",
+          "web_calls": 1
+        }
+      ],
+      "accepted_identity": "Coin-like round object",
+      "research_identity": "Coin-like object, possibly a modern imitation of an ancient coin",
+      "photo_facts": {
+        "type": [
+          "Coin-like round object with two different sides; purpose: coin or currency-like object."
+        ],
+        "brand": [],
+        "model": [],
+        "material": [],
+        "marking": []
+      },
+      "actual_measurements": {
+        "weight_kg": null,
+        "length_cm": null,
+        "width_cm": null,
+        "height_cm": null
+      },
+      "seo_title": "Coin-like round object",
+      "item_specifics": {
+        "Type": "Coin-like round object"
+      },
+      "hold_preview_present": true,
+      "hold_replay": {
+        "active_sqlite_record": true,
+        "reopened_after_cache_clear": true,
+        "publishing_blocked": true,
+        "original_photo_sha256": "a8b084e3bcd4cb8eacb47a8df6188f38ea2ba10f0fb47fffe2eb74e235b8968c",
+        "title": "Coin-like round object"
+      },
+      "misleading_hold_status": false,
+      "admitted": false
+    },
+    {
+      "lot": "P013",
+      "verdict": "BROAD_VESSEL_FORM",
+      "stage_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "elapsed_ms": 10857,
+      "metered_usd": "0.0116329",
+      "requests": [
+        {
+          "step": "photos",
+          "input_tokens": 1838,
+          "output_tokens": 495,
+          "elapsed_ms": 4176,
+          "metered_usd": "0.0004313",
+          "web_calls": 0
+        },
+        {
+          "step": "research",
+          "input_tokens": 10496,
+          "output_tokens": 304,
+          "elapsed_ms": 5543,
+          "metered_usd": "0.0112016",
+          "web_calls": 1
+        }
+      ],
+      "accepted_identity": "Low, wide ceramic vessel",
+      "research_identity": "Low, wide open ceramic vessel; specific use undetermined",
+      "photo_facts": {
+        "type": [
+          "Low, wide ceramic vessel with an open top; suitable for holding or containing items. Specific purpose is not established by the photo."
+        ],
+        "brand": [],
+        "model": [],
+        "material": [],
+        "marking": []
+      },
+      "actual_measurements": {
+        "weight_kg": null,
+        "length_cm": null,
+        "width_cm": null,
+        "height_cm": null
+      },
+      "seo_title": "Low, wide ceramic vessel",
+      "item_specifics": {
+        "Type": "Low, wide ceramic vessel"
+      },
+      "hold_preview_present": true,
+      "hold_replay": {
+        "active_sqlite_record": true,
+        "reopened_after_cache_clear": true,
+        "publishing_blocked": true,
+        "original_photo_sha256": "cba63f451d8e186e40d13f52f0c8ba1e53acf73e43edb103cb634865fdfbc806",
+        "title": "Low, wide ceramic vessel"
+      },
+      "misleading_hold_status": false,
+      "admitted": false
+    },
+    {
+      "lot": "P022",
+      "verdict": "WRONG_CANDIDATE_PLATE_AS_PLAQUE",
+      "stage_http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 409
+      },
+      "elapsed_ms": 12369,
+      "metered_usd": "0.0118519",
+      "requests": [
+        {
+          "step": "photos",
+          "input_tokens": 2047,
+          "output_tokens": 614,
+          "elapsed_ms": 5182,
+          "metered_usd": "0.0005117",
+          "web_calls": 0
+        },
+        {
+          "step": "research",
+          "input_tokens": 10952,
+          "output_tokens": 490,
+          "elapsed_ms": 6106,
+          "metered_usd": "0.0113402",
+          "web_calls": 1
+        }
+      ],
+      "accepted_identity": null,
+      "research_identity": "Round carved relief plaque or disk with Maya-style imagery",
+      "photo_facts": {
+        "type": [],
+        "brand": [],
+        "model": [],
+        "material": [],
+        "marking": []
+      },
+      "actual_measurements": {
+        "weight_kg": null,
+        "length_cm": null,
+        "width_cm": null,
+        "height_cm": null
+      },
+      "seo_title": null,
+      "item_specifics": null,
+      "hold_preview_present": false,
+      "hold_replay": null,
+      "misleading_hold_status": true,
+      "admitted": false
+    },
+    {
+      "lot": "P039",
+      "verdict": "PHOTO_ONLY_WRISTWATCH_SCOPE_BLOCKED_RESEARCH",
+      "stage_http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "elapsed_ms": 8731,
+      "metered_usd": "0.0006847",
+      "requests": [
+        {
+          "step": "photos",
+          "input_tokens": 1952,
+          "output_tokens": 979,
+          "elapsed_ms": 8118,
+          "metered_usd": "0.0006847",
+          "web_calls": 0
+        }
+      ],
+      "accepted_identity": null,
+      "research_identity": null,
+      "photo_facts": {
+        "type": [
+          "Digital wristwatch for telling time; watch with attached strap and visible display."
+        ],
+        "brand": [
+          "CASIO"
+        ],
+        "model": [
+          "F-91W-1YER"
+        ],
+        "material": [],
+        "marking": [
+          "CASIO",
+          "F-91W-1YER",
+          "593",
+          "EU",
+          "4971850 88597 9",
+          "WATER WR"
+        ]
+      },
+      "actual_measurements": null,
+      "seo_title": null,
+      "item_specifics": null,
+      "hold_preview_present": false,
+      "hold_replay": null,
+      "misleading_hold_status": true,
+      "admitted": false
+    },
+    {
+      "lot": "P053",
+      "verdict": "NOT_RUN",
+      "stage_http": null,
+      "elapsed_ms": null,
+      "metered_usd": "0",
+      "requests": [],
+      "accepted_identity": null,
+      "research_identity": null,
+      "photo_facts": {
+        "type": [],
+        "brand": [],
+        "model": [],
+        "material": [],
+        "marking": []
+      },
+      "actual_measurements": null,
+      "seo_title": null,
+      "item_specifics": null,
+      "hold_preview_present": false,
+      "hold_replay": null,
+      "misleading_hold_status": false,
+      "admitted": false
+    }
+  ]
+}
