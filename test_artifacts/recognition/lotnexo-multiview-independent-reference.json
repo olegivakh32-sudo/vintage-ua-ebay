@@ -1,0 +1,615 @@
+[
+  {
+    "lot": "MV-201",
+    "identity": [
+      "jar"
+    ],
+    "reference_id": "CMA-137198",
+    "title": "Jar with Lion-Head Handles",
+    "source": "https://clevelandart.org/art/1962.154",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/137198",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "checked": "2026-11-27",
+    "material": [
+      "porcelain with underglaze painted decoration"
+    ],
+    "period": "1300s",
+    "documentary_dimensions": "Diameter of mouth: 15.6 cm (6 1/8 in.); Overall: 39.4 x 37.5 cm (15 1/2 x 14 3/4 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1962.154/1962.154_web.jpg",
+        "original_size": [
+          900,
+          848
+        ],
+        "sha256": "356da9df42032e81a30ec1fa9a883de95cc3b82df8aeda60379beee617cc70d0"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1962.154/1962.154_alt0_web.jpg",
+        "original_size": [
+          900,
+          861
+        ],
+        "sha256": "45ac496417eded258d26c63e566bed317d62d1eb592f4fac36923ed890a98602"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1962.154/1962.154_alt1_web.jpg",
+        "original_size": [
+          900,
+          854
+        ],
+        "sha256": "a34568e16447dd0d2d269c96d947a69afc0921d554d90ce9dbe09555af536d6f"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  },
+  {
+    "lot": "MV-202",
+    "identity": [
+      "inkwell",
+      "ink well"
+    ],
+    "reference_id": "CMA-93173",
+    "title": "Poppy Inkwell",
+    "source": "https://clevelandart.org/art/2018.289",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/93173",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "checked": "2026-11-27",
+    "material": [
+      "favrile glass mosaic, bronze"
+    ],
+    "period": "c. 1898–1906",
+    "documentary_dimensions": "Overall: 8 x 10.5 cm (3 1/8 x 4 1/8 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/2018.289/2018.289_web.jpg",
+        "original_size": [
+          900,
+          689
+        ],
+        "sha256": "0dd9eb4e11b839f3cfce4d13ef6e53a5dce7ea2342e79ab447ff66ed61eb0c21"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/2018.289/2018.289_alt0_web.jpg",
+        "original_size": [
+          742,
+          900
+        ],
+        "sha256": "7ccc9d53b51056fcd95ae26c4f4bebce77b03c8d7395e9b45242d75ff42e9442"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/2018.289/2018.289_alt1_web.jpg",
+        "original_size": [
+          739,
+          900
+        ],
+        "sha256": "22f1fefbe11b08e275c9837ea75eaa93b37a75a6d5844be76cb9c0bb47b7f635"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  },
+  {
+    "lot": "MV-203",
+    "identity": [
+      "tall clock",
+      "grandfather clock",
+      "longcase clock"
+    ],
+    "reference_id": "CMA-156855",
+    "title": "Tall Clock",
+    "source": "https://clevelandart.org/art/1992.70",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/156855",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "checked": "2026-11-27",
+    "material": [
+      "mahogany, teak with dial faces of gilded and patinated metal, glass"
+    ],
+    "period": "c. 1880",
+    "documentary_dimensions": "Overall: 247.3 x 66 x 36.5 cm (97 3/8 x 26 x 14 3/8 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1992.70/1992.70_web.jpg",
+        "original_size": [
+          474,
+          893
+        ],
+        "sha256": "f15f1101a360ab375ca828f4c20a85213221b48922e725494c6995bd09e23206"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1992.70/1992.70_alt0_web.jpg",
+        "original_size": [
+          428,
+          893
+        ],
+        "sha256": "06f5977c2cae48375bfa5fc156cbf9132846a64bb1c7d9ec493ef0e0aaf797bd"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1992.70/1992.70_alt1_web.jpg",
+        "original_size": [
+          513,
+          893
+        ],
+        "sha256": "fac73f60c699af74b31d52694f20453beabe3c7693bd978f0e4a9f8a44146564"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  },
+  {
+    "lot": "MV-204",
+    "identity": [
+      "table fountain",
+      "fountain"
+    ],
+    "reference_id": "CMA-106841",
+    "title": "Table Fountain",
+    "source": "https://clevelandart.org/art/1924.859",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/106841",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "checked": "2026-11-27",
+    "material": [
+      "gilt-silver and translucent enamels"
+    ],
+    "period": "c. 1320–40",
+    "documentary_dimensions": "Overall: 33.8 x 25.4 x 26 cm (13 5/16 x 10 x 10 1/4 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1924.859/1924.859_web.jpg",
+        "original_size": [
+          803,
+          900
+        ],
+        "sha256": "e5e0071dda84ea08d46a7ad59a05b1a2c9d3f3a76c7f085d57f6227f91d1fa52"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1924.859/1924.859_alt0_web.jpg",
+        "original_size": [
+          900,
+          591
+        ],
+        "sha256": "38ecff9f2c0b644f26b3e2e48d45a716567009f09210cdc3e6aaf9c128ee9618"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1924.859/1924.859_alt1_web.jpg",
+        "original_size": [
+          900,
+          580
+        ],
+        "sha256": "271dd87688db9f461129f53996e5f804158a22277c6bfddef30cb937d1d575cd"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  },
+  {
+    "lot": "MV-205",
+    "identity": [
+      "hair comb",
+      "decorative comb"
+    ],
+    "reference_id": "CMA-150488",
+    "title": "Lily of the Valley Comb",
+    "source": "https://clevelandart.org/art/1981.49",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/150488",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "checked": "2026-11-27",
+    "material": [
+      "horn, enamel and gold"
+    ],
+    "period": "c. 1900",
+    "documentary_dimensions": "Overall: 15.4 x 9.4 x 3 cm (6 1/16 x 3 11/16 x 1 3/16 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1981.49/1981.49_web.jpg",
+        "original_size": [
+          639,
+          893
+        ],
+        "sha256": "8b7455402df8a045fc74688b77417220a8584dc86f7191f79d35b7eb083fa957"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1981.49/1981.49_alt0_web.jpg",
+        "original_size": [
+          1263,
+          598
+        ],
+        "sha256": "c2202916bb783213f244084b8cbdff3f4a89017e90f928397386faac99f07b5b"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1981.49/1981.49_alt1_web.jpg",
+        "original_size": [
+          1263,
+          839
+        ],
+        "sha256": "299836719fce9907dcc54f94c2a78ff9b1bbc61e3dc7a7654416758d2141cd66"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  },
+  {
+    "lot": "MV-206",
+    "identity": [
+      "scroll box",
+      "storage box for scrolls"
+    ],
+    "reference_id": "CMA-155420",
+    "title": "Scroll Box with Dragon and Phoenix Design",
+    "source": "https://clevelandart.org/art/1990.15",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/155420",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "checked": "2026-11-27",
+    "material": [
+      "lacquered wood inlaid with mother-of-pearl and twisted brass and copper wire"
+    ],
+    "period": "1800s",
+    "documentary_dimensions": "Overall: 11.5 x 11.6 x 87 cm (4 1/2 x 4 9/16 x 34 1/4 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1990.15/1990.15_web.jpg",
+        "original_size": [
+          900,
+          239
+        ],
+        "sha256": "dacad34b57d61b10548b32b15e843a1fe08063b1745ae133a5b36079a0841dfe"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1990.15/1990.15_alt0_web.jpg",
+        "original_size": [
+          900,
+          230
+        ],
+        "sha256": "d70fcd959f18111d3fc44f02744976ff58531c99846b7c0eefa390ccf0351111"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1990.15/1990.15_alt1_web.jpg",
+        "original_size": [
+          900,
+          233
+        ],
+        "sha256": "ef29c0c60d4c719b3b0ef1b33d5e3a509ab198e841ce9a59478914be6929d12f"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  },
+  {
+    "lot": "MV-207",
+    "identity": [
+      "tunic"
+    ],
+    "reference_id": "CMA-124740",
+    "title": "Tunic",
+    "source": "https://clevelandart.org/art/1946.227",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/124740",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "checked": "2026-11-27",
+    "material": [
+      "Alpaca wool: plain weave with embroidery and warp substitution"
+    ],
+    "period": "c. 300 BCE–200 CE",
+    "documentary_dimensions": "Overall: 94 x 83.8 cm (37 x 33 in.); Mounted: 111.8 x 101.6 cm (44 x 40 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1946.227/1946.227_web.jpg",
+        "original_size": [
+          730,
+          900
+        ],
+        "sha256": "fecd67fab145a3cb299977ce82099e428524259d06092faaf544b151b324c55c"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1946.227/1946.227_alt0_web.jpg",
+        "original_size": [
+          753,
+          893
+        ],
+        "sha256": "b54870e6dfe536fbd012248ceab7cf630bf6463826dbd6131cde7ebe59f456f8"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1946.227/1946.227_alt1_web.jpg",
+        "original_size": [
+          1233,
+          893
+        ],
+        "sha256": "a16ba1fa38ebbf3264e25b49bbbc7f97e19e8b449ea3a088b8cb6fe167ed5d1b"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  },
+  {
+    "lot": "MV-208",
+    "identity": [
+      "hurdy-gurdy",
+      "hurdy gurdy",
+      "vielle à roue"
+    ],
+    "reference_id": "CMA-98685",
+    "title": "Vielle à roue",
+    "source": "https://clevelandart.org/art/1918.378",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/98685",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "checked": "2026-11-27",
+    "material": [
+      "wood"
+    ],
+    "period": "1700s",
+    "documentary_dimensions": "Overall: 74 x 33 cm (29 1/8 x 13 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1918.378/1918.378_web.jpg",
+        "original_size": [
+          623,
+          900
+        ],
+        "sha256": "53c601ddc45c9b5efcd693525a1fa571d62367ce1f0768dafdac8d826a20a4ac"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1918.378/1918.378_alt0_web.jpg",
+        "original_size": [
+          614,
+          900
+        ],
+        "sha256": "b49889848f65c0e89b47df005861bfc853690bd083a129c0aa0dcd322884f3ca"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1918.378/1918.378_alt1_web.jpg",
+        "original_size": [
+          900,
+          481
+        ],
+        "sha256": "85072e111c5238722550ac06e55156b922492b0b47a772ff0fbce94f5e9e813a"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  },
+  {
+    "lot": "MV-209",
+    "identity": [
+      "basket",
+      "jar-shaped basket"
+    ],
+    "reference_id": "CMA-97847",
+    "title": "Jar-shaped Basket",
+    "source": "https://clevelandart.org/art/1917.454",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/97847",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "checked": "2026-11-27",
+    "material": [
+      "Willow, bulrush; coiled (3 rods)"
+    ],
+    "period": "1910",
+    "documentary_dimensions": "Overall: 12.5 x 18.5 cm (4 15/16 x 7 5/16 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1917.454/1917.454_web.jpg",
+        "original_size": [
+          1143,
+          893
+        ],
+        "sha256": "cbe7aed4952fcdbb07a9f7523164060d732d5a1420da815ccece93271a6739a6"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1917.454/1917.454_alt0_web.jpg",
+        "original_size": [
+          1098,
+          893
+        ],
+        "sha256": "f6fcdf2a2a0f7d5299a6b096091f06c7e581cccd580f3eb787c11777e8ca2422"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1917.454/1917.454_alt1_web.jpg",
+        "original_size": [
+          1202,
+          893
+        ],
+        "sha256": "bd2b5c9b0cbcef2b34f35647074c495d5e8c09b7f37287213c4e693c7f01aeb1"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  },
+  {
+    "lot": "MV-210",
+    "identity": [
+      "seal",
+      "stamp seal"
+    ],
+    "reference_id": "CMA-147417",
+    "title": "Seal with Unicorn and Inscription",
+    "source": "https://clevelandart.org/art/1973.161",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/147417",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "checked": "2026-11-27",
+    "material": [
+      "steatite"
+    ],
+    "period": "c. 2000 BCE",
+    "documentary_dimensions": "Overall: 3.5 x 3.6 cm (1 3/8 x 1 7/16 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1973.161/1973.161_web.jpg",
+        "original_size": [
+          900,
+          785
+        ],
+        "sha256": "d45562aa42aec70951a43c59d62fa9ca9fad8551d223dbea6284e7e3ac1b40b0"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1973.161/1973.161_alt0_web.jpg",
+        "original_size": [
+          900,
+          778
+        ],
+        "sha256": "15cfa052e102971a5088ad05470b90761eae3d708d4aae95ce567d04b31897a8"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1973.161/1973.161_alt1_web.jpg",
+        "original_size": [
+          900,
+          779
+        ],
+        "sha256": "7e93b26a45a0cc8a0959da1770063dd24152fad1a7faa73ff67739df0fd746d9"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  },
+  {
+    "lot": "MV-211",
+    "identity": [
+      "laptop",
+      "notebook computer"
+    ],
+    "reference_id": "LENOVO-THINKPAD-X220",
+    "title": "Lenovo ThinkPad X220",
+    "model": [
+      "ThinkPad X220"
+    ],
+    "brand": [
+      "Lenovo"
+    ],
+    "source": "https://pcsupport.lenovo.com/us/en/products/laptops-and-netbooks/thinkpad-x-series-laptops/thinkpad-x220/?tabName=Manuals",
+    "checked": "2026-11-27",
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "credit": "Siarhei Besarab / Wikimedia Commons",
+    "transformation": "EXIF removed and image resized or re-encoded as JPEG",
+    "reference_scope": "Product model. Physical configuration and condition are not asserted.",
+    "photos": [
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/9/97/Top_cover_of_a_closed_Lenovo_ThinkPad_X220_laptop.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File%3ATop_cover_of_a_closed_Lenovo_ThinkPad_X220_laptop.jpg",
+        "original_size": [
+          2977,
+          2040
+        ],
+        "sha256": "ab58e35dca4b60afd9a2ddff3dc02c6f8ae72925cc5a812eac5d9ac1e3b02a75"
+      },
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/8/88/Left_side_ports_Lenovo_ThinkPad_X220.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File%3ALeft_side_ports_Lenovo_ThinkPad_X220.jpg",
+        "original_size": [
+          3711,
+          442
+        ],
+        "sha256": "297854139c329acb14c212c6c765db9b7c953071a7e77ea8cc3f07d961a6fd92"
+      },
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/0/06/Right_side_ports_Lenovo_ThinkPad_X220.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File%3ARight_side_ports_Lenovo_ThinkPad_X220.jpg",
+        "original_size": [
+          3858,
+          463
+        ],
+        "sha256": "9948f4caa3ac0faf3447885eb767c1fb85d75f8a598ee10fb9d179d8627268ac"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  },
+  {
+    "lot": "MV-212",
+    "identity": [
+      "docking station",
+      "laptop docking station"
+    ],
+    "reference_id": "DELL-PD01X",
+    "title": "Dell PD01X",
+    "model": [
+      "PD01X"
+    ],
+    "brand": [
+      "Dell"
+    ],
+    "source": "https://www.dell.com/support/product-details/en-pw/product/d-dck-expn-stn/resources/manuals",
+    "checked": "2026-11-27",
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "credit": "Siarhei Besarab / Wikimedia Commons",
+    "transformation": "EXIF removed and image resized or re-encoded as JPEG",
+    "reference_scope": "Product model. Physical configuration and condition are not asserted.",
+    "photos": [
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/c/cc/Top_view_of_a_Dell_D-Dock_PD01X_with_docking_controls.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File%3ATop_view_of_a_Dell_D-Dock_PD01X_with_docking_controls.jpg",
+        "original_size": [
+          2569,
+          2155
+        ],
+        "sha256": "fea242363f99158b4a75c2c05f4e831a0c29e8e2bad85dd2348f3640e6a09acc"
+      },
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/2/25/Rear_ports_of_a_Dell_D-Dock_PD01X_Expansion_Station.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File%3ARear_ports_of_a_Dell_D-Dock_PD01X_Expansion_Station.jpg",
+        "original_size": [
+          3984,
+          1008
+        ],
+        "sha256": "3c18bb8728e2c2c8d1678e15ff251d954dddfea8eefe7568ec6e70e5a1ebea20"
+      }
+    ],
+    "specimen_net_weight_kg": null,
+    "verified_package_measurements": null,
+    "verified_category_id": null,
+    "completed_sale_reference": null,
+    "specimen_condition_and_defects": null
+  }
+]

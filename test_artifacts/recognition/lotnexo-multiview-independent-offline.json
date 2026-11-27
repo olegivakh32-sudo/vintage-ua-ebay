@@ -1,0 +1,413 @@
+{
+  "archive_sha256": "2ef832650531ccf18fe956258d221082ef5772a50471082c3d47f688b514a53f",
+  "objects": 12,
+  "photos": 35,
+  "catalogue_or_labels_passed": false,
+  "paid_calls": 0,
+  "generation_performed": false,
+  "routes": {
+    "REVIEW_PHOTOS": 9,
+    "VISUAL_REVIEW": 3
+  },
+  "lot_results": [
+    {
+      "lot": "MV-201",
+      "suggested_main": null,
+      "recognition_route": "REVIEW_PHOTOS",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            900,
+            848
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 2,
+          "size": [
+            900,
+            861
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 3,
+          "size": [
+            900,
+            854
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        }
+      ]
+    },
+    {
+      "lot": "MV-202",
+      "suggested_main": null,
+      "recognition_route": "REVIEW_PHOTOS",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            900,
+            689
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 2,
+          "size": [
+            742,
+            900
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 3,
+          "size": [
+            739,
+            900
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        }
+      ]
+    },
+    {
+      "lot": "MV-203",
+      "suggested_main": null,
+      "recognition_route": "REVIEW_PHOTOS",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            474,
+            893
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 2,
+          "size": [
+            428,
+            893
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 3,
+          "size": [
+            513,
+            893
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        }
+      ]
+    },
+    {
+      "lot": "MV-204",
+      "suggested_main": null,
+      "recognition_route": "REVIEW_PHOTOS",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            803,
+            900
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 2,
+          "size": [
+            900,
+            591
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 3,
+          "size": [
+            900,
+            580
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        }
+      ]
+    },
+    {
+      "lot": "MV-205",
+      "suggested_main": 1,
+      "recognition_route": "VISUAL_REVIEW",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            639,
+            893
+          ],
+          "role": "EBAY_PRODUCT",
+          "hint": null
+        },
+        {
+          "slot": 2,
+          "size": [
+            1263,
+            598
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 3,
+          "size": [
+            1263,
+            839
+          ],
+          "role": "EBAY_PRODUCT",
+          "hint": null
+        }
+      ]
+    },
+    {
+      "lot": "MV-206",
+      "suggested_main": 2,
+      "recognition_route": "VISUAL_REVIEW",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            900,
+            239
+          ],
+          "role": "EBAY_PRODUCT",
+          "hint": null
+        },
+        {
+          "slot": 2,
+          "size": [
+            900,
+            230
+          ],
+          "role": "EBAY_PRODUCT",
+          "hint": null
+        },
+        {
+          "slot": 3,
+          "size": [
+            900,
+            233
+          ],
+          "role": "EBAY_PRODUCT",
+          "hint": null
+        }
+      ]
+    },
+    {
+      "lot": "MV-207",
+      "suggested_main": null,
+      "recognition_route": "REVIEW_PHOTOS",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            730,
+            900
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 2,
+          "size": [
+            753,
+            893
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 3,
+          "size": [
+            1233,
+            893
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        }
+      ]
+    },
+    {
+      "lot": "MV-208",
+      "suggested_main": null,
+      "recognition_route": "REVIEW_PHOTOS",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            623,
+            900
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 2,
+          "size": [
+            614,
+            900
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 3,
+          "size": [
+            900,
+            481
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": "display"
+        }
+      ]
+    },
+    {
+      "lot": "MV-209",
+      "suggested_main": null,
+      "recognition_route": "REVIEW_PHOTOS",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            1143,
+            893
+          ],
+          "role": "EVIDENCE_ONLY",
+          "hint": "ruler"
+        },
+        {
+          "slot": 2,
+          "size": [
+            1098,
+            893
+          ],
+          "role": "EVIDENCE_ONLY",
+          "hint": "ruler"
+        },
+        {
+          "slot": 3,
+          "size": [
+            1202,
+            893
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        }
+      ]
+    },
+    {
+      "lot": "MV-210",
+      "suggested_main": 1,
+      "recognition_route": "VISUAL_REVIEW",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            900,
+            785
+          ],
+          "role": "EBAY_PRODUCT",
+          "hint": null
+        },
+        {
+          "slot": 2,
+          "size": [
+            900,
+            778
+          ],
+          "role": "EBAY_PRODUCT",
+          "hint": null
+        },
+        {
+          "slot": 3,
+          "size": [
+            900,
+            779
+          ],
+          "role": "EBAY_PRODUCT",
+          "hint": null
+        }
+      ]
+    },
+    {
+      "lot": "MV-211",
+      "suggested_main": null,
+      "recognition_route": "REVIEW_PHOTOS",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            2000,
+            1371
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 2,
+          "size": [
+            2000,
+            238
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 3,
+          "size": [
+            2000,
+            240
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        }
+      ]
+    },
+    {
+      "lot": "MV-212",
+      "suggested_main": null,
+      "recognition_route": "REVIEW_PHOTOS",
+      "photos": [
+        {
+          "slot": 1,
+          "size": [
+            2000,
+            1678
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        },
+        {
+          "slot": 2,
+          "size": [
+            2000,
+            506
+          ],
+          "role": "NEEDS_REVIEW",
+          "hint": null
+        }
+      ]
+    }
+  ]
+}

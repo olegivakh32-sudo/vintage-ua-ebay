@@ -79,6 +79,94 @@ def saved_replay(root):
 
 
 class LotnexoReviewTests(unittest.TestCase):
+    def test_research_packet_excludes_initial_identity_but_keeps_numbered_evidence(self):
+        analysis = ('Narrative with invented date 1588 and Sewing frame\n'
+                    'PRODUCT_OBSERVATIONS_JSON {"fields":[{"field":"type","value":"Sewing frame",'
+                    '"photos":[1],"basis":"Initial impression","confidence":99},'
+                    '{"field":"feature","name":"fixture geometry","value":"two parallel clamp bars",'
+                    '"photos":[1],"basis":"Both rails are visible","confidence":98}]}'
+                    '\nAUTO_FACTS_JSON {"markings":[{"photo":1,"kind":"INSCRIPTION",'
+                    '"language":"English","literal":"MX-4407 JIG"}]}'
+                    )
+        with (patch.object(m, '_mobile_catalogue_hints', return_value={'status': 'NONE', 'candidates': []}),
+              patch.object(m, '_picker_label_observations', return_value=[]),
+              patch.object(m, '_picker_catalogue_matches', return_value=[]),
+              patch.object(m, '_photo_model_scenes', return_value={1: 'GENERAL_PRODUCT', 2: 'SCALE'}),
+              patch.object(m, 'google_photo_to_data_url', return_value='data:image/jpeg;base64,AA'),
+              patch.object(m, 'call_openai', return_value='') as api):
+            m._p026_combined_research_engine('blind', analysis, [{}, {}], [1, 2],
+                                            {'scope': 'ONE_PHYSICAL_ITEM', 'note': 'Sewing frame'})
+        request = api.call_args.args[0]['input'][0]['content']
+        prompt = request[0]['text']
+        self.assertNotIn('1588', prompt)
+        self.assertNotIn('Sewing frame', prompt)
+        self.assertIn('two parallel clamp bars', prompt)
+        self.assertIn('MX-4407 JIG', prompt)
+        self.assertEqual(request[1]['text'], 'SOURCE PHOTO #1')
+        self.assertEqual(len(request), 3)
+
+    def test_correction_requires_linked_visible_anchor_and_preserves_card_fields(self):
+        sources = [dict(url='https://manual.example/4407', kind='MANUAL', document_id='manufacturer 4407',
+                        match='EXACT', excerpt='Bench mortise jig, label MX-4407 JIG'),
+                   dict(url='https://archive.example/4407', kind='ARCHIVE', document_id='archive 62',
+                        match='EXACT', excerpt='Observed label MX-4407 JIG')]
+        correction = dict(field='type', value='Bench mortise jig', photos=[1], visual_anchor='MX-4407 JIG',
+                          sources=sources)
+        claims = [correction, dict(correction, field='model', value='MX-4407'),
+                  dict(correction, field='material', value='Steel'),
+                  dict(correction, field='width_cm', value=11, specimen_basis='ITEM')]
+        analysis = '\n'.join((
+            'SCOPE_JSON {"scope":"ONE_PHYSICAL_ITEM","confidence":99,"physical_item_count":1}',
+            'PRODUCT_OBSERVATIONS_JSON {"fields":[{"field":"type","value":"Sewing frame",'
+            '"photos":[1],"basis":"Early silhouette classification","confidence":96}]}',
+            'AUTO_FACTS_JSON {"markings":[{"photo":1,"kind":"MODEL_NUMBER",'
+            '"language":"English","literal":"MX-4407 JIG"}]}',
+        ))
+        market = 'WEB_TOOL_SOURCES_JSON ' + json.dumps({'urls': [source['url'] for source in sources]})
+
+        def review(records=claims, seller=None, photo_analysis=analysis, search=market):
+            identification = 'IDENTITY_CLAIMS_JSON ' + json.dumps({'claims': records})
+            evidence, _, _ = m._product_evidence_for_review(photo_analysis, identification, search, [{}], seller or {}, {})
+            return export_review(evidence, 'Sewing frame')
+
+        reconciled = review()
+        self.assertEqual(reconciled['type'], 'Bench mortise jig')
+        self.assertEqual(reconciled['identity_review']['previous'], ['Sewing frame'])
+        self.assertEqual(len(reconciled['identity_review']['references']), 2)
+        card = hold_seo_preview(reconciled)
+        self.assertEqual(card['item_specifics']['Type'], 'Bench mortise jig')
+        self.assertIn('Documented model: MX-4407.', card['description'])
+        self.assertIn('Documented catalogue material: Steel.', card['description'])
+        self.assertNotIn('Item Width', card['item_specifics'])
+        self.assertEqual(reconciled['measurements']['width_cm']['reference'][0]['value'], 11)
+        self.assertIsNone(reconciled['measurements']['width_cm']['actual'])
+        self.assertEqual(review(seller={'type': 'Hand drill guide'})['type'], 'Hand drill guide')
+        for result in (review(records=[dict(correction, visual_anchor='invented anchor')]),
+                       review(photo_analysis=analysis.replace('MX-4407 JIG', 'MX-8812 JIG')),
+                       review(photo_analysis=analysis.replace('"confidence":99', '"confidence":70')),
+                       review(search=''),
+                       review(records=[correction, dict(correction, value='Hand drill guide')])):
+            self.assertEqual(result['type'], 'Sewing frame')
+            self.assertIsNone(result['identity_review'])
+
+        picker = 'checked-reidentification'
+        identification = 'IDENTITY_CLAIMS_JSON ' + json.dumps({'claims': claims})
+        with (TemporaryDirectory() as root, patch.dict(os.environ, {'HOLD_QUEUE_DIR': root}),
+              patch.object(m, 'ACTIVE_LOT_CHECKPOINT_DIR', root),
+              patch.dict(m.PHOTO_CACHE, {picker: [{}]}), patch.dict(m.ANALYSIS_CACHE, {picker: analysis}),
+              patch.dict(m.LOT002_DRAFT_CACHE, clear=True),
+              patch.multiple(m, EBAY_CLIENT_ID=None, EBAY_CLIENT_SECRET=None, EBAY_REFRESH_TOKEN=None),
+              m.app.test_request_context()):
+            m.session.update(picker_session_id=picker, current_lot_number=501)
+            result = m._save_hold_listing(picker, analysis, identification, market, {},
+                                          shipping_status='NEEDS_LISTING_REVIEW')
+            self.assertEqual(result.status_code, 303)
+            saved = m.LOT002_DRAFT_CACHE[picker]
+            self.assertTrue(m._p058_has_saved_draft(picker, saved))
+            self.assertTrue(m._p087_quality_block(saved))
+            document = m.export_hold_draft()
+            self.assertEqual(document.json['product_export']['identity_review'], reconciled['identity_review'])
+
     def test_archived_three_lots_use_real_hold_export_and_remain_blocked(self):
         with TemporaryDirectory() as temporary:
             rows, held, result = saved_replay(Path(temporary))

@@ -124,8 +124,7 @@ def build_product_evidence(observations, references, seller, measurement, photo_
         field = reference['field']
         if field in facts:
             entry = {key: reference[key] for key in ('value', 'status', 'photos', 'references', 'contradictions')}
-            if reference.get('name'):
-                entry['name'] = reference['name']
+            entry.update({key: reference[key] for key in ('name', 'visual_anchor') if reference.get(key)})
             if field in PHYSICAL_FIELDS:
                 entry['unit'] = 'kg' if field == 'weight_kg' else 'cm'
             facts[field].append(entry)
@@ -161,10 +160,42 @@ def build_product_evidence(observations, references, seller, measurement, photo_
     return {field: rows for field, rows in facts.items() if rows}
 
 
+def reviewed_product_type(evidence):
+    """Reconcile a visual type with a positively matched independent documentary type."""
+    types = evidence.get('type', [])
+    if any(row['status'] in {'SELLER_VERIFIED', 'CONTESTED'} for row in types):
+        return None
+    documented = [row for row in types if row['status'] in {'CATALOGUE_REFERENCE', 'CORROBORATED_REFERENCE'}]
+    if len({normalized_claim(row['value']) for row in documented}) != 1:
+        return None
+    for row in documented:
+        anchor = row.get('visual_anchor')
+        replacement = concise_type(row['value'])
+        if row['status'] != 'CORROBORATED_REFERENCE' or not anchor or replacement != row['value']:
+            continue
+        photos = set(row['photos'])
+        supporting = sorted({slot for field in ('marking', 'feature') for observed in evidence.get(field, [])
+                             if observed['status'] == 'PHOTO_OBSERVATION'
+                             and normalized_claim(observed['value']) == normalized_claim(anchor)
+                             for slot in observed.get('photos', []) if slot in photos})
+        previous = list(dict.fromkeys(item['value'] for item in types
+                        if item['status'] in {'PHOTO_OBSERVATION', 'PHOTO_CANDIDATE', 'HYPOTHESIS'}
+                        and normalized_claim(item['value']) != normalized_claim(replacement)))
+        if supporting and previous:
+            return {'previous': previous, 'type': replacement, 'anchor': anchor, 'photos': supporting,
+                    'references': row['references']}
+    return None
+
+
 def photo_type(evidence):
     rows = evidence.get('type', [])
+    seller = {normalized_claim(row['value']): row['value'] for row in rows if row['status'] == 'SELLER_VERIFIED'}
+    if seller:
+        return next(iter(seller.values())) if len(seller) == 1 else ''
+    if review := reviewed_product_type(evidence):
+        return review['type']
     values = {normalized_claim(row['value']): row['value'] for row in rows
-              if row['status'] in {'SELLER_VERIFIED', 'PHOTO_OBSERVATION'}}
+              if row['status'] == 'PHOTO_OBSERVATION'}
     if not values:
         candidates = {normalized_claim(concise_type(row['value'])) for row in rows
                       if row['status'] == 'PHOTO_CANDIDATE'}

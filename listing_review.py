@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 from identity_evidence import normalized_claim
-from product_evidence import AMBIGUOUS_TYPE, PHYSICAL_FIELDS, TYPE_TAIL, concise_type, photo_type, text_value
+from product_evidence import AMBIGUOUS_TYPE, PHYSICAL_FIELDS, TYPE_TAIL, concise_type, photo_type, reviewed_product_type, text_value
 
 
 DIRECT = {'SELLER_VERIFIED', 'PHOTO_OBSERVATION'}
@@ -25,6 +25,10 @@ def evidence_value(evidence, field, statuses):
 
 
 def canonical_product_type(evidence, suggested=''):
+    if review := reviewed_product_type(evidence):
+        return review['type']
+    if any(row['status'] == 'SELLER_VERIFIED' for row in evidence.get('type', [])):
+        return photo_type(evidence)
     observed = photo_type(evidence)
     if not observed:
         return ''
@@ -85,6 +89,7 @@ def _identifier_corrections(evidence):
 def export_review(evidence, suggested_type=''):
     """Keep all observations, source statuses and the original OCR in the export."""
     return {'type': canonical_product_type(evidence, suggested_type), 'fields': deepcopy(evidence),
+            'identity_review': deepcopy(reviewed_product_type(evidence)),
             'ocr_corrections': _identifier_corrections(evidence),
             'measurements': {field: {
                 'actual': evidence_value({field: [row for row in evidence.get(field, [])
@@ -160,6 +165,11 @@ def hold_seo_preview(review):
     details = [f'Item shown in the photos: {kind}.']
     if model:
         details.append(f'Visible model marking: {model}.')
+    for field, label in (('brand', 'maker'), ('model', 'model'), ('country', 'country of manufacture')):
+        if evidence_value(evidence, field, DIRECT) is None:
+            documented = evidence_value(evidence, field, DOCUMENTED)
+            if documented and not any(row['status'] in DIRECT for row in evidence.get(field, [])):
+                details.append(f'Documented {label}: {documented}.')
     if material:
         details.append(f'Material: {material}.')
     elif reference_material:
