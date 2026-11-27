@@ -81,3 +81,14 @@ class MuseumPhotoEvidenceTests(unittest.TestCase):
         self.assertIn('Lacquer', [row['value'] for row in claims])
         self.assertFalse(any(row['field'] == 'type' for row in claims))
         self.assertEqual(museum.museum_claims(proposal, observed[:1], {1: 'matching'}, load=load), [])
+
+    def test_photographed_accession_resolves_a_nearby_record_only_on_exact_photo_match(self):
+        root = 'https://www.clevelandart.org/art/'
+        proposal = {'url': root + '1980.123', 'type': 'Display stand'}
+        proven = {'accession_number': '1980.124', 'title': 'Pendant with floral decoration', 'type': 'Pendants'}
+        load = lambda key: (proven, {'matched'}) if key == ('accession_number', '1980.124') else None
+        claims = museum.museum_claims(proposal, [proposal['url']], {1: 'matched'}, markings=['80.124'], load=load)
+        self.assertIn(('type', 'Pendant'), [(claim['field'], claim['value']) for claim in claims])
+        self.assertEqual(museum.museum_claims(proposal, [proposal['url']], {1: 'another'},
+                                             markings=['80.124'], load=load), [])
+        self.assertEqual(museum.museum_claims(proposal, [], {1: 'matched'}, markings=['80.124'], load=load), [])

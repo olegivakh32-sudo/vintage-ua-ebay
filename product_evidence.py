@@ -166,7 +166,8 @@ def build_product_evidence(observations, references, seller, measurement, photo_
 def reviewed_product_type(evidence):
     """Reconcile a visual type with a positively matched independent documentary type."""
     types = evidence.get('type', [])
-    if any(row['status'] in {'SELLER_VERIFIED', 'CONTESTED'} for row in types):
+    if any(row['status'] == 'SELLER_VERIFIED' or (row['status'] == 'CONTESTED' and row.get('references'))
+           for row in types):
         return None
     documented = [row for row in types if row['status'] in {'CATALOGUE_REFERENCE', 'CORROBORATED_REFERENCE'}]
     if len({normalized_claim(row['value']) for row in documented}) != 1:

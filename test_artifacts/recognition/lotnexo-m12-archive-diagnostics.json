@@ -1,0 +1,246 @@
+{
+  "lots": 12,
+  "archived_responses": 19,
+  "missing_responses": [
+    [
+      "MV-202",
+      "research"
+    ],
+    [
+      "MV-204",
+      "research"
+    ],
+    [
+      "MV-206",
+      "research"
+    ],
+    [
+      "MV-207",
+      "research"
+    ],
+    [
+      "MV-208",
+      "research"
+    ]
+  ],
+  "public_catalogue_requests": 14,
+  "new_provider_requests": 0,
+  "new_provider_cost_usd": "0",
+  "ground_truth_comparison": "Historic M12 used for fixes, not independent product acceptance",
+  "paid_type_correct": 5,
+  "replay_type_correct": 6,
+  "confirmed_catalogue_cards": 5,
+  "saved_hold": 7,
+  "actual_measurements_claimed": 0,
+  "admitted": 0,
+  "results": {
+    "MV-201": {
+      "type_paid": "Ceramic handled jar",
+      "type_archived_replay": "Ceramic handled jar",
+      "paid_status": "CORRECT",
+      "replay_status": "CORRECT",
+      "mapped_scope_paid": "ONE_PHYSICAL_ITEM",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [
+        "https://www.clevelandart.org/art/1962.154"
+      ],
+      "verified_catalogue_sources": [
+        "https://www.clevelandart.org/art/1962.154"
+      ],
+      "documented_material": "porcelain with underglaze painted decoration",
+      "documented_period": "1300s",
+      "documentary_dimensions": [
+        "Diameter of mouth: 15.6 cm (6 1/8 in.); Overall: 39.4 x 37.5 cm (15 1/2 x 14 3/4 in.)"
+      ],
+      "archive_search_response_missing": false,
+      "saved_hold": true
+    },
+    "MV-202": {
+      "type_paid": null,
+      "type_archived_replay": null,
+      "paid_status": "UNKNOWN",
+      "replay_status": "UNKNOWN",
+      "mapped_scope_paid": "UNCERTAIN",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [],
+      "verified_catalogue_sources": [],
+      "documented_material": null,
+      "documented_period": null,
+      "documentary_dimensions": null,
+      "archive_search_response_missing": true,
+      "saved_hold": false
+    },
+    "MV-203": {
+      "type_paid": "Tall floor clock",
+      "type_archived_replay": "Tall floor clock",
+      "paid_status": "CORRECT",
+      "replay_status": "CORRECT",
+      "mapped_scope_paid": "ONE_PHYSICAL_ITEM",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [
+        "https://www.clevelandart.org/art/1992.70"
+      ],
+      "verified_catalogue_sources": [
+        "https://www.clevelandart.org/art/1992.70"
+      ],
+      "documented_material": "mahogany, teak with dial faces of gilded and patinated metal, glass",
+      "documented_period": "c. 1880",
+      "documentary_dimensions": [
+        "Overall: 247.3 x 66 x 36.5 cm (97 3/8 x 26 x 14 3/8 in.)"
+      ],
+      "archive_search_response_missing": false,
+      "saved_hold": true
+    },
+    "MV-204": {
+      "type_paid": null,
+      "type_archived_replay": null,
+      "paid_status": "UNKNOWN",
+      "replay_status": "UNKNOWN",
+      "mapped_scope_paid": "UNCERTAIN",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [],
+      "verified_catalogue_sources": [],
+      "documented_material": null,
+      "documented_period": null,
+      "documentary_dimensions": null,
+      "archive_search_response_missing": true,
+      "saved_hold": false
+    },
+    "MV-205": {
+      "type_paid": "Decorative hair comb",
+      "type_archived_replay": "Decorative hair comb",
+      "paid_status": "CORRECT",
+      "replay_status": "CORRECT",
+      "mapped_scope_paid": "ONE_PHYSICAL_ITEM",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [
+        "https://www.clevelandart.org/art/1981.49"
+      ],
+      "verified_catalogue_sources": [
+        "https://www.clevelandart.org/art/1981.49"
+      ],
+      "documented_material": "horn, enamel and gold",
+      "documented_period": "c. 1900",
+      "documentary_dimensions": [
+        "Overall: 15.4 x 9.4 x 3 cm (6 1/16 x 3 11/16 x 1 3/16 in.)"
+      ],
+      "archive_search_response_missing": false,
+      "saved_hold": true
+    },
+    "MV-206": {
+      "type_paid": null,
+      "type_archived_replay": null,
+      "paid_status": "UNKNOWN",
+      "replay_status": "UNKNOWN",
+      "mapped_scope_paid": "UNCERTAIN",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [],
+      "verified_catalogue_sources": [],
+      "documented_material": null,
+      "documented_period": null,
+      "documentary_dimensions": null,
+      "archive_search_response_missing": true,
+      "saved_hold": false
+    },
+    "MV-207": {
+      "type_paid": null,
+      "type_archived_replay": null,
+      "paid_status": "UNKNOWN",
+      "replay_status": "UNKNOWN",
+      "mapped_scope_paid": "UNCERTAIN",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [],
+      "verified_catalogue_sources": [],
+      "documented_material": null,
+      "documented_period": null,
+      "documentary_dimensions": null,
+      "archive_search_response_missing": true,
+      "saved_hold": false
+    },
+    "MV-208": {
+      "type_paid": null,
+      "type_archived_replay": null,
+      "paid_status": "UNKNOWN",
+      "replay_status": "UNKNOWN",
+      "mapped_scope_paid": "UNCERTAIN",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [],
+      "verified_catalogue_sources": [],
+      "documented_material": null,
+      "documented_period": null,
+      "documentary_dimensions": null,
+      "archive_search_response_missing": true,
+      "saved_hold": false
+    },
+    "MV-209": {
+      "type_paid": "Woven basket",
+      "type_archived_replay": "Woven basket",
+      "paid_status": "CORRECT",
+      "replay_status": "CORRECT",
+      "mapped_scope_paid": "ONE_PHYSICAL_ITEM",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [
+        "https://www.clevelandart.org/art/1917.454"
+      ],
+      "verified_catalogue_sources": [
+        "https://www.clevelandart.org/art/1917.454"
+      ],
+      "documented_material": "Willow, bulrush; coiled (3 rods)",
+      "documented_period": "1910",
+      "documentary_dimensions": [
+        "Overall: 12.5 x 18.5 cm (4 15/16 x 7 5/16 in.)"
+      ],
+      "archive_search_response_missing": false,
+      "saved_hold": true
+    },
+    "MV-210": {
+      "type_paid": "Carved relief plaque",
+      "type_archived_replay": "Seal",
+      "paid_status": "INCORRECT",
+      "replay_status": "CORRECT",
+      "mapped_scope_paid": "ONE_PHYSICAL_ITEM",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [],
+      "verified_catalogue_sources": [
+        "https://www.clevelandart.org/art/1973.161"
+      ],
+      "documented_material": "steatite",
+      "documented_period": "c. 2000 BCE",
+      "documentary_dimensions": [
+        "Overall: 3.5 x 3.6 cm (1 3/8 x 1 7/16 in.)"
+      ],
+      "archive_search_response_missing": false,
+      "saved_hold": true
+    },
+    "MV-211": {
+      "type_paid": "laptop computer",
+      "type_archived_replay": "laptop computer",
+      "paid_status": "CORRECT",
+      "replay_status": "CORRECT",
+      "mapped_scope_paid": "ONE_PHYSICAL_ITEM",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [],
+      "verified_catalogue_sources": [],
+      "documented_material": null,
+      "documented_period": null,
+      "documentary_dimensions": null,
+      "archive_search_response_missing": false,
+      "saved_hold": true
+    },
+    "MV-212": {
+      "type_paid": "Desktop computer unit",
+      "type_archived_replay": "Desktop computer unit",
+      "paid_status": "INCORRECT",
+      "replay_status": "INCORRECT",
+      "mapped_scope_paid": "ONE_PHYSICAL_ITEM",
+      "mapped_scope_replay": "ONE_PHYSICAL_ITEM",
+      "previous_verified_catalogue_sources": [],
+      "verified_catalogue_sources": [],
+      "documented_material": null,
+      "documented_period": null,
+      "documentary_dimensions": null,
+      "archive_search_response_missing": false,
+      "saved_hold": true
+    }
+  }
+}

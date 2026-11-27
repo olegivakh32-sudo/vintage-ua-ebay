@@ -1,0 +1,38 @@
+{
+  "status": "PREPARED_NO_PAID_EXECUTION",
+  "base_revision": "55d311689ca11881d3c727623d4c657bc095e71e",
+  "price_checked_on": "2026-11-27",
+  "model": "gpt-6-luna",
+  "max_base_input_tokens": 24000,
+  "max_tool_calls_per_research": 2,
+  "alternate_max_output_tokens": 3600,
+  "alternate_max_billed_input_tokens": 463200,
+  "base_reserve_per_lot_usd": "0.14695",
+  "alternate_reserve_per_lot_usd": "0.1385",
+  "paid_retries_allowed": false,
+  "publication_allowed": false,
+  "stages": {
+    "N12": {
+      "blind_sha256": "4898d82950c5f76997550df21ff89e296498211f72cbb2aae00d58402055bf7f",
+      "reference_sha256": "5b224303e51912dba9e3af39fb61e69087454fb2124f49cf5d362b0d9b619d7c",
+      "lots": 12,
+      "photos": 24,
+      "minimum_correct": 11,
+      "max_generations": 36,
+      "max_web_calls": 48,
+      "max_base_usd": "1.76340",
+      "max_with_alternate_usd": "3.42540"
+    },
+    "F50": {
+      "blind_sha256": "ea96a8f8c68bd9e107261c29036a6d904aa7476cc9e9c79c71558548299fc32c",
+      "reference_sha256": "c6c0fe3ee33bee8adf8311c3a0a60b13da625a8aff1fd7c09a702421fe682d94",
+      "lots": 50,
+      "photos": 55,
+      "minimum_correct": 45,
+      "max_generations": 150,
+      "max_web_calls": 200,
+      "max_base_usd": "7.34750",
+      "max_with_alternate_usd": "14.27250"
+    }
+  }
+}

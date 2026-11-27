@@ -85,14 +85,28 @@ def verified_record(key):
         return None
 
 
-def museum_claims(candidate, observed_urls, photo_digests, *, load=verified_record):
+def _marked_accessions(markings, observed):
+    years = {value[:4] for field, value in observed if field == 'accession_number'}
+    keys = set()
+    for literal in markings:
+        mark = re.fullmatch(r'([0-9]{2}|[0-9]{4})(\.[0-9]+(?:\.[A-Za-z0-9-]+)*)', literal.strip())
+        if not mark:
+            continue
+        for year in years:
+            if (len(mark[1]) == 2 and year.endswith(mark[1])) or year == mark[1]:
+                keys.add(('accession_number', year + mark[2]))
+    return keys
+
+
+def museum_claims(candidate, observed_urls, photo_digests, *, markings=(), load=verified_record):
     """Build internal documentation only when the search result and photo really match."""
     if not photo_digests:
         return []
     observed = {key for url in observed_urls if (key := record_key(url))}
+    marked = _marked_accessions(markings, observed)
     proposed = record_key(candidate.get('url'))
-    # Try the model's observed candidate first, then other official records from the same search.
-    ordered = sorted(observed, key=lambda key: (key != proposed, key))[:MAX_RECORDS_TO_VERIFY]
+    # A photographed accession can redirect the lookup within the authority already found by search.
+    ordered = sorted(observed | marked, key=lambda key: (key not in marked, key != proposed, key))[:MAX_RECORDS_TO_VERIFY]
     matches, matched_keys = {}, set()
     for key in ordered:
         if record := load(key):
@@ -117,6 +131,10 @@ def museum_claims(candidate, observed_urls, photo_digests, *, load=verified_reco
     kind = candidate.get('type') if proposed in matched_keys else None
     title_head = re.split(r'\s+(?:of|with|commemorating|depicting|showing)\s+', data['title'], maxsplit=1, flags=re.I)[0]
     type_labels = {normalized_claim(label) for label in (title_head, data.get('type')) if isinstance(label, str)}
+    if matched_keys & marked and isinstance(data.get('type'), str):
+        head = normalized_claim(title_head)
+        if normalized_claim(data['type']) in {head, head + 's'}:
+            kind = title_head
     if isinstance(kind, str) and 3 <= len(kind) <= 65 and not UNCERTAIN_CLAIM.search(kind):
         if normalized_claim(kind) in type_labels:
             fields.append(('type', None, kind))

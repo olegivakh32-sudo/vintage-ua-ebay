@@ -7,6 +7,9 @@ MEASUREMENTS = frozenset({'weight_kg', 'length_cm', 'width_cm', 'height_cm'})
 FIELDS = frozenset({'brand', 'model', 'country', 'period', 'type', 'material', 'battery'}) | MEASUREMENTS
 PRIMARY = frozenset({'CATALOG', 'MANUAL', 'MUSEUM', 'ARCHIVE'})
 UNKNOWN = frozenset({'unknown', 'unresolved', 'none', 'n/a', '—', 'невідомо'})
+ALTERNATE_MODEL = 'gpt-6-luna'
+ALTERNATE_OUTPUT_TOKENS = 3600
+ALTERNATE_SEARCH_CALLS = 2
 FIELD_ALIASES = {'manufacturer': 'brand', 'maker': 'brand', 'model_number': 'model',
                  'country_of_manufacture': 'country', 'year': 'period', 'date': 'period',
                  'era': 'period', 'materials': 'material'}
@@ -69,7 +72,7 @@ def _measurement(record, value, field, implied_unit):
         return None
 
 
-def identity_claims(records, source_urls, photo_count, source_host, *, decisions=None):
+def identity_claims(records, source_urls, photo_count, source_host, *, decisions=None, require_model_citations=False):
     if not isinstance(records, list):
         return []
     assessed = []
@@ -128,6 +131,10 @@ def identity_claims(records, source_urls, photo_count, source_host, *, decisions
             reasons.append('TOO_FEW_INDEPENDENT_SOURCES')
         if not any(source['kind'] in PRIMARY for source in sources):
             reasons.append('NO_PRIMARY_SOURCE')
+        if field == 'model' and require_model_citations:
+            direct = [source for source in sources if _supports_anchor(source['excerpt'], value)]
+            if len(direct) < 2 or not any(source['kind'] in PRIMARY for source in direct):
+                reasons.append('MODEL_VALUE_NOT_IN_CITATIONS')
         anchor = record.get('visual_anchor') if field == 'type' else None
         if anchor is not None:
             if (not isinstance(anchor, str) or not 6 <= len(anchor.strip()) <= 120

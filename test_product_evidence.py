@@ -1,9 +1,12 @@
 import json
+from io import BytesIO
 import re
 from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
 from tempfile import TemporaryDirectory
+
+from PIL import Image
 
 from catalogue_labels import Catalogue
 from ebay_sandbox_probe import SANDBOX, probe
@@ -19,6 +22,91 @@ def observed(field, value, photo=1):
 
 
 class ProductEvidenceTests(unittest.TestCase):
+    def test_unresolved_identity_gets_one_independent_search_and_reaches_sqlite_hold(self):
+        from test_s1_acceptance import RESEARCH, VISUAL
+
+        primary_url = 'https://initial.example/analogy'
+        urls = ['https://manufacturer.example/manual/fx40', 'https://archive.example/fx40']
+        feature = 'Circular quick release latch'
+        target = 'Camera mounting adapter'
+        visual = VISUAL | {'observations': [*VISUAL['observations'], observed('feature', feature) | {'name': 'Latch'}]}
+        citations = [{'url': url, 'kind': 'MANUAL', 'document_id': str(i), 'match': 'EXACT',
+                      'excerpt': f'{target} FX-40 with {feature}.'} for i, url in enumerate(urls)]
+        claims = [dict(field='type', value=target, photos=[1], visual_anchor=feature, sources=citations),
+                  dict(field='model', value='FX-40', photos=[1], sources=citations)]
+
+        def footer(sources, completed=True):
+            return '\nWEB_TOOL_SOURCES_JSON ' + json.dumps({'urls': sources, 'completed': completed})
+
+        alternative = ('IDENTITY_JSON {"type":"Camera mounting adapter","model":"FX-40",'
+                       '"exact_model_confirmed":true}\nIDENTITY_CLAIMS_JSON ' + json.dumps({'claims': claims}))
+        source = BytesIO()
+        Image.new('RGB', (80, 70), 'red').save(source, 'JPEG')
+        with (TemporaryDirectory() as tmp, patch.dict('os.environ', {
+            'ACTIVE_LOT_CHECKPOINT_DIR': tmp, 'HOLD_QUEUE_DIR': tmp, 'ALLOW_PAID_AI': '1',
+            'ENABLE_LIVE_PUBLISH': '0', 'VINTAGE_RESEARCH_ALTERNATE': '1',
+        }), patch.object(m, 'ACTIVE_LOT_CHECKPOINT_DIR', tmp),
+              patch.object(m, 'OPENAI_API_KEY', 'synthetic-transport'),
+              patch.object(m, '_discover_next_lot_from_ebay', return_value=4),
+              patch.object(m, 'estimate_item_size_weight_from_photos', return_value={}),
+              patch.object(m, 'call_openai', side_effect=[json.dumps(visual), RESEARCH + footer([primary_url]),
+                                                        alternative + footer(urls)]) as transport):
+            client = m.app.test_client()
+            client.get('/mobile')
+            with client.session_transaction() as state:
+                csrf = state['hold_csrf']
+            self.assertEqual(client.post('/mobile/upload', data={'hold_csrf': csrf,
+                             'photos': (BytesIO(source.getvalue()), 'fixture.jpg')}).status_code, 303)
+            for stage in ('photos', 'research', 'research', 'draft'):
+                self.assertEqual(client.post('/mobile/prepare-stage', data={'hold_csrf': csrf, 'stage': stage}).status_code, 200)
+            self.assertEqual(transport.call_count, 3)
+            followup = transport.call_args.args[0]
+            self.assertEqual((followup['tool_choice'], followup['max_tool_calls']), ('required', 2))
+            prompt = followup['input'][0]['content'][0]['text']
+            self.assertIn(feature, prompt)
+            self.assertIn('do not repeat as a query', prompt)
+            with client.session_transaction() as state:
+                picker = state['picker_session_id']
+            with m.app.test_request_context():
+                draft = m.LOT002_DRAFT_CACHE[picker]
+                self.assertTrue(m._p058_has_saved_draft(picker, draft))
+                self.assertTrue(draft['hold_preview'])
+                self.assertEqual(draft['product_export']['type'], target)
+                self.assertIn('Documented model: FX-40.', draft['description'])
+                self.assertNotIn('Model', draft['item_specifics'])
+                self.assertFalse(draft.get('price'))
+                market = m.MARKET_CACHE[picker]
+                self.assertEqual(m._reported_web_source_urls(market), {primary_url})
+                self.assertEqual(m._alternate_identity(market)['urls'], urls[::-1])
+                decisions = []
+                modified = market.replace(json.dumps(urls[::-1]), json.dumps(urls[:1]))
+                m._structured_identity_claims(m.IDENTIFICATION_CACHE[picker], modified, 1, decisions=decisions)
+                self.assertTrue(all(row['status'] == 'HYPOTHESIS' and row['pass'] == 'ALTERNATE' for row in decisions))
+                decisions.clear()
+                m._structured_identity_claims(m.IDENTIFICATION_CACHE[picker], market.replace(f'{target} FX-40', target),
+                                              1, decisions=decisions)
+                self.assertEqual(decisions[-1]['reasons'], ['MODEL_VALUE_NOT_IN_CITATIONS'])
+
+    def test_alternate_preserves_primary_research_when_not_started_or_failed(self):
+        identity = 'IDENTITY_JSON {"type":"fixture"}\nIDENTITY_CLAIMS_JSON {"claims":[]}'
+        market = 'PRICE_JSON {"normal":null}\nWEB_TOOL_SOURCES_JSON {"urls":[],"completed":true}'
+        inputs = [{'type': 'input_image', 'image_url': 'fixture'}]
+        def alternate(result):
+            return m._p026_alternate_research('', [{}], identity, result, {}, inputs, None)
+
+        with (patch.object(m, 'call_openai', side_effect=RuntimeError('uncertain transport')) as call,
+              patch.object(m, '_product_evidence_for_review', return_value=({}, [], [])) as evidence):
+            self.assertEqual(alternate(market.replace('true', 'false')), market.replace('true', 'false'))
+            call.assert_not_called()
+            evidence.return_value = ({'research_note': [{'catalogue_photo_match': True}]}, [], [])
+            self.assertEqual(alternate(market), market)
+            call.assert_not_called()
+            evidence.return_value = ({}, [], [])
+            failed = alternate(market)
+            self.assertEqual(m._alternate_identity(failed), {'status': 'FAILED'})
+            self.assertEqual(m._research_machine_json(failed, 'PRICE_JSON'), {'normal': None})
+            call.assert_called_once()
+
     def test_decisions_preserve_anchored_candidates_and_separate_no_visible_defect(self):
         rows = [
             {**observed('type', 'Digital Single Lens Reflex Camera'), 'confidence': 86},

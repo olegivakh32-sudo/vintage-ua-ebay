@@ -1,0 +1,435 @@
+[
+  {
+    "reference_id": "CMA-150188",
+    "identity": [
+      "hanging lamp",
+      "mosque lamp",
+      "oil lamp"
+    ],
+    "source": "https://clevelandart.org/art/1981.10",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/150188",
+    "material": [
+      "glass with enameled and gilded decoration"
+    ],
+    "period": "late 1800s",
+    "documentary_dimensions": "Overall: 39.5 cm (15 9/16 in.)",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1981.10/1981.10_web.jpg",
+        "sha256": "d726f111f6c972b22e11ed0c740222c9736b9b0c43ac70608724190c5c1eb6d5"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1981.10/1981.10_alt0_web.jpg",
+        "sha256": "17615adc95c20e4485ff0ff3185ed291234812f64a8437bd95f4759e993fb9da"
+      }
+    ],
+    "lot": "MV-301",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels."
+  },
+  {
+    "reference_id": "CMA-152834",
+    "identity": [
+      "sideboard",
+      "buffet cabinet"
+    ],
+    "source": "https://clevelandart.org/art/1985.72",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/152834",
+    "material": [
+      "walnut"
+    ],
+    "period": "c. 1855",
+    "documentary_dimensions": "Overall: 290.4 x 211.4 x 69.4 cm (114 5/16 x 83 1/4 x 27 5/16 in.)",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1985.72/1985.72_web.jpg",
+        "sha256": "baff46b254e6ffe326eae6e1c7ca9b21dadad8c3ed024442231e07513cc1103a"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1985.72/1985.72_alt0_web.jpg",
+        "sha256": "af7b394ee8d58afe749a183d470bf3f551e67140317ae7189e2efae4b54a81a3"
+      }
+    ],
+    "lot": "MV-302",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels."
+  },
+  {
+    "reference_id": "CMA-125978",
+    "identity": [
+      "tea bowl",
+      "ceramic bowl",
+      "bowl"
+    ],
+    "source": "https://clevelandart.org/art/1948.206",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/125978",
+    "material": [
+      "Stoneware with black “hare’s fur” glaze and metal-bound rim, Jian ware"
+    ],
+    "period": "1100s–1200s",
+    "documentary_dimensions": "Diameter: 17.8 cm (7 in.); Overall: 8.7 cm (3 7/16 in.)",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1948.206/1948.206_web.jpg",
+        "sha256": "94c05bfeceb115370d316c3fdf55b5e6f99ac3de546080913d06c9cfa03105fc"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1948.206/1948.206_alt0_web.jpg",
+        "sha256": "37d29cccc4fbe2fd5d504624f6ac319eeab8149407a5e9f93c73beaf5d03f4a2"
+      }
+    ],
+    "lot": "MV-303",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels."
+  },
+  {
+    "reference_id": "CMA-94681",
+    "identity": [
+      "earrings",
+      "pair of earrings"
+    ],
+    "source": "https://clevelandart.org/art/1915.338",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/94681",
+    "material": [
+      "Gold set with precious and semi-precious stones"
+    ],
+    "period": "1600s or 1700s",
+    "documentary_dimensions": "Overall: 9.5 x 6.9 cm (3 3/4 x 2 11/16 in.)",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1915.338/1915.338_web.jpg",
+        "sha256": "3846b414963e5bde940753aa988940191ed4a7100f3c04cc5d231390ab6acf27"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1915.338/1915.338_alt0_web.jpg",
+        "sha256": "7461d68e0d0fad3417d792da446a21318805d6f125310ccb263922077ede35cb"
+      }
+    ],
+    "lot": "MV-304",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels."
+  },
+  {
+    "reference_id": "CMA-147576",
+    "identity": [
+      "mirror",
+      "bronze mirror"
+    ],
+    "source": "https://clevelandart.org/art/1973.74",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/147576",
+    "material": [
+      "bronze with silver and gold inlaid lacquer"
+    ],
+    "period": "700s",
+    "documentary_dimensions": "Diameter: 19.2 cm (7 9/16 in.)",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1973.74/1973.74_web.jpg",
+        "sha256": "5b4772abb29845f222599eb3ee452d1df86bf9c0309316e9a7dce03829e3ace6"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1973.74/1973.74_alt0_web.jpg",
+        "sha256": "42549875604b83bb5199e1a2e69eae6efac886a21072e3309619344e310f8b8d"
+      }
+    ],
+    "lot": "MV-305",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels."
+  },
+  {
+    "reference_id": "CMA-94940",
+    "identity": [
+      "lamellophone",
+      "thumb piano",
+      "chisanji"
+    ],
+    "source": "https://clevelandart.org/art/1915.495",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/94940",
+    "material": [
+      "Wood, iron, and wire"
+    ],
+    "period": "late 1800s",
+    "documentary_dimensions": "Overall: 19.1 x 10.2 x 6.4 cm (7 1/2 x 4 x 2 1/2 in.)",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1915.495/1915.495_web.jpg",
+        "sha256": "b79ae8903edcf2d0e0b3ade6ef78c111a20cbb6f6584b4494a860be8ef0e2848"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1915.495/1915.495_alt0_web.jpg",
+        "sha256": "92ceea355d41c95927260d51530e2abb7ae38d601013a79140700b2d57d3071e"
+      }
+    ],
+    "lot": "MV-306",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels."
+  },
+  {
+    "reference_id": "CMA-148009",
+    "identity": [
+      "clothing chest",
+      "storage chest",
+      "chest"
+    ],
+    "source": "https://clevelandart.org/art/1975.10",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/148009",
+    "material": [
+      "lacquered wood with mother-of-pearl inlay"
+    ],
+    "period": "1400s",
+    "documentary_dimensions": "Overall: 43 x 56 x 54.7 cm (16 15/16 x 22 1/16 x 21 9/16 in.)",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1975.10/1975.10_web.jpg",
+        "sha256": "780db32e228d99c1f3eb57ef003f0557946340476286c004371b1d7217f236d1"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1975.10/1975.10_alt0_web.jpg",
+        "sha256": "17e8fe33fb976bb959513097f3afc23ddf8bf46d3a5f44723d3f9027ac6d7d0e"
+      }
+    ],
+    "lot": "MV-307",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels."
+  },
+  {
+    "reference_id": "CMA-152818",
+    "identity": [
+      "wall charger",
+      "decorative plate",
+      "charger"
+    ],
+    "source": "https://clevelandart.org/art/1985.69",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/152818",
+    "material": [
+      "cloisonné and painted enamel mounted in gilt metal frame"
+    ],
+    "period": "1879",
+    "documentary_dimensions": "Framed: 50.7 x 50.7 cm (19 15/16 x 19 15/16 in.); Diameter: 28.9 cm (11 3/8 in.)",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1985.69/1985.69_web.jpg",
+        "sha256": "8f42cf89bb2e22982e6d447f5456120e883ffc8f5c014014581850d1ccd2d041"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1985.69/1985.69_alt0_web.jpg",
+        "sha256": "b2209862e35ccd881d3ed40bc79718e64549d029b47d407f7a32b6d0137443fb"
+      }
+    ],
+    "lot": "MV-308",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels."
+  },
+  {
+    "reference_id": "CMA-143249",
+    "identity": [
+      "brush",
+      "writing brush",
+      "calligraphy brush"
+    ],
+    "source": "https://clevelandart.org/art/1967.194",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/143249",
+    "material": [
+      "carved bamboo"
+    ],
+    "period": "1573–1619",
+    "documentary_dimensions": "Overall: 24.2 cm (9 1/2 in.); Handle: 21 cm (8 1/4 in.); Top: 16.8 cm (6 5/8 in.)",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1967.194/1967.194_web.jpg",
+        "sha256": "8c365add5c4045952add75b6a53981ee183fbbeb186eeaf5c718c3b5859b4a4a"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1967.194/1967.194_alt0_web.jpg",
+        "sha256": "ccf4ca14281db725ad1b7550842f142d747aa68d6a20476ed73b65ed3a0d44e8"
+      }
+    ],
+    "lot": "MV-309",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels."
+  },
+  {
+    "reference_id": "CMA-161684",
+    "identity": [
+      "curtain panel",
+      "curtain",
+      "textile panel"
+    ],
+    "source": "https://clevelandart.org/art/2000.5",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/161684",
+    "material": [
+      "Linen, undyed; wool: dyed; tapestry weave with supplementary weft wrapping"
+    ],
+    "period": "500s",
+    "documentary_dimensions": "Overall: 144.2 x 57.1 cm (56 3/4 x 22 1/2 in.); Mounted: 153.7 x 66 x 3.2 cm (60 1/2 x 26 x 1 1/4 in.)",
+    "licence": "CC0",
+    "licence_url": "https://www.clevelandart.org/open-access",
+    "credit": "The Cleveland Museum of Art",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/2000.5/2000.5_web.jpg",
+        "sha256": "3fb31fef97c695f300d586326da8bf1239fd1d5ca91c50f673b11a2be528c923"
+      },
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/2000.5/2000.5_alt0_web.jpg",
+        "sha256": "f2b0cfd288a92a31721316743e16376ea4c42933ec1344f179d60009db89d757"
+      }
+    ],
+    "lot": "MV-310",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels."
+  },
+  {
+    "reference_id": "CANON-EOS650D",
+    "identity": [
+      "DSLR camera",
+      "digital SLR camera",
+      "camera body"
+    ],
+    "brand": [
+      "Canon"
+    ],
+    "model": [
+      "EOS 650D",
+      "EOS Rebel T4i",
+      "EOS Kiss X6i"
+    ],
+    "source": "https://gdlp01.c-wss.com/gds/3/0300008673/02/EOS_650D_Instruction_Manual_EN.pdf",
+    "licence": "CC BY 2.0",
+    "licence_url": "https://creativecommons.org/licenses/by/2.0/",
+    "credit": "FuFu Wolf / Wikimedia Commons",
+    "photos": [
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/6/68/EOS_650D_Front.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File:EOS_650D_Front.jpg",
+        "sha256": "0520a2df8eef488c76241d5a8a46a3ab4280b95f2e8e01db14213a6a0875d2a5"
+      },
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/b/bc/EOS_650D_display_opened.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File:EOS_650D_display_opened.jpg",
+        "sha256": "7ecd1989abd7a894d0d5229db5bca2b99608dc5965bf0ae33dfc26a81d02d3c5"
+      }
+    ],
+    "lot": "MV-311",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels.",
+    "documentary_dimensions": {
+      "width_mm": 133.1,
+      "height_mm": 99.8,
+      "depth_mm": 78.8
+    },
+    "documentary_weight": {
+      "body_only_g": 520,
+      "CIPA_g": 575
+    }
+  },
+  {
+    "reference_id": "NINTENDO-ORIGINAL-DMG001",
+    "identity": [
+      "handheld game console",
+      "handheld gaming console"
+    ],
+    "brand": [
+      "Nintendo"
+    ],
+    "model": [
+      "Game Boy DMG-001",
+      "DMG-001"
+    ],
+    "source": "https://www.nintendo.com/en-gb/Hardware/Nintendo-History/Game-Boy/Game-Boy-627031.html",
+    "source_record": "https://www.nintendo.com/eu/media/downloads/support_1/game_boy_advance_4/GBA_Manual_UK_DE_FR.pdf",
+    "licence": "Public domain",
+    "licence_url": "https://commons.wikimedia.org/wiki/Commons:Public_domain",
+    "credit": "Evan-Amos / Wikimedia Commons",
+    "photos": [
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/3/30/Game-Boy-FR.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File:Game-Boy-FR.jpg",
+        "sha256": "1f63a8cf8b68d985e4d96fe52d2c631e65dc33388e5b226254e1e0b9e9ec1f7f"
+      },
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/6/60/Game-Boy-BR.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File:Game-Boy-BR.jpg",
+        "sha256": "fff15b183e2992ced53ab63e64e711fbbe9cf48a1f2f714f55e5a7a56e8b70c3"
+      }
+    ],
+    "lot": "MV-312",
+    "checked_on": "2026-11-27",
+    "measured_weight_kg": null,
+    "measured_dimensions_cm": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded, metadata removed and larger views resized to 2,000 pixels."
+  }
+]
