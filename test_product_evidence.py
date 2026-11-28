@@ -312,12 +312,16 @@ class ProductEvidenceTests(unittest.TestCase):
             ('hybrid', '', facts + [{**observed('model', 'ZX-20A'), 'confidence': 85}], 'UNIQUE', one, 'gpt-5.6-terra', 4),
             ('hybrid', '', facts, 'CONFLICT', one, 'gpt-5.6-terra', 4),
             ('hybrid', '', facts, 'NONE', {}, 'gpt-5.6-terra', 4),
+            ('paired-20261128', '', facts, 'UNIQUE', one, 'gpt-6.1-terra', 2),
+            ('paired-20261128', '', facts, 'NONE', {}, 'gpt-6.1-terra', 2),
             ('', 'gpt-6-luna', facts, 'UNIQUE', one, 'gpt-5.6-sol', None),
         ]
         for mode, vision_model, observations, barcode, structure, model, tool_calls in cases:
             with (
                 self.subTest(mode=mode, model=model, barcode=barcode, observations=len(observations)),
-                patch.dict('os.environ', {'VINTAGE_RESEARCH_ROUTE': mode, 'VINTAGE_EXPERIMENT_VISION_MODEL': vision_model}),
+                patch.dict('os.environ', {'VINTAGE_RESEARCH_ROUTE': mode, 'VINTAGE_EXPERIMENT_VISION_MODEL': vision_model,
+                                          'VINTAGE_RESEARCH_ALTERNATE': '1' if mode == m.PAIRED_RESEARCH_ROUTE else '0'}),
+                patch.object(m, '_p026_alternate_research') as alternate,
                 patch.object(m, '_picker_catalogue_matches', return_value=catalogue),
                 patch.object(m, '_mobile_catalogue_hints', return_value={
                     'status': barcode, 'candidates': [{'code': '12345670', 'photos': [1]}],
@@ -326,14 +330,19 @@ class ProductEvidenceTests(unittest.TestCase):
                 patch.object(m, 'call_openai', return_value='') as request,
             ):
                 analysis = 'PRODUCT_OBSERVATIONS_JSON ' + json.dumps({'fields': observations})
-                expected_visual = vision_model if mode and vision_model else 'gpt-5.6-luna'
-                self.assertEqual(m._recognition_luna_model(), expected_visual)
+                expected_visual = ('gpt-6.1-terra' if mode == m.PAIRED_RESEARCH_ROUTE
+                                   else (vision_model if mode and vision_model else 'gpt-5.6-luna'))
+                self.assertEqual(m._visual_recognition_model(), expected_visual)
                 m._p026_combined_research_engine('fixture', analysis, [{}], [1], structure)
                 request.assert_called_once()
+                alternate.assert_not_called()
                 payload = request.call_args.args[0]
                 self.assertEqual(payload['model'], model)
                 self.assertEqual(payload.get('max_tool_calls'), tool_calls)
                 self.assertEqual(payload['tools'], [{'type': 'web_search'}])
+                if mode == m.PAIRED_RESEARCH_ROUTE:
+                    self.assertEqual(payload['reasoning'], {'effort': 'low'})
+                    self.assertIn('cannot identify a unique specimen', payload['input'][0]['content'][0]['text'])
 
     def test_experimental_visual_pass_records_incomplete_roles_without_a_second_call(self):
         picker = 'vision-route-fixture'
@@ -350,6 +359,25 @@ class ProductEvidenceTests(unittest.TestCase):
             self.assertEqual(response.status_code, 422)
             request.assert_called_once()
             self.assertEqual(request.call_args.args[0]['model'], 'gpt-6-luna')
+
+    def test_paired_visual_route_uses_original_photo_with_terra_low_once(self):
+        picker = 'paired-vision-route-fixture'
+        with (
+            m.app.test_request_context('/picker/analyze', method='POST'),
+            patch.dict('os.environ', {'VINTAGE_RESEARCH_ROUTE': m.PAIRED_RESEARCH_ROUTE}),
+            patch.dict(m.PHOTO_CACHE, {picker: [{}]}),
+            patch.object(m, '_paid_ai_enabled', return_value=True),
+            patch.object(m, 'google_photo_to_data_url', return_value='data:image/jpeg;base64,AA==') as photo,
+            patch.object(m, 'call_openai', return_value='{}') as request,
+        ):
+            m.session['picker_session_id'] = picker
+            response = m.app.make_response(m.picker_analyze())
+            self.assertEqual(response.status_code, 422)
+            photo.assert_called_once_with({}, 1536, prefer_original=True)
+            request.assert_called_once()
+            payload = request.call_args.args[0]
+            self.assertEqual(payload['model'], 'gpt-6.1-terra')
+            self.assertEqual(payload['reasoning'], {'effort': 'low'})
 
     def test_conflicts_and_shipping_estimates_remain_out_of_public_aspects(self):
         measurement = {

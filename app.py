@@ -282,6 +282,7 @@ _MODEL_PRICING_PER_M = {
     "gpt-5.6-terra": (2.0, 12.0),
     "gpt-5.6-luna": (0.20, 1.20),
     "gpt-6-luna": (0.10, 0.50),
+    "gpt-6.1-terra": (1.00, 5.00),
 }
 
 def _current_usage_record(picker_id_override=None):
@@ -4864,9 +4865,14 @@ def _refresh_ebay_photo_order(items, picker_id=None):
 # STEP 1 — VISUAL ANALYSIS
 # =========================================================
 
-def _recognition_luna_model():
-    if (os.environ.get('VINTAGE_RESEARCH_ROUTE') == 'hybrid'
-            and os.environ.get('VINTAGE_EXPERIMENT_VISION_MODEL') == 'gpt-6-luna'):
+PAIRED_RESEARCH_ROUTE = 'paired-20261128'
+
+
+def _visual_recognition_model():
+    route = os.environ.get('VINTAGE_RESEARCH_ROUTE')
+    if route == PAIRED_RESEARCH_ROUTE:
+        return 'gpt-6.1-terra'
+    if route == 'hybrid' and os.environ.get('VINTAGE_EXPERIMENT_VISION_MODEL') == 'gpt-6-luna':
         return 'gpt-6-luna'
     return 'gpt-5.6-luna'
 
@@ -4894,6 +4900,8 @@ def picker_analyze():
         # Keep room for close-ups while showing suspect measuring devices at higher detail.
         used_indices = list(dict.fromkeys([*hinted[:3], *used_indices]))[:6]
     if not analysis:
+        route = os.environ.get('VINTAGE_RESEARCH_ROUTE')
+        paired = route == PAIRED_RESEARCH_ROUTE
         output_cap = min(3600, 2000 + max(0, count - 8) * 75)
         prompt = f"{VISUAL_PROMPT}\nLot {label}, {count} seller photos, {len(used_indices)} at high detail."
         content=[{"type":"input_text","text":prompt}]
@@ -4901,17 +4909,19 @@ def picker_analyze():
             for i in range(1, len(items)+1):
                 if i in used_indices:
                     content.append({"type":"input_text","text":f"SOURCE PHOTO #{i} — representative/high detail"})
-                    content.append({"type":"input_image","image_url":google_photo_to_data_url(items[i-1],1024),"detail":"high"})
+                    image = (google_photo_to_data_url(items[i-1], 1536, prefer_original=True) if paired
+                             else google_photo_to_data_url(items[i-1], 1024))
+                    content.append({"type": "input_image", "image_url": image, "detail": "high"})
                 else:
                     content.append({"type":"input_text","text":f"SOURCE PHOTO #{i} — role classification/low detail"})
                     content.append({"type":"input_image","image_url":google_photo_to_data_url(items[i-1],640),"detail":"low"})
             analysis = normalize_visual_analysis(call_openai({
-                "model": _recognition_luna_model(), "input": [{"role": "user", "content": content}],
+                "model": _visual_recognition_model(), "input": [{"role": "user", "content": content}],
                 "reasoning": {"effort": "low"}, "max_output_tokens": output_cap, "store": False, "text": VISUAL_TEXT,
             }, timeout=120), count)
             parsed_roles=_photo_roles_from_analysis(analysis,len(items))
             # Keep the experimental first-pass result attributable to its chosen model.
-            if parsed_roles is None and os.environ.get('VINTAGE_RESEARCH_ROUTE') != 'hybrid':
+            if parsed_roles is None and route not in {'hybrid', PAIRED_RESEARCH_ROUTE}:
                 analysis = normalize_visual_analysis(call_openai({
                     "model": "gpt-5.6-sol", "input": [{"role": "user", "content": content}],
                     "reasoning": {"effort": "low"}, "max_output_tokens": output_cap, "store": False, "text": VISUAL_TEXT,
@@ -5307,9 +5317,15 @@ def _p026_combined_research_engine(label, analysis, items, used_indices, structu
         or 'DETAIL' in scenes.values()
     )
     model, effort, tool_limits, search_strategy = 'gpt-5.6-sol', 'medium' if deepen else 'low', {}, ''
-    if os.environ.get('VINTAGE_RESEARCH_ROUTE') == 'hybrid':
+    route = os.environ.get('VINTAGE_RESEARCH_ROUTE')
+    if route == PAIRED_RESEARCH_ROUTE:
+        model, effort, tool_limits = 'gpt-6.1-terra', 'low', {'max_tool_calls': 2}
+        search_strategy = ('A similar silhouette, material, date or decoration cannot identify a unique specimen. '
+                           'Match its inventory number or distinctive physical evidence to the original record. '
+                           'If only analogues remain, keep exact source and attributes unknown.\n')
+    elif route == 'hybrid':
         if _hybrid_catalogue_route(matches, photo_facts, barcodes, structure):
-            model, effort, tool_limits = _recognition_luna_model(), 'low', {'max_tool_calls': 2}
+            model, effort, tool_limits = _visual_recognition_model(), 'low', {'max_tool_calls': 2}
             search_strategy = ('Start with the exact photographed make and model, official specifications and a '
                                'separate corroborating record. Search for comparables once the variant is supported.')
         else:
@@ -5404,7 +5420,7 @@ Use the same source pages already inspected for market/identification whenever p
         identification = '\n'.join(f'{key} ' + json.dumps(_research_machine_json(identification, key),
                                                            ensure_ascii=False) for key in identity_blocks)
         market = 'PRICE_JSON {"normal":null}\nWEB_TOOL_SOURCES_JSON ' + json.dumps(metadata, ensure_ascii=False)
-    elif os.environ.get('VINTAGE_RESEARCH_ALTERNATE') == '1':
+    elif route != PAIRED_RESEARCH_ROUTE and os.environ.get('VINTAGE_RESEARCH_ALTERNATE') == '1':
         market = _p026_alternate_research(analysis, items, identification, market, context, image_inputs, usage_picker_id)
     return identification, market
 

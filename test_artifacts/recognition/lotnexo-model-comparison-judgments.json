@@ -1,0 +1,706 @@
+{
+  "luna-low": {
+    "visual": {
+      "MV-301": {
+        "identity": {
+          "verdict": "INCORRECT",
+          "evidence": "The object is a hanging mosque lamp by museum accession 1981.10. The vessel/basin answer fails to establish the lighting function."
+        }
+      },
+      "MV-302": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The identified object is a carved buffet or sideboard."
+        }
+      },
+      "MV-303": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The photographed object is a glazed ceramic bowl; bowl is an accepted reference type."
+        }
+      },
+      "MV-304": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The two matching hanging objects are paired earrings."
+        }
+      },
+      "MV-305": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The type is mirror even though some research answers cited a different museum mirror."
+        }
+      },
+      "MV-306": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The board and rows of plucked tines identify a lamellophone or thumb piano."
+        }
+      },
+      "MV-307": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The lid, latch and body identify a storage chest."
+        }
+      },
+      "MV-308": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The answer names a generic picture, plaque or panel; it does not identify the wall charger (decorative plate)."
+        }
+      },
+      "MV-309": {
+        "identity": {
+          "verdict": "INCORRECT",
+          "evidence": "The object as a whole is a writing brush with a cap. Calling it a wooden case with an insert does not identify the usable object."
+        }
+      },
+      "MV-310": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The key explicitly accepts a textile panel. An unspecified fragment or garment decoration does not establish the panel type."
+        }
+      },
+      "MV-311": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The visible lens mount and camera body fit the Canon digital SLR body reference."
+        }
+      },
+      "MV-312": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The display and handheld controls match the handheld game console reference."
+        }
+      }
+    },
+    "research": {
+      "MV-301": {
+        "identity": {
+          "verdict": "INCORRECT",
+          "evidence": "The object is a hanging mosque lamp by museum accession 1981.10. The vessel/basin answer fails to establish the lighting function."
+        }
+      },
+      "MV-302": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The identified object is a carved buffet or sideboard."
+        }
+      },
+      "MV-303": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The photographed object is a glazed ceramic bowl; bowl is an accepted reference type."
+        }
+      },
+      "MV-304": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The two matching hanging objects are paired earrings."
+        }
+      },
+      "MV-305": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The type is mirror even though some research answers cited a different museum mirror."
+        },
+        "primary_source": {
+          "verdict": "INCORRECT",
+          "evidence": "The cited catalogue record documents a different object. The earrings are Cleveland 1915.338; the mirror is Cleveland 1973.74."
+        },
+        "material": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        },
+        "period": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        },
+        "documentary_dimensions": {
+          "verdict": "INCORRECT",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        }
+      },
+      "MV-306": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The board and rows of plucked tines identify a lamellophone or thumb piano."
+        },
+        "documentary_dimensions": {
+          "verdict": "CORRECT",
+          "evidence": "All documented dimensions and units match the exact catalogue record or its verified component record."
+        }
+      },
+      "MV-307": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The lid, latch and body identify a storage chest."
+        }
+      },
+      "MV-308": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The answer names a generic picture, plaque or panel; it does not identify the wall charger (decorative plate)."
+        }
+      },
+      "MV-309": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The object as a whole is a writing brush with a cap. Calling it a wooden case with an insert does not identify the usable object."
+        },
+        "documentary_dimensions": {
+          "verdict": "CORRECT",
+          "evidence": "All documented dimensions and units match the exact catalogue record or its verified component record."
+        }
+      },
+      "MV-310": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The key explicitly accepts a textile panel. An unspecified fragment or garment decoration does not establish the panel type."
+        }
+      },
+      "MV-311": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The visible lens mount and camera body fit the Canon digital SLR body reference."
+        }
+      },
+      "MV-312": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The display and handheld controls match the handheld game console reference."
+        }
+      }
+    }
+  },
+  "luna-medium": {
+    "visual": {
+      "MV-301": {
+        "identity": {
+          "verdict": "INCORRECT",
+          "evidence": "The object is a hanging mosque lamp by museum accession 1981.10. The vessel/basin answer fails to establish the lighting function."
+        }
+      },
+      "MV-302": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The identified object is a carved buffet or sideboard."
+        }
+      },
+      "MV-303": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The photographed object is a glazed ceramic bowl; bowl is an accepted reference type."
+        }
+      },
+      "MV-304": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The two matching hanging objects are paired earrings."
+        }
+      },
+      "MV-305": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The type is mirror even though some research answers cited a different museum mirror."
+        }
+      },
+      "MV-306": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The board and rows of plucked tines identify a lamellophone or thumb piano."
+        }
+      },
+      "MV-307": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The lid, latch and body identify a storage chest."
+        }
+      },
+      "MV-308": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The answer names a generic picture, plaque or panel; it does not identify the wall charger (decorative plate)."
+        }
+      },
+      "MV-309": {
+        "identity": {
+          "verdict": "INCORRECT",
+          "evidence": "The object as a whole is a writing brush with a cap. Calling it a wooden case with an insert does not identify the usable object."
+        }
+      },
+      "MV-310": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The key explicitly accepts a textile panel. An unspecified fragment or garment decoration does not establish the panel type."
+        }
+      },
+      "MV-311": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The visible lens mount and camera body fit the Canon digital SLR body reference."
+        }
+      },
+      "MV-312": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The display and handheld controls match the handheld game console reference."
+        }
+      }
+    },
+    "research": {
+      "MV-301": {
+        "identity": {
+          "verdict": "INCORRECT",
+          "evidence": "The object is a hanging mosque lamp by museum accession 1981.10. The vessel/basin answer fails to establish the lighting function."
+        }
+      },
+      "MV-302": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The identified object is a carved buffet or sideboard."
+        }
+      },
+      "MV-303": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The photographed object is a glazed ceramic bowl; bowl is an accepted reference type."
+        }
+      },
+      "MV-304": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The two matching hanging objects are paired earrings."
+        },
+        "primary_source": {
+          "verdict": "INCORRECT",
+          "evidence": "The cited catalogue record documents a different object. The earrings are Cleveland 1915.338; the mirror is Cleveland 1973.74."
+        }
+      },
+      "MV-305": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The type is mirror even though some research answers cited a different museum mirror."
+        },
+        "primary_source": {
+          "verdict": "INCORRECT",
+          "evidence": "The cited catalogue record documents a different object. The earrings are Cleveland 1915.338; the mirror is Cleveland 1973.74."
+        },
+        "material": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        },
+        "period": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        },
+        "documentary_dimensions": {
+          "verdict": "INCORRECT",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        }
+      },
+      "MV-306": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The board and rows of plucked tines identify a lamellophone or thumb piano."
+        },
+        "documentary_dimensions": {
+          "verdict": "CORRECT",
+          "evidence": "All documented dimensions and units match the exact catalogue record or its verified component record."
+        }
+      },
+      "MV-307": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The lid, latch and body identify a storage chest."
+        },
+        "documentary_dimensions": {
+          "verdict": "CORRECT",
+          "evidence": "All documented dimensions and units match the exact catalogue record or its verified component record."
+        }
+      },
+      "MV-308": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The answer names a generic picture, plaque or panel; it does not identify the wall charger (decorative plate)."
+        }
+      },
+      "MV-309": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The object as a whole is a writing brush with a cap. Calling it a wooden case with an insert does not identify the usable object."
+        },
+        "documentary_dimensions": {
+          "verdict": "CORRECT",
+          "evidence": "All documented dimensions and units match the exact catalogue record or its verified component record."
+        }
+      },
+      "MV-310": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The key explicitly accepts a textile panel. An unspecified fragment or garment decoration does not establish the panel type."
+        }
+      },
+      "MV-311": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The visible lens mount and camera body fit the Canon digital SLR body reference."
+        }
+      },
+      "MV-312": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The display and handheld controls match the handheld game console reference."
+        }
+      }
+    }
+  },
+  "terra-low": {
+    "visual": {
+      "MV-301": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The object is a hanging mosque lamp by museum accession 1981.10. The vessel/basin answer fails to establish the lighting function."
+        }
+      },
+      "MV-302": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The identified object is a carved buffet or sideboard."
+        }
+      },
+      "MV-303": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The photographed object is a glazed ceramic bowl; bowl is an accepted reference type."
+        }
+      },
+      "MV-304": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The two matching hanging objects are paired earrings."
+        }
+      },
+      "MV-305": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The type is mirror even though some research answers cited a different museum mirror."
+        }
+      },
+      "MV-306": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The board and rows of plucked tines identify a lamellophone or thumb piano."
+        }
+      },
+      "MV-307": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The lid, latch and body identify a storage chest."
+        }
+      },
+      "MV-308": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The answer names a generic picture, plaque or panel; it does not identify the wall charger (decorative plate)."
+        }
+      },
+      "MV-309": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The object as a whole is a writing brush with a cap. Calling it a wooden case with an insert does not identify the usable object."
+        }
+      },
+      "MV-310": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The key explicitly accepts a textile panel. An unspecified fragment or garment decoration does not establish the panel type."
+        }
+      },
+      "MV-311": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The visible lens mount and camera body fit the Canon digital SLR body reference."
+        }
+      },
+      "MV-312": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The display and handheld controls match the handheld game console reference."
+        }
+      }
+    },
+    "research": {
+      "MV-301": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The object is a hanging mosque lamp by museum accession 1981.10. The vessel/basin answer fails to establish the lighting function."
+        }
+      },
+      "MV-302": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The identified object is a carved buffet or sideboard."
+        }
+      },
+      "MV-303": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The photographed object is a glazed ceramic bowl; bowl is an accepted reference type."
+        }
+      },
+      "MV-304": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The two matching hanging objects are paired earrings."
+        }
+      },
+      "MV-305": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The type is mirror even though some research answers cited a different museum mirror."
+        },
+        "primary_source": {
+          "verdict": "INCORRECT",
+          "evidence": "The cited catalogue record documents a different object. The earrings are Cleveland 1915.338; the mirror is Cleveland 1973.74."
+        },
+        "material": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        },
+        "period": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        },
+        "documentary_dimensions": {
+          "verdict": "INCORRECT",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        }
+      },
+      "MV-306": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The board and rows of plucked tines identify a lamellophone or thumb piano."
+        },
+        "documentary_dimensions": {
+          "verdict": "CORRECT",
+          "evidence": "All documented dimensions and units match the exact catalogue record or its verified component record."
+        }
+      },
+      "MV-307": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The lid, latch and body identify a storage chest."
+        }
+      },
+      "MV-308": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The answer names a generic picture, plaque or panel; it does not identify the wall charger (decorative plate)."
+        }
+      },
+      "MV-309": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The object as a whole is a writing brush with a cap. Calling it a wooden case with an insert does not identify the usable object."
+        },
+        "documentary_dimensions": {
+          "verdict": "CORRECT",
+          "evidence": "All documented dimensions and units match the exact catalogue record or its verified component record."
+        }
+      },
+      "MV-310": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The key explicitly accepts a textile panel. An unspecified fragment or garment decoration does not establish the panel type."
+        }
+      },
+      "MV-311": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The visible lens mount and camera body fit the Canon digital SLR body reference."
+        }
+      },
+      "MV-312": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The display and handheld controls match the handheld game console reference."
+        }
+      }
+    }
+  },
+  "terra-medium": {
+    "visual": {
+      "MV-301": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The object is a hanging mosque lamp by museum accession 1981.10. The vessel/basin answer fails to establish the lighting function."
+        }
+      },
+      "MV-302": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The identified object is a carved buffet or sideboard."
+        }
+      },
+      "MV-303": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The photographed object is a glazed ceramic bowl; bowl is an accepted reference type."
+        }
+      },
+      "MV-304": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The two matching hanging objects are paired earrings."
+        }
+      },
+      "MV-305": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The type is mirror even though some research answers cited a different museum mirror."
+        }
+      },
+      "MV-306": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The board and rows of plucked tines identify a lamellophone or thumb piano."
+        }
+      },
+      "MV-307": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The lid, latch and body identify a storage chest."
+        }
+      },
+      "MV-308": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The answer names a generic picture, plaque or panel; it does not identify the wall charger (decorative plate)."
+        }
+      },
+      "MV-309": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The object as a whole is a writing brush with a cap. Calling it a wooden case with an insert does not identify the usable object."
+        }
+      },
+      "MV-310": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The key explicitly accepts a textile panel. An unspecified fragment or garment decoration does not establish the panel type."
+        }
+      },
+      "MV-311": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The visible lens mount and camera body fit the Canon digital SLR body reference."
+        }
+      },
+      "MV-312": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The display and handheld controls match the handheld game console reference."
+        }
+      }
+    },
+    "research": {
+      "MV-301": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The object is a hanging mosque lamp by museum accession 1981.10. The vessel/basin answer fails to establish the lighting function."
+        }
+      },
+      "MV-302": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The identified object is a carved buffet or sideboard."
+        }
+      },
+      "MV-303": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The photographed object is a glazed ceramic bowl; bowl is an accepted reference type."
+        }
+      },
+      "MV-304": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The two matching hanging objects are paired earrings."
+        }
+      },
+      "MV-305": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The type is mirror even though some research answers cited a different museum mirror."
+        },
+        "primary_source": {
+          "verdict": "INCORRECT",
+          "evidence": "The cited catalogue record documents a different object. The earrings are Cleveland 1915.338; the mirror is Cleveland 1973.74."
+        },
+        "material": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        },
+        "period": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        },
+        "documentary_dimensions": {
+          "verdict": "INCORRECT",
+          "evidence": "The cited mirror is a different accession. The pictured record gives 19.2 cm; the other profile’s alloy, decoration and date cannot establish an exact match."
+        }
+      },
+      "MV-306": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The board and rows of plucked tines identify a lamellophone or thumb piano."
+        },
+        "documentary_dimensions": {
+          "verdict": "CORRECT",
+          "evidence": "All documented dimensions and units match the exact catalogue record or its verified component record."
+        }
+      },
+      "MV-307": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The lid, latch and body identify a storage chest."
+        }
+      },
+      "MV-308": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The answer names a generic picture, plaque or panel; it does not identify the wall charger (decorative plate)."
+        }
+      },
+      "MV-309": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The object as a whole is a writing brush with a cap. Calling it a wooden case with an insert does not identify the usable object."
+        },
+        "documentary_dimensions": {
+          "verdict": "CORRECT",
+          "evidence": "All documented dimensions and units match the exact catalogue record or its verified component record."
+        }
+      },
+      "MV-310": {
+        "identity": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The key explicitly accepts a textile panel. An unspecified fragment or garment decoration does not establish the panel type."
+        }
+      },
+      "MV-311": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The visible lens mount and camera body fit the Canon digital SLR body reference."
+        }
+      },
+      "MV-312": {
+        "identity": {
+          "verdict": "CORRECT",
+          "evidence": "The display and handheld controls match the handheld game console reference."
+        }
+      }
+    }
+  }
+}

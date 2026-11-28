@@ -1,0 +1,603 @@
+{
+  "run_id": 46115773995,
+  "artifact_id": 15251543295,
+  "revision": "ffe9e8837652c7aa0f93695d5858ba6dca907211",
+  "artifact_sha256": "c77a53d447414b905ad87cbc154f11b5bd01468ed83fc93b765e41796db3bd54",
+  "preflight_status": "AUTHORIZED_UNMETERED",
+  "preflight_model_http": {
+    "gpt-6-luna": 200,
+    "gpt-6.1-terra": 200
+  },
+  "paid_calls": 96,
+  "cap_usd": "2.50",
+  "locked_reserve_usd": "0.977842800",
+  "api_usage_usd": "0.2380183",
+  "unsettled_reserve_usd": "0",
+  "strict_reference_candidate_lots": [
+    "MV-306",
+    "MV-307",
+    "MV-311"
+  ],
+  "verified_reference_candidate_lots": [
+    "MV-306",
+    "MV-307",
+    "MV-309",
+    "MV-311",
+    "MV-312"
+  ],
+  "selected_profile": "terra-low",
+  "comparisons": {
+    "luna-low": {
+      "visual": {
+        "attempts": 12,
+        "marks": {
+          "correct": 5,
+          "eligible": 5
+        },
+        "fields": {
+          "identity": {
+            "eligible": 12,
+            "filled": 12,
+            "correct": 8,
+            "incorrect": 2,
+            "unconfirmed": 2,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "brand": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "model": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          }
+        },
+        "usage_usd": "0.0042600",
+        "median_request_ms": 3120.5,
+        "elapsed_request_ms": 38265,
+        "token_totals": {
+          "input_tokens": 26110,
+          "output_tokens": 3298,
+          "reasoning_tokens": 2119,
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        },
+        "strict_model_correct": 1
+      },
+      "research": {
+        "attempts": 12,
+        "marks": {
+          "correct": 5,
+          "eligible": 5
+        },
+        "fields": {
+          "identity": {
+            "eligible": 12,
+            "filled": 12,
+            "correct": 9,
+            "incorrect": 1,
+            "unconfirmed": 2,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "primary_source": {
+            "eligible": 12,
+            "filled": 5,
+            "correct": 4,
+            "incorrect": 1,
+            "unconfirmed": 0,
+            "unknown": 7,
+            "asserted_without_reference": 0
+          },
+          "brand": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "model": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "material": {
+            "eligible": 10,
+            "filled": 3,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 1,
+            "unknown": 7,
+            "asserted_without_reference": 0
+          },
+          "period": {
+            "eligible": 10,
+            "filled": 3,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 1,
+            "unknown": 7,
+            "asserted_without_reference": 0
+          },
+          "documentary_dimensions": {
+            "eligible": 11,
+            "filled": 3,
+            "correct": 2,
+            "incorrect": 1,
+            "unconfirmed": 0,
+            "unknown": 8,
+            "asserted_without_reference": 0
+          },
+          "documentary_weight": {
+            "eligible": 1,
+            "filled": 0,
+            "correct": 0,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 1,
+            "asserted_without_reference": 0
+          }
+        },
+        "usage_usd": "0.0069244",
+        "median_request_ms": 4063.5,
+        "elapsed_request_ms": 48566,
+        "token_totals": {
+          "input_tokens": 43434,
+          "output_tokens": 5162,
+          "reasoning_tokens": 2764,
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        },
+        "strict_model_correct": 1,
+        "strict_primary_source_correct": 2
+      },
+      "usage_usd": "0.0111844"
+    },
+    "luna-medium": {
+      "visual": {
+        "attempts": 12,
+        "marks": {
+          "correct": 5,
+          "eligible": 5
+        },
+        "fields": {
+          "identity": {
+            "eligible": 12,
+            "filled": 12,
+            "correct": 9,
+            "incorrect": 2,
+            "unconfirmed": 1,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "brand": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "model": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          }
+        },
+        "usage_usd": "0.0052350",
+        "median_request_ms": 3551.5,
+        "elapsed_request_ms": 47882,
+        "token_totals": {
+          "input_tokens": 26110,
+          "output_tokens": 5248,
+          "reasoning_tokens": 3846,
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        },
+        "strict_model_correct": 1
+      },
+      "research": {
+        "attempts": 12,
+        "marks": {
+          "correct": 5,
+          "eligible": 5
+        },
+        "fields": {
+          "identity": {
+            "eligible": 12,
+            "filled": 12,
+            "correct": 9,
+            "incorrect": 1,
+            "unconfirmed": 2,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "primary_source": {
+            "eligible": 12,
+            "filled": 7,
+            "correct": 5,
+            "incorrect": 2,
+            "unconfirmed": 0,
+            "unknown": 5,
+            "asserted_without_reference": 0
+          },
+          "brand": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "model": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 1
+          },
+          "material": {
+            "eligible": 10,
+            "filled": 4,
+            "correct": 3,
+            "incorrect": 0,
+            "unconfirmed": 1,
+            "unknown": 6,
+            "asserted_without_reference": 0
+          },
+          "period": {
+            "eligible": 10,
+            "filled": 4,
+            "correct": 3,
+            "incorrect": 0,
+            "unconfirmed": 1,
+            "unknown": 6,
+            "asserted_without_reference": 0
+          },
+          "documentary_dimensions": {
+            "eligible": 11,
+            "filled": 4,
+            "correct": 3,
+            "incorrect": 1,
+            "unconfirmed": 0,
+            "unknown": 7,
+            "asserted_without_reference": 0
+          },
+          "documentary_weight": {
+            "eligible": 1,
+            "filled": 0,
+            "correct": 0,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 1,
+            "asserted_without_reference": 0
+          }
+        },
+        "usage_usd": "0.0108359",
+        "median_request_ms": 8125.5,
+        "elapsed_request_ms": 104429,
+        "token_totals": {
+          "input_tokens": 43434,
+          "output_tokens": 12985,
+          "reasoning_tokens": 9803,
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        },
+        "strict_model_correct": 1,
+        "strict_primary_source_correct": 2
+      },
+      "usage_usd": "0.0160709"
+    },
+    "terra-low": {
+      "visual": {
+        "attempts": 12,
+        "marks": {
+          "correct": 5,
+          "eligible": 5
+        },
+        "fields": {
+          "identity": {
+            "eligible": 12,
+            "filled": 12,
+            "correct": 10,
+            "incorrect": 0,
+            "unconfirmed": 2,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "brand": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "model": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          }
+        },
+        "usage_usd": "0.033700",
+        "median_request_ms": 2166.0,
+        "elapsed_request_ms": 29928,
+        "token_totals": {
+          "input_tokens": 26110,
+          "output_tokens": 1518,
+          "reasoning_tokens": 408,
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        },
+        "strict_model_correct": 1
+      },
+      "research": {
+        "attempts": 12,
+        "marks": {
+          "correct": 5,
+          "eligible": 5
+        },
+        "fields": {
+          "identity": {
+            "eligible": 12,
+            "filled": 12,
+            "correct": 10,
+            "incorrect": 0,
+            "unconfirmed": 2,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "primary_source": {
+            "eligible": 12,
+            "filled": 5,
+            "correct": 4,
+            "incorrect": 1,
+            "unconfirmed": 0,
+            "unknown": 7,
+            "asserted_without_reference": 0
+          },
+          "brand": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "model": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "material": {
+            "eligible": 10,
+            "filled": 3,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 1,
+            "unknown": 7,
+            "asserted_without_reference": 0
+          },
+          "period": {
+            "eligible": 10,
+            "filled": 3,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 1,
+            "unknown": 7,
+            "asserted_without_reference": 0
+          },
+          "documentary_dimensions": {
+            "eligible": 11,
+            "filled": 3,
+            "correct": 2,
+            "incorrect": 1,
+            "unconfirmed": 0,
+            "unknown": 8,
+            "asserted_without_reference": 0
+          },
+          "documentary_weight": {
+            "eligible": 1,
+            "filled": 0,
+            "correct": 0,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 1,
+            "asserted_without_reference": 0
+          }
+        },
+        "usage_usd": "0.059214",
+        "median_request_ms": 3760.0,
+        "elapsed_request_ms": 52081,
+        "token_totals": {
+          "input_tokens": 43434,
+          "output_tokens": 3156,
+          "reasoning_tokens": 739,
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        },
+        "strict_model_correct": 1,
+        "strict_primary_source_correct": 1
+      },
+      "usage_usd": "0.092914"
+    },
+    "terra-medium": {
+      "visual": {
+        "attempts": 12,
+        "marks": {
+          "correct": 5,
+          "eligible": 5
+        },
+        "fields": {
+          "identity": {
+            "eligible": 12,
+            "filled": 12,
+            "correct": 10,
+            "incorrect": 0,
+            "unconfirmed": 2,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "brand": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "model": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          }
+        },
+        "usage_usd": "0.041330",
+        "median_request_ms": 3637.0,
+        "elapsed_request_ms": 52655,
+        "token_totals": {
+          "input_tokens": 26110,
+          "output_tokens": 3044,
+          "reasoning_tokens": 1839,
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        },
+        "strict_model_correct": 1
+      },
+      "research": {
+        "attempts": 12,
+        "marks": {
+          "correct": 5,
+          "eligible": 5
+        },
+        "fields": {
+          "identity": {
+            "eligible": 12,
+            "filled": 12,
+            "correct": 10,
+            "incorrect": 0,
+            "unconfirmed": 2,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "primary_source": {
+            "eligible": 12,
+            "filled": 5,
+            "correct": 4,
+            "incorrect": 1,
+            "unconfirmed": 0,
+            "unknown": 7,
+            "asserted_without_reference": 0
+          },
+          "brand": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "model": {
+            "eligible": 2,
+            "filled": 2,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 0,
+            "asserted_without_reference": 0
+          },
+          "material": {
+            "eligible": 10,
+            "filled": 3,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 1,
+            "unknown": 7,
+            "asserted_without_reference": 0
+          },
+          "period": {
+            "eligible": 10,
+            "filled": 3,
+            "correct": 2,
+            "incorrect": 0,
+            "unconfirmed": 1,
+            "unknown": 7,
+            "asserted_without_reference": 0
+          },
+          "documentary_dimensions": {
+            "eligible": 11,
+            "filled": 3,
+            "correct": 2,
+            "incorrect": 1,
+            "unconfirmed": 0,
+            "unknown": 8,
+            "asserted_without_reference": 0
+          },
+          "documentary_weight": {
+            "eligible": 1,
+            "filled": 0,
+            "correct": 0,
+            "incorrect": 0,
+            "unconfirmed": 0,
+            "unknown": 1,
+            "asserted_without_reference": 0
+          }
+        },
+        "usage_usd": "0.076519",
+        "median_request_ms": 8206.5,
+        "elapsed_request_ms": 96468,
+        "token_totals": {
+          "input_tokens": 43434,
+          "output_tokens": 6617,
+          "reasoning_tokens": 3843,
+          "cached_tokens": 0,
+          "cache_write_tokens": 0
+        },
+        "strict_model_correct": 1,
+        "strict_primary_source_correct": 1
+      },
+      "usage_usd": "0.117849"
+    }
+  }
+}

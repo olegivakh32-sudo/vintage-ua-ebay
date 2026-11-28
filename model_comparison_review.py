@@ -18,7 +18,9 @@ VISIBLE_MARKS = {
     'MV-311': [(1, 'Canon'), (1, 'EOS 650D')],
     'MV-312': [(1, 'Nintendo GAME BOY'), (1, 'DOT MATRIX WITH STEREO SOUND')],
 }
+VERIFIED_REFERENCES = PACK.with_name('lotnexo-model-comparison-reference-review.json')
 VISUAL_FIELDS = frozenset({'identity', 'brand', 'model'})
+DOCUMENTARY_FIELDS = ('material', 'period', 'documentary_dimensions', 'documentary_weight')
 
 
 def normalized(text):
@@ -52,6 +54,16 @@ def output_text(response):
         return {}
 
 
+def candidate_for(value, results):
+    """Resolve a result ID or an unambiguous literal URL already in the input."""
+    if not isinstance(value, str):
+        return None
+    if value in results:
+        return results[value]
+    matches = [item for item in results.values() if value == item['url']]
+    return matches[0] if len(matches) == 1 else None
+
+
 def parse_prediction(row, directory, results):
     if row.get('status') != 'completed':
         return {}, [], []
@@ -59,23 +71,30 @@ def parse_prediction(row, directory, results):
     reported = {field: response[field] for field in VISUAL_FIELDS if response.get(field)}
     supported = []
     if row['phase'] == 'research':
-        selected = results.get(response.get('exact_source'))
+        selected = candidate_for(response.get('exact_source'), results)
         if selected:
             reported['primary_source'] = selected['url']
         for claim in response.get('claims', []):
-            evidence = results.get(claim['result_id'])
+            evidence = candidate_for(claim['result_id'], results)
             if evidence and claim['field'] in FIELDS and claim['matching_feature'].strip():
                 supported.append(claim | {'source_url': evidence['url']})
-        for field in ('material', 'period', 'documentary_dimensions', 'documentary_weight'):
+        for field in DOCUMENTARY_FIELDS:
             statements = list(dict.fromkeys(claim['value'] for claim in supported if claim['field'] == field))
             if statements:
                 reported[field] = statements[0] if len(statements) == 1 else statements
     return reported, response.get('markings') or [], supported
 
 
-def review(directory, judgments=None):
+def review(directory, judgments=None, *, verified_references=False):
     ledger = json.loads((directory / 'ledger.json').read_bytes())
     expected = available_fields(sealed_plan(verify_runtime=False))
+    if verified_references:
+        additional = json.loads(VERIFIED_REFERENCES.read_bytes())['covered_references']
+        for lot, correction in additional.items():
+            fields = expected[lot]
+            if 'model' in correction:
+                fields['model'] = correction['model']
+            fields['primary_source'] = fields['primary_source'] + correction['primary_source']
     packet = json.loads(PACK.read_bytes())
     references_found = {}
     for lot, row in expected.items():
@@ -107,10 +126,16 @@ def review(directory, judgments=None):
                         'reported': [mark['literal'] for mark in markings if mark['photo'] == photo]}
                         for photo, text in VISIBLE_MARKS[lot]]
                 for field, value in predictions.get(lot, {}).items():
-                    if field in facts[lot] and automatic_judgment(field, value, facts[lot][field]):
-                        checks.setdefault(lot, {})[field] = {
-                            'verdict': 'CORRECT', 'evidence': 'Exact normalized match with the sealed reference.',
-                        }
+                    if field not in facts[lot] or not automatic_judgment(field, value, facts[lot][field]):
+                        continue
+                    verdict, evidence = 'CORRECT', 'Exact normalized match with the selected reference.'
+                    if field in DOCUMENTARY_FIELDS and not any(
+                        claim['field'] == field and automatic_judgment(
+                            'primary_source', claim['source_url'], expected[lot]['primary_source'])
+                        for claim in claims.get(lot, [])
+                    ):
+                        verdict, evidence = 'UNCONFIRMED', 'Matching text is cited to a different or unverified object.'
+                    checks.setdefault(lot, {})[field] = {'verdict': verdict, 'evidence': evidence}
                 checks.setdefault(lot, {}).update((judgments or {}).get(arm, {}).get(phase, {}).get(lot, {}))
             scores = grade(facts, predictions, checks)
             marks = [mark for group in mark_rows.values() for mark in group]
@@ -122,7 +147,7 @@ def review(directory, judgments=None):
                 median_request_ms=median([row['elapsed_ms'] for row in rows if 'elapsed_ms' in row])
                 if any('elapsed_ms' in row for row in rows) else None,
             )
-    return {'status': ledger['status'], 'usage_estimate_usd': ledger['usage_estimate_usd'],
+    return {'status': ledger['status'], 'reference_mode': 'verified' if verified_references else 'frozen', 'usage_estimate_usd': ledger['usage_estimate_usd'],
             'unsettled_reserve_usd': ledger['unsettled_reserve_usd'],
             'known_primary_source_in_common_candidates': references_found, 'arms': evaluations}
 
@@ -131,6 +156,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('directory', type=Path)
     parser.add_argument('--judgments', type=Path)
+    parser.add_argument('--verified-references', action='store_true')
     args = parser.parse_args()
     checks = json.loads(args.judgments.read_bytes()) if args.judgments else None
-    print(json.dumps(review(args.directory, checks), ensure_ascii=False, indent=2))
+    print(json.dumps(review(args.directory, checks, verified_references=args.verified_references), ensure_ascii=False, indent=2))

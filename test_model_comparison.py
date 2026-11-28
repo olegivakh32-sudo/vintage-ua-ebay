@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import requests
 
 from model_comparison import CAP, StopComparison, execute, preflight, request_plan, shared_inputs, verify_plan
-from model_comparison_review import review
+from model_comparison_review import candidate_for, review
 
 
 def reply(status_code, **body):
@@ -93,6 +93,14 @@ class ModelComparisonTests(TestCase):
             ready = preflight(session, 'sk-mock', self.plan, target / 'preflight.json')
             execute(session, 'sk-mock', self.plan, ready, target / 'results')
             report = review(target / 'results')
+            verified = review(target / 'results', verified_references=True)
+        self.assertEqual(report['reference_mode'], 'frozen')
+        self.assertEqual(verified['reference_mode'], 'verified')
+        field = verified['arms']['luna-low']['visual']['lots']['MV-312']['model']
+        self.assertEqual(field['status'], 'UNKNOWN')
+        self.assertIn('DMG-01', field['reference'])
+        present = verified['known_primary_source_in_common_candidates']
+        self.assertEqual({lot for lot in present if present[lot]}, {'MV-306', 'MV-307', 'MV-309', 'MV-311', 'MV-312'})
         self.assertEqual(report['status'], 'COMPLETED')
         self.assertEqual(report['unsettled_reserve_usd'], '0')
         self.assertEqual(session.request.call_count, 99 + 96)
@@ -101,6 +109,14 @@ class ModelComparisonTests(TestCase):
                 self.assertEqual(phase['attempts'], 12)
                 self.assertEqual(phase['fields']['identity']['unknown'], 12)
                 self.assertEqual(phase['markings']['eligible'], 5)
+
+    def test_source_url_must_be_an_unambiguous_frozen_candidate(self):
+        record = {'id': 'R1', 'url': 'https://museum.example/art/1915.495'}
+        candidates = {'R1': record}
+        self.assertEqual(candidate_for('R1', candidates), record)
+        self.assertEqual(candidate_for(record['url'], candidates), record)
+        self.assertIsNone(candidate_for('https://museum.example/art/1915.496', candidates))
+        self.assertIsNone(candidate_for(record['url'], candidates | {'R2': record}))
 
     def test_over_limit_count_ends_preflight_at_first_payload(self):
         session = Mock()

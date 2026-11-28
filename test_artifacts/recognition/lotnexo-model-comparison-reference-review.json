@@ -1,0 +1,47 @@
+{
+  "notes": [
+    "Prepared before reading outputs from the paired run. The frozen N12 JSON is unchanged.",
+    "Museum records for unique items must describe the pictured item or one documented part of the same set.",
+    "Manufacturer documentation or a museum record of the exact model is sufficient for mass-produced objects. Such records do not establish facts about a different physical unit."
+  ],
+  "covered_references": {
+    "MV-309": {
+      "primary_source": [
+        "https://www.clevelandart.org/art/1967.194.b"
+      ],
+      "evidence": "The Cleveland cap record documents the same brush and cap, including the material, date and dimensions."
+    },
+    "MV-311": {
+      "primary_source": [
+        "https://gdlp01.c-wss.com/gds/3/0300008673/01/EOS_650D_Instruction_Manual_EN.pdf",
+        "https://www.usa.canon.com/support/p/eos-rebel-t4i",
+        "https://www.canon.com.au/support/sims-content?cid=C0A107CAE2B44426A4212EFECE43B331&ctype=ma&pid=fd93f047711a47f485b2e68568d5500e"
+      ],
+      "evidence": "Canon confirms T4i and EOS 650D are the same model. Both editions of the English Canon manual give 133.1 × 99.8 × 78.8 mm and distinguish 575 g CIPA from 520 g body only."
+    },
+    "MV-312": {
+      "model": [
+        "DMG-01",
+        "Game Boy DMG-01",
+        "Nintendo Game Boy DMG-01"
+      ],
+      "primary_source": [
+        "https://collection.sciencemuseumgroup.org.uk/objects/co8184133/nintendo-game-boy-games-console",
+        "https://collection.sciencemuseumgroup.org.uk/objects/co8184133/nintendo-game-boy",
+        "https://www.mplus.org.hk/en/collection/objects/game-boy-portable-video-game-console-model-dmg-01-2016546/"
+      ],
+      "evidence": "The photographed case label says MODEL NO. DMG-01. The Science Museum Group and M+ catalogue the same model. These collection entries describe other physical units and are model references only.",
+      "evidence_photo": {
+        "source": "MV-312/02.jpg",
+        "sha256": "982204201acbaa7c64f64712cb5f0300b9b139cfd129f386f82141d66f4aa4a5",
+        "crop": "530,620,1160,990",
+        "rotation_degrees": "-17",
+        "visible_model": "DMG-01",
+        "proof_image": "lotnexo-model-comparison-dmg-label.png",
+        "source_page": "https://commons.wikimedia.org/wiki/File:Game-Boy-BR.jpg",
+        "credit": "Evan-Amos / Wikimedia Commons",
+        "licence": "Public domain"
+      }
+    }
+  }
+}
