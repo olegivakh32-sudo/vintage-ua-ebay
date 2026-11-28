@@ -1,0 +1,58 @@
+name: LOTNEXO paired model comparison
+
+on:
+  push:
+    tags: [p094-lotnexo-model-compare-250]
+
+concurrency:
+  group: lotnexo-model-compare-250
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    if: >-
+      github.repository == 'olegivakh32-sudo/vintage-ua-ebay' &&
+      github.ref == 'refs/tags/p094-lotnexo-model-compare-250' &&
+      github.event.created && !github.event.deleted && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    environment: p094-vision-pilot
+    permissions:
+      contents: write
+    env:
+      ALLOW_PAID_AI: '0'
+      ENABLE_LIVE_PUBLISH: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Prepare the sealed comparison without credentials
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/lotnexo-compare-venv"
+          timeout 180s "$RUNNER_TEMP/lotnexo-compare-venv/bin/python" -m pip install -q -r requirements.txt
+          mkdir "$RUNNER_TEMP/lotnexo-compare"
+          "$RUNNER_TEMP/lotnexo-compare-venv/bin/python" model_comparison.py plan "$RUNNER_TEMP/lotnexo-compare" | tee "$RUNNER_TEMP/lotnexo-compare/plan.json"
+      - name: Verify both models and count all exact input payloads without generation
+        env:
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: timeout 15m "$RUNNER_TEMP/lotnexo-compare-venv/bin/python" model_comparison.py preflight "$RUNNER_TEMP/lotnexo-compare"
+      - name: Reserve the only execution across runners
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          timeout 25s gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref=refs/tags/p094-lotnexo-model-compare-250-reserved -f sha="$GITHUB_SHA" > /dev/null
+      - name: Execute once within the verified budget
+        env:
+          LOTNEXO_COMPARISON_RESERVED: ${{ github.sha }}
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: timeout 55m "$RUNNER_TEMP/lotnexo-compare-venv/bin/python" model_comparison.py execute "$RUNNER_TEMP/lotnexo-compare"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: lotnexo-model-comparison-evidence
+          path: ${{ runner.temp }}/lotnexo-compare/**/*.json
+          retention-days: 30
+          if-no-files-found: ignore
