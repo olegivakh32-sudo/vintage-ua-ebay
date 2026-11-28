@@ -271,6 +271,7 @@ def run(data, photos, limits, *, live_web=None):
     if live_web is not None:
         live_web.prepare_catalogue(data['lot'], photos, vintage)
     verify_catalogue = getattr(live_web, 'verify_public_catalogue', False) is True
+    taxonomy_token = getattr(live_web, 'taxonomy_token', None)
 
     def request_guard(session, method, url, *args, **kwargs):
         if verify_catalogue and method.upper() == 'GET':
@@ -343,10 +344,37 @@ def run(data, photos, limits, *, live_web=None):
         model: (float(rate), float(out)) for model, (_, rate, out) in PILOT_MODELS.items()
     }):
         if live_web is not None:
-            optional.enter_context(patch.dict(os.environ, {
+            live_environment = getattr(live_web, 'live_environment', None)
+            environment = {
                 'VINTAGE_RESEARCH_ROUTE': 'hybrid', 'VINTAGE_EXPERIMENT_VISION_MODEL': 'gpt-6-luna',
                 'VINTAGE_PRODUCT_CATALOGUE': '', 'VINTAGE_WORKSPACE_CATALOGUE': '',
-            }))
+            }
+            if callable(live_environment):
+                environment.update(live_environment())
+            optional.enter_context(patch.dict(os.environ, environment))
+            if taxonomy_token:
+                from ebay_sandbox_probe import PRODUCTION, TIMEOUT
+
+                def read_taxonomy(method, url, *, params, **kwargs):
+                    prefix = PRODUCTION + '/commerce/taxonomy/v1/'
+                    path = url.removeprefix(prefix)
+                    if (method != 'GET' or not url.startswith(prefix)
+                            or not re.fullmatch(r'get_default_category_tree_id|category_tree/[0-9]+/'
+                                                r'(?:get_category_suggestions|get_item_aspects_for_category)', path)):
+                        live_web.stop('UNAPPROVED_TAXONOMY_REQUEST')
+                    with requests.Session() as connection:
+                        return actual_request(connection, 'GET', url, params=params, timeout=TIMEOUT,
+                                              headers={'Authorization': 'Bearer ' + taxonomy_token},
+                                              allow_redirects=False)
+
+                optional.enter_context(patch.multiple(vintage, EBAY_CLIENT_ID='taxonomy-app',
+                                                      EBAY_CLIENT_SECRET='taxonomy-app',
+                                                      EBAY_REFRESH_TOKEN='taxonomy-app'))
+                optional.enter_context(patch.object(vintage, 'get_ebay_access_token', return_value=taxonomy_token))
+                optional.enter_context(patch.object(vintage, '_lot002_request', read_taxonomy))
+            elif getattr(live_web, 'verify_hold_reopen', False) is True:
+                optional.enter_context(patch.multiple(vintage, EBAY_CLIENT_ID=None, EBAY_CLIENT_SECRET=None,
+                                                      EBAY_REFRESH_TOKEN=None))
             # This cohort lacks instrument photos. Direct readings still pass through the
             # normal measurement code. The optional paid measurement engine stays disabled.
             optional.enter_context(patch.object(vintage, 'estimate_item_size_weight_from_photos', return_value={}))
@@ -428,10 +456,22 @@ def run(data, photos, limits, *, live_web=None):
                 status = 'DRAFT'
                 if draft.get('hold_preview'):
                     status = 'HOLD' if vintage._p058_has_saved_draft(picker, draft) else 'NOT_SAVED'
+            if status == 'HOLD' and getattr(live_web, 'verify_hold_reopen', False):
+                with vintage._p058_db() as db:
+                    row = db.execute("SELECT id FROM hold_lots WHERE picker_id=? AND status='active'",
+                                     (picker,)).fetchone()
+                if not row:
+                    live_web.stop('HOLD_RECORD_MISSING')
+                vintage.LOT002_DRAFT_CACHE.pop(picker)
+                opened = client.post('/ebay/hold-queue/open', data={'hold_csrf': csrf, 'record_id': row['id']})
+                if opened.status_code != 303 or vintage.LOT002_DRAFT_CACHE.get(picker) != draft:
+                    live_web.stop('HOLD_RECORD_NOT_RESTORED')
             review = {'title': draft.get('title'), 'evidence': evidence, 'observations': observations,
                       'reference_decisions': references, 'market_check': vintage._market_price_quality(market),
                       'unverified_category': candidates,
                       'draft_status': status}
+            if getattr(live_web, 'verify_hold_reopen', False):
+                review['hold_reopened'] = status == 'HOLD'
         observed = {
             field: list(dict.fromkeys(row['value'] for row in evidence.get(field, [])
                                       if row['status'] in {'PHOTO_OBSERVATION', 'SELLER_VERIFIED'}))

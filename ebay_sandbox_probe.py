@@ -29,6 +29,22 @@ def _token(value):
     return value if isinstance(value, str) and len(value) <= 8192 and re.fullmatch(r'[\x21-\x7e]+', value) else None
 
 
+def production_taxonomy_token(config, transport=requests):
+    """Use a dedicated application token or mint one without seller permissions."""
+    token = _token(config.get('VINTAGE_EBAY_TAXONOMY_TOKEN'))
+    client = config.get('VINTAGE_EBAY_TAXONOMY_CLIENT_ID')
+    secret = config.get('VINTAGE_EBAY_TAXONOMY_CLIENT_SECRET')
+    if token or not (client and secret):
+        return token
+    reply = transport.post(PRODUCTION + '/identity/v1/oauth2/token',
+                           data={'grant_type': 'client_credentials', 'scope': APP_SCOPE},
+                           auth=(client, secret), timeout=TIMEOUT, allow_redirects=False)
+    token = _token(_body(reply, 'OAuth').get('access_token'))
+    if token is None:
+        raise ValueError('OAuth: missing token')
+    return token
+
+
 def probe(*, connect=False, marketplace='EBAY_US', config=None, transport=requests):
     marketplace_code(marketplace)
     config = os.environ if config is None else config
@@ -79,13 +95,7 @@ def production_taxonomy(*, connect=False, marketplace='EBAY_US', category_id=Non
     if not connect or not (token or (client and secret)):
         return report
     try:
-        if not token:
-            reply = transport.post(PRODUCTION + '/identity/v1/oauth2/token',
-                                   data={'grant_type': 'client_credentials', 'scope': APP_SCOPE},
-                                   auth=(client, secret), timeout=TIMEOUT, allow_redirects=False)
-            token = _token(_body(reply, 'OAuth').get('access_token'))
-            if token is None:
-                raise ValueError('OAuth: missing token')
+        token = production_taxonomy_token(config, transport)
         headers = {'Authorization': 'Bearer ' + token}
         base = PRODUCTION + '/commerce/taxonomy/v1'
         reply = transport.get(base + '/get_default_category_tree_id', params={'marketplace_id': marketplace},

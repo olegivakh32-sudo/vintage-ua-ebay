@@ -5326,7 +5326,8 @@ def _p026_research_details(analysis, items, identification, market, image_frames
     )
     request_details = details_request(evidence or {}, _single_catalogue_item(structure) and scope_confirmed,
                                       _research_product_frames(analysis, len(items)))
-    if not request_details or request_details['photos'][0] not in image_frames:
+    if (not request_details or not any(field != 'period' for field in request_details['fields'])
+            or request_details['photos'][0] not in image_frames):
         return market
     anchor = {key: request_details[key] for key in ('brand', 'model', 'photos')}
     # Save the completed primary result before starting additional work.
@@ -5414,7 +5415,8 @@ def _p026_combined_research_engine(label, analysis, items, used_indices, structu
     )
     model, effort, tool_limits, search_strategy = 'gpt-5.6-sol', 'medium' if deepen else 'low', {}, ''
     route = os.environ.get('VINTAGE_RESEARCH_ROUTE')
-    if route == PAIRED_RESEARCH_ROUTE:
+    paired = route == PAIRED_RESEARCH_ROUTE
+    if paired:
         model, effort, tool_limits = 'gpt-6.1-terra', 'low', {'max_tool_calls': 2}
         search_strategy = ('A similar silhouette, material, date or decoration cannot identify a unique specimen. '
                            'Match its inventory number or distinctive physical evidence to the original record. '
@@ -5425,7 +5427,9 @@ def _p026_combined_research_engine(label, analysis, items, used_indices, structu
                            'the complete record. Look up technical data by literal code and then read the original '
                            'specification table. Quote the named axis or weight basis from the same source; keep '
                            'case-only, installed, equipped and packed variants separate. If only analogues remain, '
-                           'keep exact source and attributes unknown.\n')
+                           'keep exact source and attributes unknown. Use the second tool call only for a new '
+                           'discriminator, a missing primary source, or a supported market query. Do not repeat '
+                           'queries or fetch pages already inspected.\n')
     elif route == 'hybrid':
         if _hybrid_catalogue_route(matches, photo_facts, barcodes, structure):
             model, effort, tool_limits = _visual_recognition_model(), 'low', {'max_tool_calls': 2}
@@ -5441,6 +5445,14 @@ def _p026_combined_research_engine(label, analysis, items, used_indices, structu
     market_step = ("B) MARKET ENGINE: research defensible comparables only if A establishes the physical function "
                    "and the variant required for reliable comparison. Otherwise spend the remaining search on A."
                    if not sale_pending else "B) MARKET ENGINE is deferred until sale scope is confirmed.")
+    identification_note = ('Summarize only unresolved evidence in one short Ukrainian line.' if paired else
+                           'Then concise Ukrainian sections: status, what it is, markings/OCR, distinctive features, '
+                           'checked candidates/mismatches, confirmed facts, unresolved facts, sources.')
+    market_note = ('CATEGORY_CANDIDATE_JSON {"category_id":null,"path":null,"reason":""}\n'
+                   'Supply a category only when an eBay source supplies the full path. Do not repeat fields in prose.'
+                   if paired else 'Then concise Ukrainian sections: confirmed sold comps, active comps, closest '
+                   'comparable + differences, price logic, recommended prices, evidence-safe eBay title, '
+                   'category/type suggestion, safe item specifics, market confidence, sources.')
     prompt=f"""P026 COMBINED RESEARCH — TWO LOGICAL MODULES, ONE API CALL
 Current lot: {label}
 PHYSICAL STRUCTURE: {json.dumps(scope_summary, ensure_ascii=False)}
@@ -5477,7 +5489,7 @@ REFERENCE_OBJECT_JSON {{"url":null,"type":null,"photos":[]}}
 Use REFERENCE_OBJECT_JSON only for an exact object candidate from a primary museum record that shows the object. Cite an observed URL and the matching photo numbers. A catalogue accession belongs in the source attribution. Keep model, operating range and actual physical measurements separate.
 State each proposed model, maker, country, period, type and material as a separate claim. Search the exact label, manufacturer manual/specification and an independent source before considering analogs. Include `weight_kg`, `length_cm`, `width_cm` and `height_cm` as separate numeric claims when documented for the exact variant. For those claims use `specimen_basis` NET for product mass and ITEM for physical product dimensions; exclude packaging, accessory dimensions and operating range. Cite seller photo numbers and exact URLs from the web search results. Capture a short exact excerpt and identifier for the underlying record, shared by mirrors. Describe discrepancies or competing values. Put uncertain matches in the analog analysis. Return an empty claims list when none is supportable.
 For powered items, include a separate battery claim from exact-variant documentation when available. State chemistry and whether the battery is installed, supplied or optional. Leave unknowns unasserted.
-Then concise Ukrainian sections: status, what it is, markings/OCR, distinctive features, checked candidates/mismatches, confirmed facts, unresolved facts, sources.
+{identification_note}
 
 === MARKET ===
 PRICE_JSON {{"quick":null,"normal":null,"patient":null,"minimum":null}}
@@ -5487,7 +5499,7 @@ For ACTIVE, include checked_on YYYY-MM-DD. In a separate block report comparable
 MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_usd":null,"currency":"USD","match_evidence":"","sale_evidence":"","sold_date":"","checked_on":""}}]}}
 UA_MARKET_COMPS_JSON {{"comparables":[{{"url":"","status":"ACTIVE|SOLD","price_uah":null,"currency":"UAH","match_evidence":"","sale_evidence":"","sold_date":"","checked_on":""}}]}}
 Use the exact page URL from web search. For SOLD, record the visible sale evidence, omitting unverified sales.
-Then concise Ukrainian sections: confirmed sold comps, active comps, closest comparable + differences, price logic, recommended prices, evidence-safe eBay title, category/type suggestion, safe item specifics, market confidence, sources.
+{market_note}
 SPECS_EVIDENCE_JSON {{"sources":[{{"url":"","title":"","document_id":"","same_variant":false,"confidence":0,"matched_features":[],"contradictions":[],"weight_basis":"NET|GROSS|UNKNOWN","weight_kg":null,"length_cm":null,"width_cm":null,"height_cm":null}}]}}
 For SPECS_EVIDENCE_JSON reuse already inspected primary sources within the available tool budget. Record only actually observed specifications, source URL, NET versus GROSS mass, and visual matching features using shape, decoration, hinge, latch, interior, construction, material, mechanism, dimensions. Use literal feature tokens: shape+construction+material/mechanism/dimensions may describe objects without decoration or hinges. Compare competing variants/materials; a similar caption is insufficient. same_variant does NOT mean a proven maker/model. Unknown model number must not prevent recording a defensible matching-variant reference. Record contradictions explicitly, especially different alloy, construction, and net mass. Use the same document_id for mirrors of the same manual, catalogue record or listing. If no defensible sources exist return sources=[]. Existing AUTO_SPECS_JSON exact-model guard remains for identity claims.
 Reference dimensions/weight outside an exact model are candidate estimates, never measured facts. Keep the scope to this existing research call; no separate measurement or extra paid research step.

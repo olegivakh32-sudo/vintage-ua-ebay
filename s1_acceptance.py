@@ -161,6 +161,15 @@ class StageBudget:
             self.attempts.append({'lot': lot, 'step': 'alternate', 'status': 'SKIPPED', 'reason': 'OPTIONAL_SEARCH_NOT_NEEDED'})
             self.save()
 
+    def progress(self):
+        return check(self.plan, self.stage, self.state)
+
+    def metered_usage(self, result, step, payload, counted):
+        return meter(result, step, continuation=True)
+
+    def check_response(self, result, step, row):
+        return response_issue(result, step, row, photo_count=self.photo_counts.get(row['lot'], 1))
+
     def bind(self, lot, original):
         if self.status != 'RUNNING':
             raise StopRun(self.reason or 'STAGE_FINISHED')
@@ -221,7 +230,7 @@ class StageBudget:
         except (ValueError, AttributeError, requests.RequestException):
             self.stop('TOKEN_COUNT_UNAVAILABLE')
         self.state['free_input_count'] = {'lot': lot, 'step': step, 'input_tokens': size}
-        decision = check(self.plan, self.stage, self.state)
+        decision = self.progress()
         if 'next' not in decision:
             self.stop(decision.get('stop', 'BUDGET_GATE_CLOSED'))
         row = {'lot': lot, 'step': step,
@@ -248,11 +257,11 @@ class StageBudget:
                     durable_report(self.path.parent / file, result)
                     row['response_file'] = file
                     reason = 'UNEXPECTED_USAGE'
-                    row.update(meter(result, step, continuation=True))
+                    row.update(self.metered_usage(result, step, payload, size))
                     row['service_tier'] = result['service_tier']
                     if Decimal(row['metered_usd']) > Decimal(row['reserved_usd']):
                         raise StopRun(reason)
-                    reason = response_issue(result, step, row, photo_count=self.photo_counts.get(lot, 1))
+                    reason = self.check_response(result, step, row)
                     if not reason:
                         row['status'] = 'COMPLETE'
                         return response
@@ -366,7 +375,7 @@ def run_lots(budget, lots, output):
         budget.finish_lot(lot)
         rows.append(prediction(result, budget.attempts))
         durable_report(output / 'predictions.json', rows)
-    final = check(budget.plan, budget.stage, budget.state)
+    final = budget.progress()
     if final.get('stop') != 'AWAIT_INDEPENDENT_REVIEW':
         budget.stop(final.get('stop', 'UNEXPECTED_FINAL_STATE'))
     budget.status = 'AWAIT_INDEPENDENT_REVIEW'

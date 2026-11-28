@@ -1,5 +1,6 @@
 from io import BytesIO
 import json
+from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
@@ -198,6 +199,26 @@ class RecognitionResearchTests(unittest.TestCase):
             self.assertEqual(client.post('/ebay/hold-queue/open', data={'hold_csrf': csrf,
                                         'record_id': saved['id']}).status_code, 303)
             self.assertEqual(client.get('/picker/hold-draft.json').json, updated)
+            self.assertEqual(api.call_count, 3)
+
+            sales = Path(tmp) / 'verified-sales.json'
+            sales.write_text(json.dumps([
+                {'identity': f'Northstar {model}', 'condition': 'Used Good', 'completeness': 'Complete',
+                 'status': 'SOLD', 'verification': 'MARKETPLACE_COMPLETED_SALE', 'currency': 'USD',
+                 'sold_date': m.kyiv_today().isoformat(), 'item_price_usd': price,
+                 'url': f'https://www.ebay.com/itm/{123450000000 + index}'}
+                for index, price in enumerate((24, 20, 35))]))
+            with patch.dict('os.environ', {'VINTAGE_VERIFIED_SALES_FILE': str(sales)}):
+                with client.session_transaction() as state, m.app.test_request_context():
+                    m.session.update(state)
+                    saved = m._save_hold_listing(picker, m.ANALYSIS_CACHE[picker], m.IDENTIFICATION_CACHE[picker],
+                                                 m.MARKET_CACHE[picker], m.SELLER_MEASUREMENT_CACHE[picker],
+                                                 shipping_status='NEEDS_LISTING_REVIEW',
+                                                 seller={'condition': 'Used Good', 'completeness': 'Complete'})
+                    self.assertEqual(saved.status_code, 303)
+                priced = client.get('/picker/hold-draft.json').json
+            self.assertEqual(priced['market_valuation']['price'], '24.00')
+            self.assertTrue(priced['hold_preview'])
             self.assertEqual(api.call_count, 3)
 
     def test_details_gate_requires_product_model_and_concordant_documents(self):

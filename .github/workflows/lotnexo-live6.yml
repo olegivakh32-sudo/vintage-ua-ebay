@@ -1,0 +1,76 @@
+name: LOTNEXO Live 6
+
+on:
+  push:
+    tags: [p094-lotnexo-live6]
+
+concurrency:
+  group: lotnexo-live6
+  cancel-in-progress: false
+
+jobs:
+  live6:
+    if: >-
+      github.repository == 'olegivakh32-sudo/vintage-ua-ebay' &&
+      github.ref == 'refs/tags/p094-lotnexo-live6' &&
+      github.event.created && !github.event.deleted && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    environment: p094-vision-pilot
+    permissions:
+      contents: write
+    env:
+      ALLOW_PAID_AI: '0'
+      ENABLE_LIVE_PUBLISH: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Isolate the tagged runtime and photo archive
+        run: |
+          set -euo pipefail
+          pilot="$RUNNER_TEMP/lotnexo-live6"
+          mkdir -m 700 -p "$pilot/runtime"
+          git archive "$GITHUB_SHA" -- . ':(exclude)test_artifacts' | tar -x -C "$pilot/runtime"
+          archive=test_artifacts/recognition/lotnexo-terra-live6-blind.zip
+          git show "$GITHUB_SHA:$archive" > "$pilot/blind.zip"
+          install -D -m 600 "$pilot/blind.zip" "$pilot/runtime/$archive"
+          test "$(find "$pilot/runtime/test_artifacts" -type f | wc -l)" -eq 1
+          python3 -m venv "$pilot/.venv"
+          timeout 180s "$pilot/.venv/bin/python" -m pip install -q -r "$pilot/runtime/requirements.txt"
+      - name: Check access to both models and token counting without generation
+        env:
+          LOTNEXO_LIVE6_APPROVED_USD: ${{ vars.LOTNEXO_LIVE6_APPROVED_USD }}
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/lotnexo-live6"
+          timeout 90s env -u PYTHONPATH .venv/bin/python runtime/terra_live_plan.py --preflight preflight.json
+      - name: Reserve one execution across runners
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          timeout 25s gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref=refs/tags/p094-lotnexo-live6-reserved -f sha="$GITHUB_SHA" >/dev/null
+      - name: Execute the approved pilot and retain metered evidence
+        env:
+          LOTNEXO_LIVE6_APPROVED_USD: ${{ vars.LOTNEXO_LIVE6_APPROVED_USD }}
+          LOTNEXO_LIVE6_RESERVED: ${{ github.sha }}
+          P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+          VINTAGE_EBAY_TAXONOMY_CLIENT_ID: ${{ secrets.VINTAGE_EBAY_TAXONOMY_CLIENT_ID }}
+          VINTAGE_EBAY_TAXONOMY_CLIENT_SECRET: ${{ secrets.VINTAGE_EBAY_TAXONOMY_CLIENT_SECRET }}
+          VINTAGE_EBAY_TAXONOMY_TOKEN: ${{ secrets.VINTAGE_EBAY_TAXONOMY_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/lotnexo-live6"
+          timeout 40m env -u PYTHONPATH .venv/bin/python runtime/terra_live_plan.py --execute results
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: lotnexo-live6-evidence
+          path: |
+            ${{ runner.temp }}/lotnexo-live6/preflight.json
+            ${{ runner.temp }}/lotnexo-live6/results/*.json
+          retention-days: 30
+          if-no-files-found: ignore
