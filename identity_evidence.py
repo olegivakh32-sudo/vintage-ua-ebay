@@ -78,14 +78,34 @@ def _measurement(record, value, field, implied_unit):
 
 
 def identity_claims(records, source_urls, photo_count, source_host, *, decisions=None, require_model_citations=False):
+    assessed = _assess_claims(records, source_urls, photo_count, source_host, require_model_citations)
+    claims = _fuse_claims(assessed)
+    if decisions is not None:
+        decisions.extend(decision for _, decision in assessed)
+    return claims
+
+
+def research_identity_claims(passes, photo_count, source_host, *, decisions=None):
+    """Validate each pass against only its own citations before reconciling fields."""
+    assessed = []
+    for name, records, urls in passes:
+        for claim, decision in _assess_claims(records, urls, photo_count, source_host, name == 'ALTERNATE'):
+            decision['pass'] = name
+            assessed.append((claim, decision))
+    claims = _fuse_claims(assessed)
+    if decisions is not None:
+        decisions.extend(decision for _, decision in assessed)
+    return claims
+
+
+def _assess_claims(records, source_urls, photo_count, source_host, require_model_citations):
     if not isinstance(records, list):
         return []
     assessed = []
     for index, record in enumerate(records, 1):
         reasons, source_decisions = [], []
         decision = dict(index=index, field=None, status='REJECTED', reasons=reasons, sources=source_decisions)
-        if decisions is not None:
-            decisions.append(decision)
+        assessed.append((None, decision))
         if index > 24:
             reasons.append('CLAIM_LIMIT')
             continue
@@ -153,8 +173,9 @@ def identity_claims(records, source_urls, photo_count, source_host, *, decisions
                 anchor = None
                 reasons.append('TYPE_ANCHOR_NOT_IN_CITATIONS')
         if conflicts:
+            reasons.append('SOURCE_CONTRADICTION' if sources and photos else 'UNVERIFIED_OBJECTION')
+        if conflicts and sources and photos:
             status = 'CONTESTED'
-            reasons.append('SOURCE_CONTRADICTION')
         else:
             status = 'HYPOTHESIS' if reasons else 'CORROBORATED_REFERENCE'
         decision.update(status=status, photos=photos)
@@ -168,16 +189,54 @@ def identity_claims(records, source_urls, photo_count, source_host, *, decisions
             entry['name'] = raw_field
         if anchor is not None:
             entry['visual_anchor'] = anchor.strip()
-        assessed.append((entry, decision))
+        assessed[-1] = (entry, decision)
+    return assessed
 
-    variants = {}
-    for claim, _ in assessed:
-        variants.setdefault(claim['field'], set()).add(normalized_claim(str(claim['value'])))
-    for claim, decision in assessed:
-        if claim['field'] != 'research_note' and len(variants[claim['field']]) > 1:
+
+def _fuse_claims(assessed):
+    valid = [(claim, decision) for claim, decision in assessed if claim is not None]
+    groups = {}
+    compatible = {'TOO_FEW_INDEPENDENT_SOURCES', 'NO_PRIMARY_SOURCE', 'MODEL_VALUE_NOT_IN_CITATIONS'}
+    for claim, decision in valid:
+        if (claim['field'] in {'type', 'brand', 'model', 'material', 'period', 'country'}
+                and claim['status'] == 'HYPOTHESIS' and set(decision['reasons']) <= compatible):
+            key = claim['field'], normalized_claim(str(claim['value']))
+            groups.setdefault(key, []).append((claim, decision))
+    merged = []
+    for (field, _), rows in groups.items():
+        if {decision.get('pass') for _, decision in rows} != {'PRIMARY', 'ALTERNATE'}:
+            continue
+        photos = set.intersection(*(set(claim['photos']) for claim, _ in rows))
+        if not photos:
+            continue
+        citations = []
+        hosts, documents = set(), set()
+        for claim, _ in rows:
+            for source in claim['references']:
+                host, document = source['source_host'], source['document_id']
+                if (host not in hosts and document not in documents
+                        and _supports_anchor(source['excerpt'], str(claim['value']))):
+                    citations.append(source)
+                    hosts.add(host)
+                    documents.add(document)
+        if len(citations) >= 2 and any(source['kind'] in PRIMARY for source in citations):
+            combined = dict(field=field, value=rows[0][0]['value'], photos=sorted(photos), references=citations,
+                            contradictions=[], status='CORROBORATED_REFERENCE')
+            decision = {'index': 0, 'field': field, 'photos': sorted(photos), 'pass': 'FUSION',
+                        'status': combined['status'], 'reasons': ['CROSS_PASS_CORROBORATION']}
+            merged.append((combined, decision))
+            assessed.append((None, decision))
+
+    competing = {}
+    for claim, decision in (*valid, *merged):
+        if (claim['field'] != 'research_note' and (claim['status'] == 'CORROBORATED_REFERENCE'
+                or (claim['status'] == 'CONTESTED' and claim['references'] and claim['photos']))):
+            competing.setdefault(claim['field'], set()).add(normalized_claim(str(claim['value'])))
+    for claim, decision in (*valid, *merged):
+        if len(competing.get(claim['field'], ())) > 1 and claim['status'] == 'CORROBORATED_REFERENCE':
             claim['status'] = decision['status'] = 'CONTESTED'
-            decision['reasons'].append('CONFLICTING_CLAIM_VALUES')
-    return [claim for claim, _ in assessed]
+            decision['reasons'].append('CONFLICTING_SUPPORTED_CLAIM_VALUES')
+    return [claim for claim, _ in (*valid, *merged)]
 
 
 def _claim_sources(sources, source_urls, source_host, decisions):
@@ -216,7 +275,7 @@ def _claim_sources(sources, source_urls, source_host, decisions):
         documents.add(document)
         kind = source.get('kind')
         verified.append({'url': url, 'kind': kind if isinstance(kind, str) else 'OTHER',
-                         'excerpt': excerpt.strip()[:400]})
+                         'excerpt': excerpt.strip()[:400], 'document_id': document, 'source_host': host})
         decision['reason'] = 'ACCEPTED_CITATION'
     return verified
 

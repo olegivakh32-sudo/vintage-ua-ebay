@@ -39,6 +39,27 @@ class IdentityEvidenceTests(unittest.TestCase):
         self.assertTrue(m._p089_research_handoff(draft, self.consensus([self.claim]), {}))
         self.assertIn('Reference identification: Camera M-1', draft['description'])
 
+    def test_distinct_passes_join_only_exact_citations_for_the_same_photo(self):
+        source_a, source_b = [source | {'excerpt': 'Exact steel body on model DM-20.'} for source in self.sources]
+        claim = dict(field='material', value='Steel', photos=[1], sources=[source_a])
+        primary = 'IDENTITY_CLAIMS_JSON ' + json.dumps({'claims': [claim]})
+
+        def compare(source, photos, alternate_urls=None):
+            packet = {'urls': [source_a['url']], 'identity_alternate': {
+                'status': 'COMPLETE', 'urls': [source_b['url']] if alternate_urls is None else alternate_urls,
+                'claims': [claim | {'sources': [source], 'photos': photos}]}}
+            return m._consensus_specs_from_research(primary, 'WEB_TOOL_SOURCES_JSON ' + json.dumps(packet), 2)
+
+        verified = compare(source_b, [1, 2])
+        self.assertEqual([row['status'] for row in verified['identity_claims']],
+                         ['HYPOTHESIS', 'HYPOTHESIS', 'CORROBORATED_REFERENCE'])
+        self.assertEqual(verified['identity_claims'][-1]['photos'], [1])
+        self.assertEqual(verified['reference_decisions'][-1]['reasons'], ['CROSS_PASS_CORROBORATION'])
+        for result in (compare(source_b, [2]), compare(source_b, [1], []),
+                       compare(source_b | {'document_id': source_a['document_id']}, [1]),
+                       compare(source_b | {'excerpt': 'Aluminium body on model DM-20.'}, [1])):
+            self.assertTrue(all(row['status'] == 'HYPOTHESIS' for row in result['identity_claims']))
+
     def test_rejected_alternative_is_distinct_from_evidence_against_the_claim(self):
         rows = [source | {'excerpt': 'Portable film viewer with recessed prism window'} for source in self.sources]
         claim = {'field': 'type', 'value': 'Portable film viewer; visual_anchor: recessed prism window',
@@ -49,6 +70,12 @@ class IdentityEvidenceTests(unittest.TestCase):
         self.assertEqual(confirmed['alternatives'], claim['alternatives'])
         disputed, = self.consensus([claim | {'contradictions': ['Photographed controls differ from both records.']}])['identity_claims']
         self.assertEqual(disputed['status'], 'CONTESTED')
+        objections = [claim, claim | {'value': 'Slide carrier', 'sources': [],
+                                      'contradictions': ['Another function may be possible.']}]
+        evidence = self.consensus(objections)
+        self.assertEqual([row['status'] for row in evidence['identity_claims']],
+                         ['CORROBORATED_REFERENCE', 'HYPOTHESIS'])
+        self.assertIn('UNVERIFIED_OBJECTION', evidence['reference_decisions'][-1]['reasons'])
 
     def test_claims_without_auto_specs_preserve_citations_and_decisions(self):
         rejected = [

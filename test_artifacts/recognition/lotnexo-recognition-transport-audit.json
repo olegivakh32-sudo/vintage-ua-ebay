@@ -1,0 +1,1473 @@
+{
+  "S1": {
+    "revision": "aea6136a4a4767eb85c7497ee8884a016bdc1ebe",
+    "status": "STOPPED",
+    "stop_reason": "APPLICATION_STAGE_FAILED",
+    "metered_usd": "0.0964136",
+    "unsettled_reserve_usd": "0",
+    "photo_count": 10,
+    "over_1024_photos": 3,
+    "original_dimensions_px": {
+      "P001": [
+        [
+          630,
+          893
+        ]
+      ],
+      "P002": [
+        [
+          703,
+          893
+        ]
+      ],
+      "P003": [
+        [
+          889,
+          893
+        ]
+      ],
+      "P004": [
+        [
+          2000,
+          1333
+        ]
+      ],
+      "P006": [
+        [
+          662,
+          893
+        ]
+      ],
+      "P010": [
+        [
+          900,
+          448
+        ]
+      ],
+      "P013": [
+        [
+          900,
+          665
+        ]
+      ],
+      "P022": [
+        [
+          900,
+          845
+        ]
+      ],
+      "P039": [
+        [
+          2000,
+          1334
+        ]
+      ],
+      "P053": [
+        [
+          2000,
+          1333
+        ]
+      ]
+    },
+    "stages": {
+      "photos": {
+        "responses": 9,
+        "missing": [
+          "P053"
+        ],
+        "status": {
+          "completed": 9
+        },
+        "median_ms": 5616,
+        "web_calls": 0,
+        "per_lot": [
+          {
+            "lot": "P001",
+            "status": "completed",
+            "request_sha256": "5c4c5beac60c566f3ee6631da85108744c916ce73569041192e89551f4d38a43",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 1780,
+            "output_tokens": 489,
+            "reasoning_tokens": 100,
+            "elapsed_ms": 4407,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "P002",
+            "status": "completed",
+            "request_sha256": "325789fcdb48ba89ecca8800ed960ed80be986d739a37fffe8c39080deea5876",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 1847,
+            "output_tokens": 566,
+            "reasoning_tokens": 146,
+            "elapsed_ms": 4650,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "P003",
+            "status": "completed",
+            "request_sha256": "12c55ecfae0c12e84e3e503df2695fd3b7a3856dffd9a2d20f43242dbf8ce6bf",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2048,
+            "output_tokens": 816,
+            "reasoning_tokens": 328,
+            "elapsed_ms": 6808,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "P004",
+            "status": "completed",
+            "request_sha256": "8a60d62704f3a885ca4d9b814265ec6c8ab83e3b859662d345c2dce4cb69a771",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 1952,
+            "output_tokens": 716,
+            "reasoning_tokens": 176,
+            "elapsed_ms": 5616,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "P006",
+            "status": "completed",
+            "request_sha256": "04c58d3fa952cf155f8ef2dc7479a6af75770215e66eefe4cee276df7fc844aa",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 1813,
+            "output_tokens": 734,
+            "reasoning_tokens": 306,
+            "elapsed_ms": 7259,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "P010",
+            "status": "completed",
+            "request_sha256": "18c276b09697dc62a01a6c67ac4b0d07bc0332d637a7c7dc94cfe8bc1e7a8562",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 1595,
+            "output_tokens": 692,
+            "reasoning_tokens": 216,
+            "elapsed_ms": 5758,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "P013",
+            "status": "completed",
+            "request_sha256": "aa4afcbc5f1a9ec01b688fc37bd83144b9e1b898dbad120bbe0147fb32af43ff",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 1838,
+            "output_tokens": 495,
+            "reasoning_tokens": 100,
+            "elapsed_ms": 4176,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "P022",
+            "status": "completed",
+            "request_sha256": "3588c8214a7d6517bc3cca8a789f145dde88288f052118f741eb7415df1e8d07",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2047,
+            "output_tokens": 614,
+            "reasoning_tokens": 158,
+            "elapsed_ms": 5182,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "P039",
+            "status": "completed",
+            "request_sha256": "2e3dd413c1cd107d54e6cd7dfb5cc7dfb352b328e8e62dcea9e3366595a743ad",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 1952,
+            "output_tokens": 979,
+            "reasoning_tokens": 288,
+            "elapsed_ms": 8118,
+            "web_calls": 0,
+            "queries": []
+          }
+        ]
+      },
+      "research": {
+        "responses": 8,
+        "missing": [
+          "P039",
+          "P053"
+        ],
+        "status": {
+          "completed": 8
+        },
+        "median_ms": 6619.5,
+        "web_calls": 8,
+        "per_lot": [
+          {
+            "lot": "P001",
+            "status": "completed",
+            "request_sha256": "d49572703c8a0194ff1694c73cb3f12b6e0627f45b1d682682e5bde5e7279b2d",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 10458,
+            "output_tokens": 399,
+            "reasoning_tokens": 63,
+            "elapsed_ms": 6856,
+            "web_calls": 1,
+            "queries": [
+              "enamelled bronze pendant diamond geometric quatrefoil spots archaeological pendant",
+              "site:ebay.com \"enamel\" pendant diamond blue orange antique",
+              "eBay ancient enamel pendant bronze artifact category"
+            ]
+          },
+          {
+            "lot": "P002",
+            "status": "completed",
+            "request_sha256": "934a826b9b26a3e1d137fd12131e639b4db18e6d8cae8c619094ae25a962fb7f",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 12127,
+            "output_tokens": 518,
+            "reasoning_tokens": 204,
+            "elapsed_ms": 8503,
+            "web_calls": 1,
+            "queries": [
+              "bronze figurine stylized human spiral ears gold archaeological sculpture",
+              "site:ebay.com \"spiral\" bronze figurine human statue"
+            ]
+          },
+          {
+            "lot": "P003",
+            "status": "completed",
+            "request_sha256": "de0c35353a660fc4591b8c7fe8fce8e89be16ff7b99aa3552c3d4f513fb631c1",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 14962,
+            "output_tokens": 610,
+            "reasoning_tokens": 65,
+            "elapsed_ms": 6383,
+            "web_calls": 1,
+            "queries": [
+              "\"LVDOVICVS MAGNVS REX CHRISTIANISS\" medallion",
+              "Louis XIV medallion \"LVDOVICVS MAGNVS REX CHRISTIANISS\" museum"
+            ]
+          },
+          {
+            "lot": "P004",
+            "status": "completed",
+            "request_sha256": "2d07b450b16d74b8698399c805dc4087372f10ce71a5dd436316d26899b96385",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 15643,
+            "output_tokens": 935,
+            "reasoning_tokens": 169,
+            "elapsed_ms": 8046,
+            "web_calls": 1,
+            "queries": [
+              "site:stanleytools.com 33-425 PowerLock 25 tape measure",
+              "STANLEY 33-425 PowerLock 25 tape measure manual catalog",
+              "site:ebay.com \"33-425\" \"PowerLock\" tape measure"
+            ]
+          },
+          {
+            "lot": "P006",
+            "status": "completed",
+            "request_sha256": "b8b2f922489b29323273f993d137be245af3c1313a790704d738cb06f301a497",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 10694,
+            "output_tokens": 719,
+            "reasoning_tokens": 299,
+            "elapsed_ms": 8811,
+            "web_calls": 1,
+            "queries": [
+              "Albrecht Dürer Last Supper 1523 engraving monogram AD moon window museum",
+              "Dürer The Last Supper 1523 woodcut engraving catalogue monogram"
+            ]
+          },
+          {
+            "lot": "P010",
+            "status": "completed",
+            "request_sha256": "c2510d91fee0521b7bc8d9426353305a4f69de8862743acd1530797a06f8df7b",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 10107,
+            "output_tokens": 289,
+            "reasoning_tokens": 51,
+            "elapsed_ms": 5039,
+            "web_calls": 1,
+            "queries": [
+              "coin standing warrior reverse horseman gold Indo-Greek coin standing king",
+              "gold coin standing king holding spear reverse horseman Greek inscription museum"
+            ]
+          },
+          {
+            "lot": "P013",
+            "status": "completed",
+            "request_sha256": "25260944267337b17c0e5cd3e26e604845059b368d1edc0f4af16fd9f000b322",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 10496,
+            "output_tokens": 304,
+            "reasoning_tokens": 54,
+            "elapsed_ms": 5543,
+            "web_calls": 1,
+            "queries": [
+              "antique celadon glazed ceramic bowl planter wide low vessel museum",
+              "site:ebay.com/b/ \"Ceramic Planters\" eBay category"
+            ]
+          },
+          {
+            "lot": "P022",
+            "status": "completed",
+            "request_sha256": "db083b04609b4e162347819523b9a99cc38a50b5625d70b065ba5a517512fc0f",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 10952,
+            "output_tokens": 490,
+            "reasoning_tokens": 186,
+            "elapsed_ms": 6106,
+            "web_calls": 1,
+            "queries": [
+              "Maya carved relief plaque round figure glyphs museum disk",
+              "Maya carved stone disk relief seated figure glyphs museum plaque"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "M12": {
+    "revision": "e1255662c249e0c9f7574628b63ab0bd32bb8037",
+    "status": "AWAIT_INDEPENDENT_REVIEW",
+    "stop_reason": null,
+    "metered_usd": "0.0913462",
+    "unsettled_reserve_usd": "0",
+    "photo_count": 35,
+    "over_1024_photos": 11,
+    "original_dimensions_px": {
+      "MV-201": [
+        [
+          900,
+          848
+        ],
+        [
+          900,
+          861
+        ],
+        [
+          900,
+          854
+        ]
+      ],
+      "MV-202": [
+        [
+          900,
+          689
+        ],
+        [
+          742,
+          900
+        ],
+        [
+          739,
+          900
+        ]
+      ],
+      "MV-203": [
+        [
+          474,
+          893
+        ],
+        [
+          428,
+          893
+        ],
+        [
+          513,
+          893
+        ]
+      ],
+      "MV-204": [
+        [
+          803,
+          900
+        ],
+        [
+          900,
+          591
+        ],
+        [
+          900,
+          580
+        ]
+      ],
+      "MV-205": [
+        [
+          639,
+          893
+        ],
+        [
+          1263,
+          598
+        ],
+        [
+          1263,
+          839
+        ]
+      ],
+      "MV-206": [
+        [
+          900,
+          239
+        ],
+        [
+          900,
+          230
+        ],
+        [
+          900,
+          233
+        ]
+      ],
+      "MV-207": [
+        [
+          730,
+          900
+        ],
+        [
+          753,
+          893
+        ],
+        [
+          1233,
+          893
+        ]
+      ],
+      "MV-208": [
+        [
+          623,
+          900
+        ],
+        [
+          614,
+          900
+        ],
+        [
+          900,
+          481
+        ]
+      ],
+      "MV-209": [
+        [
+          1143,
+          893
+        ],
+        [
+          1098,
+          893
+        ],
+        [
+          1202,
+          893
+        ]
+      ],
+      "MV-210": [
+        [
+          900,
+          785
+        ],
+        [
+          900,
+          778
+        ],
+        [
+          900,
+          779
+        ]
+      ],
+      "MV-211": [
+        [
+          2000,
+          1371
+        ],
+        [
+          2000,
+          238
+        ],
+        [
+          2000,
+          240
+        ]
+      ],
+      "MV-212": [
+        [
+          2000,
+          1678
+        ],
+        [
+          2000,
+          506
+        ]
+      ]
+    },
+    "stages": {
+      "photos": {
+        "responses": 12,
+        "missing": [],
+        "status": {
+          "completed": 12
+        },
+        "median_ms": 5676.0,
+        "web_calls": 0,
+        "per_lot": [
+          {
+            "lot": "MV-201",
+            "status": "completed",
+            "request_sha256": "05fc4e9418a2ad49a72bf1dfcb73774671eae67455858e1b64828231f97864c7",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 4063,
+            "output_tokens": 679,
+            "reasoning_tokens": 118,
+            "elapsed_ms": 5320,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-202",
+            "status": "completed",
+            "request_sha256": "e15c9af6029f3f74a3ac6d9e921c06c2b894ca9295c7d63a57f488746cba797f",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 3681,
+            "output_tokens": 759,
+            "reasoning_tokens": 181,
+            "elapsed_ms": 5712,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-203",
+            "status": "completed",
+            "request_sha256": "2f8fbbd790147351090b08643fa2ab675b528551fc4515e0f03459dc4f798728",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2791,
+            "output_tokens": 692,
+            "reasoning_tokens": 178,
+            "elapsed_ms": 5264,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-204",
+            "status": "completed",
+            "request_sha256": "1e6c71ae294a0da45c6797fd76065ab35c47665704a59ce31b5d410e39186fb6",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 3472,
+            "output_tokens": 813,
+            "reasoning_tokens": 213,
+            "elapsed_ms": 6165,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-205",
+            "status": "completed",
+            "request_sha256": "6ec95582a4b69c70c54818529c7abe2f511ec08ea9a231e32bc9a0904c25c644",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 3376,
+            "output_tokens": 816,
+            "reasoning_tokens": 275,
+            "elapsed_ms": 5781,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-206",
+            "status": "completed",
+            "request_sha256": "87989a7d4d96f929ecfcf33feb4f11e59deacda06c058ec68b674ec6e12ee691",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2080,
+            "output_tokens": 667,
+            "reasoning_tokens": 177,
+            "elapsed_ms": 5614,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-207",
+            "status": "completed",
+            "request_sha256": "2ced73915fbf45a07d51311d3b51cd9da7b637fbadc0969c4d263ab98ab34ef5",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 3773,
+            "output_tokens": 600,
+            "reasoning_tokens": 159,
+            "elapsed_ms": 5106,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-208",
+            "status": "completed",
+            "request_sha256": "93f48037bd4af003e26f9ee351475a83ef9d2f305b88082a569e39fae70760ad",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 3194,
+            "output_tokens": 756,
+            "reasoning_tokens": 176,
+            "elapsed_ms": 5640,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-209",
+            "status": "completed",
+            "request_sha256": "7af733c3e5b5ec250988dd9cc2748be2b92b5a09a4748b2ab0617b2ef617b959",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 4163,
+            "output_tokens": 704,
+            "reasoning_tokens": 112,
+            "elapsed_ms": 5268,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-210",
+            "status": "completed",
+            "request_sha256": "f2a4a8719d17f5f38f5361145e9e53e5edda7177db246386b39838aae20f3643",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 3856,
+            "output_tokens": 900,
+            "reasoning_tokens": 247,
+            "elapsed_ms": 6294,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-211",
+            "status": "completed",
+            "request_sha256": "ee68d23843bde20bf593be4b75075e486071406760d0dc132ee7c31cfc058e80",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2396,
+            "output_tokens": 813,
+            "reasoning_tokens": 263,
+            "elapsed_ms": 6030,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-212",
+            "status": "completed",
+            "request_sha256": "92dab734260722944155f6d7d133af8b2d7cd16a2fc1c7d16929ec6a56775c9e",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2618,
+            "output_tokens": 787,
+            "reasoning_tokens": 183,
+            "elapsed_ms": 5793,
+            "web_calls": 0,
+            "queries": []
+          }
+        ]
+      },
+      "research": {
+        "responses": 7,
+        "missing": [
+          "MV-202",
+          "MV-204",
+          "MV-206",
+          "MV-207",
+          "MV-208"
+        ],
+        "status": {
+          "completed": 7
+        },
+        "median_ms": 8110,
+        "web_calls": 7,
+        "per_lot": [
+          {
+            "lot": "MV-201",
+            "status": "completed",
+            "request_sha256": "a4e31ff9b55b2aed1e2c097acd31608af2465b459fc39d8473fe8fd0add3046f",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 16973,
+            "output_tokens": 478,
+            "reasoning_tokens": 52,
+            "elapsed_ms": 8110,
+            "web_calls": 1,
+            "queries": [
+              "site:metmuseum.org Chinese blue white jar elephant handles floral porcelain museum",
+              "Chinese blue and white porcelain jar lion mask handles floral museum collection"
+            ]
+          },
+          {
+            "lot": "MV-203",
+            "status": "completed",
+            "request_sha256": "47373998e0914505283241e51f08abbb3f1487ce00492ee99526d4afaf0d9a56",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 15380,
+            "output_tokens": 471,
+            "reasoning_tokens": 51,
+            "elapsed_ms": 7080,
+            "web_calls": 1,
+            "queries": [
+              "museum carved tall case clock elaborate Indian carved wood clock glazed door museum",
+              "museum carved wooden longcase clock ornate carved case astronomical dial museum"
+            ]
+          },
+          {
+            "lot": "MV-205",
+            "status": "completed",
+            "request_sha256": "604dcf9966053f116dfc74e861f0f44454474797c623bfa792f19475c742f2b3",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 16936,
+            "output_tokens": 810,
+            "reasoning_tokens": 493,
+            "elapsed_ms": 11149,
+            "web_calls": 1,
+            "queries": [
+              "museum Art Nouveau hair comb lily of the valley celluloid gold",
+              "site:metmuseum.org hair comb lily of the valley comb Art Nouveau",
+              "museum collection hair comb translucent celluloid lily of the valley ornament"
+            ]
+          },
+          {
+            "lot": "MV-209",
+            "status": "completed",
+            "request_sha256": "671c97fa64fed5d2144e62a054130a6543d5b27407d9f8b70b564d3f50624c6d",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 18057,
+            "output_tokens": 741,
+            "reasoning_tokens": 277,
+            "elapsed_ms": 10659,
+            "web_calls": 1,
+            "queries": [
+              "site:americanindian.si.edu basket \"wide\" \"jar\" geometric woven basket",
+              "museum basket jar wide shoulder narrow base geometric design coiled basket"
+            ]
+          },
+          {
+            "lot": "MV-210",
+            "status": "completed",
+            "request_sha256": "89a94e71a7329f490d542bb87189873a0e372bb6b41679bf90145468372a752d",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 16455,
+            "output_tokens": 403,
+            "reasoning_tokens": 51,
+            "elapsed_ms": 7503,
+            "web_calls": 1,
+            "queries": [
+              "museum collection cylinder seal impression bull carved stone stamp seal animal symbols accession",
+              "museum artifact stamp seal bull animal carved symbols stone seal impression museum"
+            ]
+          },
+          {
+            "lot": "MV-211",
+            "status": "completed",
+            "request_sha256": "15f4e33d748dc8fc9c282b1d5f61a683693edd3fe3577b8c0f5b35725b5f8627",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 12623,
+            "output_tokens": 252,
+            "reasoning_tokens": 52,
+            "elapsed_ms": 4757,
+            "web_calls": 1,
+            "queries": [
+              "site:lenovo.com ThinkPad T400 hardware maintenance manual VGA DisplayPort port",
+              "ThinkPad T400 ports DisplayPort side ports Lenovo"
+            ]
+          },
+          {
+            "lot": "MV-212",
+            "status": "completed",
+            "request_sha256": "aaf2ee893e6e92f23c59680b6e41d08268d26256e18b60187fc24345817ed0af",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 13070,
+            "output_tokens": 760,
+            "reasoning_tokens": 389,
+            "elapsed_ms": 9006,
+            "web_calls": 1,
+            "queries": [
+              "site:dell.com Dell OptiPlex GX280 small form factor manual rear panel ports",
+              "Dell OptiPlex GX280 desktop chassis rear ports parallel serial DVI PS/2 product photo"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "N12": {
+    "revision": "2327c280a3605d8827b6745121c0df978566d12e",
+    "status": "AWAIT_INDEPENDENT_REVIEW",
+    "stop_reason": null,
+    "metered_usd": "0.1812181",
+    "unsettled_reserve_usd": "0",
+    "photo_count": 24,
+    "over_1024_photos": 6,
+    "original_dimensions_px": {
+      "MV-301": [
+        [
+          651,
+          893
+        ],
+        [
+          639,
+          893
+        ]
+      ],
+      "MV-302": [
+        [
+          687,
+          900
+        ],
+        [
+          728,
+          893
+        ]
+      ],
+      "MV-303": [
+        [
+          900,
+          627
+        ],
+        [
+          900,
+          630
+        ]
+      ],
+      "MV-304": [
+        [
+          900,
+          636
+        ],
+        [
+          900,
+          610
+        ]
+      ],
+      "MV-305": [
+        [
+          930,
+          893
+        ],
+        [
+          900,
+          893
+        ]
+      ],
+      "MV-306": [
+        [
+          544,
+          893
+        ],
+        [
+          487,
+          893
+        ]
+      ],
+      "MV-307": [
+        [
+          1179,
+          893
+        ],
+        [
+          1255,
+          893
+        ]
+      ],
+      "MV-308": [
+        [
+          923,
+          893
+        ],
+        [
+          738,
+          750
+        ]
+      ],
+      "MV-309": [
+        [
+          493,
+          900
+        ],
+        [
+          570,
+          900
+        ]
+      ],
+      "MV-310": [
+        [
+          376,
+          893
+        ],
+        [
+          1022,
+          893
+        ]
+      ],
+      "MV-311": [
+        [
+          2000,
+          1333
+        ],
+        [
+          2000,
+          1333
+        ]
+      ],
+      "MV-312": [
+        [
+          1563,
+          2000
+        ],
+        [
+          1651,
+          2000
+        ]
+      ]
+    },
+    "stages": {
+      "photos": {
+        "responses": 12,
+        "missing": [],
+        "status": {
+          "completed": 12
+        },
+        "median_ms": 6005.0,
+        "web_calls": 0,
+        "per_lot": [
+          {
+            "lot": "MV-301",
+            "status": "completed",
+            "request_sha256": "9eb648ca236dda0c149b5bf7a6c2a994b852d6f7ed3bce628b900f4ace1d0f08",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2665,
+            "output_tokens": 1044,
+            "reasoning_tokens": 273,
+            "elapsed_ms": 7438,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-302",
+            "status": "completed",
+            "request_sha256": "2400c3b9a4e78a52f3507e1c46123bedf0030b07509125e7fd995261c47e25c4",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2825,
+            "output_tokens": 1008,
+            "reasoning_tokens": 294,
+            "elapsed_ms": 6748,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-303",
+            "status": "completed",
+            "request_sha256": "bfe341e8d58926ecb0fd82e9ef7627e09e60cf4fbaa77b1c0dd9ce3129921da4",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2680,
+            "output_tokens": 583,
+            "reasoning_tokens": 89,
+            "elapsed_ms": 4445,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-304",
+            "status": "completed",
+            "request_sha256": "d5f3c0b06d7c78a1ef749957bfa719662c7fd5ba4a7c72b2c3a599ea4efa1f0d",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2680,
+            "output_tokens": 742,
+            "reasoning_tokens": 144,
+            "elapsed_ms": 5218,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-305",
+            "status": "completed",
+            "request_sha256": "0e38aac726e31b0ca8ba0a1c3fd3f86eda79ec8ebf70e00f5776962a0ab76e2b",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 3270,
+            "output_tokens": 842,
+            "reasoning_tokens": 183,
+            "elapsed_ms": 5963,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-306",
+            "status": "completed",
+            "request_sha256": "85ba33965486d2a64c554a9e68573ea80483ed4b26be2b1825700f11b8df1760",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2396,
+            "output_tokens": 1007,
+            "reasoning_tokens": 220,
+            "elapsed_ms": 6872,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-307",
+            "status": "completed",
+            "request_sha256": "06952c385a83b1e2752d878438731c19ea09afc96681598814948d96b02c62e1",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 3131,
+            "output_tokens": 722,
+            "reasoning_tokens": 105,
+            "elapsed_ms": 5109,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-308",
+            "status": "completed",
+            "request_sha256": "d1d8a4abce8dd683952e00a4cbafb4b1fd4648c24e8a452c3d6b5fc5995a34d8",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2953,
+            "output_tokens": 785,
+            "reasoning_tokens": 155,
+            "elapsed_ms": 5615,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-309",
+            "status": "completed",
+            "request_sha256": "89a97c8df156e696cf6969362f7ebde0ea3231732d46f87c9a3de4eae985c2f2",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2470,
+            "output_tokens": 1008,
+            "reasoning_tokens": 350,
+            "elapsed_ms": 7530,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-310",
+            "status": "completed",
+            "request_sha256": "d1ff9a4cf0b7b66b0bdc7163de82ea04a5fa37b1aa06464ae6b4f9e2a3528706",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2766,
+            "output_tokens": 624,
+            "reasoning_tokens": 132,
+            "elapsed_ms": 4737,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-311",
+            "status": "completed",
+            "request_sha256": "88c7f1f610f2d477e3643c26450e447365a6991dab723f9791cfc2b87f1939fe",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 2976,
+            "output_tokens": 1079,
+            "reasoning_tokens": 155,
+            "elapsed_ms": 6344,
+            "web_calls": 0,
+            "queries": []
+          },
+          {
+            "lot": "MV-312",
+            "status": "completed",
+            "request_sha256": "2dd592f7cf0fba7d2b106bdbe692623d6720f28a505e755882871f015d8bd98a",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 2400,
+            "input_tokens": 3284,
+            "output_tokens": 891,
+            "reasoning_tokens": 281,
+            "elapsed_ms": 6047,
+            "web_calls": 0,
+            "queries": []
+          }
+        ]
+      },
+      "research": {
+        "responses": 6,
+        "missing": [
+          "MV-304",
+          "MV-305",
+          "MV-306",
+          "MV-308",
+          "MV-309",
+          "MV-310"
+        ],
+        "status": {
+          "completed": 6
+        },
+        "median_ms": 9129.5,
+        "web_calls": 6,
+        "per_lot": [
+          {
+            "lot": "MV-301",
+            "status": "completed",
+            "request_sha256": "659db4b9ec1673d5ccb82ff8176b9d5df903f89578877f62a2a964c39c608811",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 15560,
+            "output_tokens": 321,
+            "reasoning_tokens": 182,
+            "elapsed_ms": 6143,
+            "web_calls": 1,
+            "queries": [
+              "museum Islamic metalwork vase four handles flared neck enamelled brass ewer incense burner",
+              "museum Islamic metalwork \"four handles\" vase enamel calligraphy pedestal"
+            ]
+          },
+          {
+            "lot": "MV-302",
+            "status": "completed",
+            "request_sha256": "1d580689563f8c12c033d6311abf68b6cbd9f16b71f05806b65101db6c0303f7",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 11762,
+            "output_tokens": 814,
+            "reasoning_tokens": 257,
+            "elapsed_ms": 8841,
+            "web_calls": 1,
+            "queries": [
+              "site:metmuseum.org carved sideboard eagle finial animal relief buffet museum",
+              "\"eagle finial\" \"sideboard\" carved museum 19th century"
+            ]
+          },
+          {
+            "lot": "MV-303",
+            "status": "completed",
+            "request_sha256": "d6fa979c375746fd32cab04cf5b0887df2f0716c19c1162a050cbc18944f5284",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 11063,
+            "output_tokens": 502,
+            "reasoning_tokens": 204,
+            "elapsed_ms": 6498,
+            "web_calls": 1,
+            "queries": [
+              "site:metmuseum.org bowl Jian ware flared rim foot dark glaze tea bowl accession",
+              "site:britishmuseum.org Jian ware bowl flaring sides foot dark glaze bowl"
+            ]
+          },
+          {
+            "lot": "MV-307",
+            "status": "completed",
+            "request_sha256": "40e0bf806d90062d63dfb524616c46e6a08d5377478a8ee4694a4d963615a7ac",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 16804,
+            "output_tokens": 653,
+            "reasoning_tokens": 229,
+            "elapsed_ms": 9418,
+            "web_calls": 1,
+            "queries": [
+              "museum Chinese export lacquer trunk mother of pearl inlay chest 18th century accession",
+              "museum Chinese lacquer chest mother of pearl inlay trunk iron handles collection",
+              "eBay Chinese lacquer chest mother of pearl trunk sold"
+            ]
+          },
+          {
+            "lot": "MV-311",
+            "status": "completed",
+            "request_sha256": "ac456c5a11edf42c73eff98c1fb67ccaa748f370a43e42272b50cc493e3e4035",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 17483,
+            "output_tokens": 617,
+            "reasoning_tokens": 238,
+            "elapsed_ms": 10201,
+            "web_calls": 1,
+            "queries": [
+              "site:canon-europe.com EOS 650D instruction manual specifications battery LP-E8 dimensions weight",
+              "Canon EOS 650D sold used body price eBay sold"
+            ]
+          },
+          {
+            "lot": "MV-312",
+            "status": "completed",
+            "request_sha256": "814aa3cb3b0e6213dc3971a759b5c3c6aa46108030d48642e746fa1bb703dc9a",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 7000,
+            "input_tokens": 14177,
+            "output_tokens": 1155,
+            "reasoning_tokens": 143,
+            "elapsed_ms": 10230,
+            "web_calls": 1,
+            "queries": [
+              "site:computerhistory.org Nintendo Game Boy DMG-01 collection",
+              "Nintendo Game Boy DMG-01 manual dimensions battery 1989 official"
+            ]
+          }
+        ]
+      },
+      "alternate": {
+        "responses": 5,
+        "missing": [
+          "MV-304",
+          "MV-305",
+          "MV-306",
+          "MV-307",
+          "MV-308",
+          "MV-309",
+          "MV-310"
+        ],
+        "status": {
+          "completed": 5
+        },
+        "median_ms": 12019,
+        "web_calls": 9,
+        "per_lot": [
+          {
+            "lot": "MV-301",
+            "status": "completed",
+            "request_sha256": "345f13fe68058a5920e85b78cb7497168935689ec5b9bd2e30366e2d6c3caa57",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 3600,
+            "input_tokens": 15510,
+            "output_tokens": 545,
+            "reasoning_tokens": 232,
+            "elapsed_ms": 12019,
+            "web_calls": 2,
+            "queries": [
+              "site:metmuseum.org Mamluk four handles vessel enamelled metal vase",
+              "site:vam.ac.uk Mamluk vessel four handles enamelled metal Arabic inscription",
+              "museum Mamluk four handled footed vessel enamel Arabic inscription vase",
+              "site:metmuseum.org Mamluk four handles metal vessel enamel",
+              "site:vam.ac.uk Mamluk four handles vessel metal enamel",
+              "Cavour vase Doha four handles museum collection",
+              "\"Cavour Vase\" Mamluk vase four handles museum",
+              "\"four-handled\" \"Cavour\" vase glass"
+            ]
+          },
+          {
+            "lot": "MV-302",
+            "status": "completed",
+            "request_sha256": "648e5a2eb2de88484cb863d1e442378d9311716b40e6011611c3e28806edf2d8",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 3600,
+            "input_tokens": 23270,
+            "output_tokens": 546,
+            "reasoning_tokens": 117,
+            "elapsed_ms": 8310,
+            "web_calls": 1,
+            "queries": [
+              "site:metmuseum.org monumental sideboard eagle animal relief fruit medallion carved furniture",
+              "museum \"sideboard\" \"eagle\" \"fruit\" carved animal relief 19th century",
+              "site:collections.vam.ac.uk sideboard animal relief eagle carved furniture buffet"
+            ]
+          },
+          {
+            "lot": "MV-303",
+            "status": "completed",
+            "request_sha256": "a08bc0c80d7b2775d798bfeed7e57a8eca1f2a148941035183b9a58fdf295951",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 3600,
+            "input_tokens": 23272,
+            "output_tokens": 823,
+            "reasoning_tokens": 445,
+            "elapsed_ms": 12390,
+            "web_calls": 2,
+            "queries": [
+              "site:metmuseum.org bowl dark blue glaze foot flared rim Jian tea bowl",
+              "museum collection bowl dark blue green glaze flared rim raised foot ceramic bowl Song dynasty",
+              "site:britishmuseum.org bowl blue glaze flared rim foot ceramic tea bowl",
+              "museum collection Jun ware bowl dark blue glaze wide flared sides small foot bowl",
+              "site:metmuseum.org/art/collection Jun ware bowl blue glaze bowl foot",
+              "site:asia.si.edu bowl blue glaze Jun ware flaring sides foot"
+            ]
+          },
+          {
+            "lot": "MV-311",
+            "status": "completed",
+            "request_sha256": "4b0acc8da700352711bfd8dc9e6aa538dd62771bbf0d2703b862bcaf76df51d3",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 3600,
+            "input_tokens": 17367,
+            "output_tokens": 818,
+            "reasoning_tokens": 131,
+            "elapsed_ms": 12986,
+            "web_calls": 2,
+            "queries": [
+              "site:canon-europe.com EOS 650D instruction manual PDF model code",
+              "site:canon-europe.com EOS 600D instruction manual PDF model code",
+              "Canon EOS 650D official manual \"Model\"",
+              "site:canon-europe.com/support EOS 600D instruction manual model",
+              "site:gdlp01.c-wss.com EOS 600D Instruction Manual EN PDF Model EOS 600D"
+            ]
+          },
+          {
+            "lot": "MV-312",
+            "status": "completed",
+            "request_sha256": "367d54ea8bcf38df935c37d9575d937b7359c226fed833d9b7fbee439ecb1c73",
+            "model": "gpt-6-luna",
+            "service_tier": "default",
+            "effort": "low",
+            "output_cap": 3600,
+            "input_tokens": 23977,
+            "output_tokens": 439,
+            "reasoning_tokens": 150,
+            "elapsed_ms": 10410,
+            "web_calls": 2,
+            "queries": [
+              "\"G09838714\" Nintendo",
+              "Nintendo Game Boy DMG-01 instruction manual official model number DMG-01",
+              "site:nintendo.com \"DMG-01\" Game Boy manual",
+              "Nintendo Game Boy official museum DMG-01 dot matrix stereo sound",
+              "site:collection.sciencemuseumgroup.org.uk/objects \"Game Boy\" \"DMG-01\"",
+              "site:mplus.org.hk/en/collection/objects \"Game Boy\" \"DMG-01\" Nintendo"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

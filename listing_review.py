@@ -18,6 +18,11 @@ TITLE_FEATURE = re.compile(r'^(pierced|engraved|embossed|scalloped|folding|retra
 
 def evidence_value(evidence, field, statuses):
     rows = evidence.get(field, [])
+    if 'SELLER_VERIFIED' in statuses:
+        seller = {normalized_claim(str(row['value'])): row['value'] for row in rows
+                  if row['status'] == 'SELLER_VERIFIED'}
+        if seller:
+            return next(iter(seller.values())) if len(seller) == 1 else None
     values = {normalized_claim(str(row['value'])): row['value'] for row in rows if row['status'] in statuses}
     if len(values) != 1:
         return None

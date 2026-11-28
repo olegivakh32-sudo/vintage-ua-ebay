@@ -90,6 +90,10 @@ class LotnexoReviewTests(unittest.TestCase):
         self.assertIsNone(evidence_value(missing_frame, 'model', DIRECT))
         different_value = evidence | {'model': [observation, {'value': 'ZX-271', 'status': 'CONTESTED'}]}
         self.assertIsNone(evidence_value(different_value, 'model', DIRECT))
+        corrected = different_value | {'model': [*different_value['model'],
+                                                 {'value': 'ZX-272', 'status': 'SELLER_VERIFIED'}]}
+        self.assertEqual(evidence_value(corrected, 'model', DIRECT), 'ZX-272')
+        self.assertEqual(len(export_review(corrected)['fields']['model']), 3)
 
     def test_research_packet_excludes_initial_identity_but_keeps_numbered_evidence(self):
         analysis = ('Narrative with invented date 1588 and Sewing frame\n'
@@ -153,11 +157,15 @@ class LotnexoReviewTests(unittest.TestCase):
         self.assertEqual(reconciled['measurements']['width_cm']['reference'][0]['value'], 11)
         self.assertIsNone(reconciled['measurements']['width_cm']['actual'])
         self.assertEqual(review(seller={'type': 'Hand drill guide'})['type'], 'Hand drill guide')
+        unsupported = dict(correction, value='Hand drill guide', sources=[])
+        self.assertEqual(review(records=[correction, unsupported])['type'], 'Bench mortise jig')
+        rival = dict(correction, value='Hand drill guide', sources=[
+            sources[0] | {'excerpt': 'Hand drill guide with label MX-4407 JIG'}, sources[1]])
         for result in (review(records=[dict(correction, visual_anchor='invented anchor')]),
                        review(photo_analysis=analysis.replace('MX-4407 JIG', 'MX-8812 JIG')),
                        review(photo_analysis=analysis.replace('"confidence":99', '"confidence":70')),
                        review(search=''),
-                       review(records=[correction, dict(correction, value='Hand drill guide')])):
+                       review(records=[correction, rival])):
             self.assertEqual(result['type'], 'Sewing frame')
             self.assertIsNone(result['identity_review'])
 

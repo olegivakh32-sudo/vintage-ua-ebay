@@ -1,0 +1,469 @@
+{
+  "mode": "archived_responses_and_public_catalogue",
+  "independent_acceptance": false,
+  "new_provider_requests": 0,
+  "new_provider_cost_usd": "0",
+  "cohorts": {
+    "S1": {
+      "consumed_archived_responses": 17,
+      "public_catalogue_reads": 0,
+      "missing_research_responses": [
+        "P039"
+      ],
+      "missing_photo_analysis": [
+        "P053"
+      ],
+      "paid_type_correct": 3,
+      "archived_type_correct": 3,
+      "stored_hold": 5,
+      "admitted": 0,
+      "lots": {
+        "P001": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 409
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "P002": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 409
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "P003": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Round portrait medallion",
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "P004": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Retractable tape measure",
+          "model": "33-425",
+          "photo_matched_catalogue": false
+        },
+        "P006": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Printed artwork depicting a religious meal scene",
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "P010": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Coin-like round object",
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "P013": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Low, wide ceramic vessel",
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "P022": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 409
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "P039": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "P053": {
+          "stage_http": {
+            "visual": 502,
+            "research": null,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        }
+      }
+    },
+    "M12": {
+      "consumed_archived_responses": 19,
+      "public_catalogue_reads": 14,
+      "missing_research_responses": [
+        "MV-202",
+        "MV-204",
+        "MV-206",
+        "MV-207",
+        "MV-208"
+      ],
+      "missing_photo_analysis": [],
+      "paid_type_correct": 5,
+      "archived_type_correct": 6,
+      "stored_hold": 7,
+      "admitted": 0,
+      "lots": {
+        "MV-201": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Ceramic handled jar",
+          "model": null,
+          "photo_matched_catalogue": true
+        },
+        "MV-202": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-203": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Tall floor clock",
+          "model": null,
+          "photo_matched_catalogue": true
+        },
+        "MV-204": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-205": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Decorative hair comb",
+          "model": null,
+          "photo_matched_catalogue": true
+        },
+        "MV-206": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-207": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-208": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-209": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Woven basket",
+          "model": null,
+          "photo_matched_catalogue": true
+        },
+        "MV-210": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Seal",
+          "model": null,
+          "photo_matched_catalogue": true
+        },
+        "MV-211": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "laptop computer",
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-212": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Desktop computer unit",
+          "model": null,
+          "photo_matched_catalogue": false
+        }
+      }
+    },
+    "N12": {
+      "consumed_archived_responses": 23,
+      "public_catalogue_reads": 8,
+      "missing_research_responses": [
+        "MV-304",
+        "MV-305",
+        "MV-306",
+        "MV-308",
+        "MV-309",
+        "MV-310"
+      ],
+      "missing_photo_analysis": [],
+      "paid_type_correct": 4,
+      "archived_type_correct": 4,
+      "stored_hold": 6,
+      "admitted": 0,
+      "lots": {
+        "MV-301": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Decorative handled vessel",
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-302": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Carved wooden cabinet",
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-303": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Glazed ceramic bowl",
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-304": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-305": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-306": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-307": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Decorative storage chest",
+          "model": null,
+          "photo_matched_catalogue": true
+        },
+        "MV-308": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-309": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-310": {
+          "stage_http": {
+            "visual": 200,
+            "research": 500,
+            "draft": null
+          },
+          "stored_hold": false,
+          "admitted": false,
+          "type": null,
+          "model": null,
+          "photo_matched_catalogue": false
+        },
+        "MV-311": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Digital camera body",
+          "model": "EOS 650D",
+          "photo_matched_catalogue": false
+        },
+        "MV-312": {
+          "stage_http": {
+            "visual": 200,
+            "research": 200,
+            "draft": 200
+          },
+          "stored_hold": true,
+          "admitted": false,
+          "type": "Handheld video game console",
+          "model": null,
+          "photo_matched_catalogue": false
+        }
+      }
+    }
+  }
+}

@@ -36,6 +36,7 @@ class ArchivedBudget(MultiviewBudget):
         key = self.pending[:2]
         if key not in self.recorded:
             self.missing.add(key)
+            self.pending = None
             raise LotFailure('ARCHIVED_RESPONSE_UNAVAILABLE')
         return payload
 
