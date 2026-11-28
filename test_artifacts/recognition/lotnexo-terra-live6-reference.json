@@ -1,0 +1,222 @@
+[
+  {
+    "lot": "TL-401",
+    "reference_id": "CMA-1953.363",
+    "identity": [
+      "ewer",
+      "pitcher",
+      "pouring vessel"
+    ],
+    "source": "https://www.clevelandart.org/art/1953.363",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/130646",
+    "licence": "CC0 1.0",
+    "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "credit": "Cleveland Museum of Art Open Access",
+    "material": [
+      "lead-glazed, white-paste earthenware with inlaid slip decoration"
+    ],
+    "period": "c. 1540–67",
+    "documentary_dimensions": "Overall: 35.6 x 13.7 cm (14 x 5 3/8 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1953.363/1953.363_web.jpg",
+        "source_page": "https://www.clevelandart.org/art/1953.363",
+        "sha256": "716b47b8059af61b270d9f0ca5c9330bcd06a09c2f061fe907b5f252cb99394f"
+      }
+    ],
+    "checked_on": "2026-11-28",
+    "measured_dimensions_cm": null,
+    "measured_weight_kg": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded to 2000 px with metadata removed"
+  },
+  {
+    "lot": "TL-402",
+    "reference_id": "CMA-1953.320",
+    "identity": [
+      "panel from a head covering",
+      "head covering panel",
+      "textile panel"
+    ],
+    "source": "https://www.clevelandart.org/art/1953.320",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/130598",
+    "licence": "CC0 1.0",
+    "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "credit": "Cleveland Museum of Art Open Access",
+    "material": [
+      "Silk, metal, dye"
+    ],
+    "period": "probably 1800s or early 1900s",
+    "documentary_dimensions": "Overall: 117.2 x 53.4 cm (46 1/8 x 21 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1953.320/1953.320_web.jpg",
+        "source_page": "https://www.clevelandart.org/art/1953.320",
+        "sha256": "e46f088237af4059514105cdc5258b94773a94e6dba15838d5137b1094ff7f4d"
+      }
+    ],
+    "checked_on": "2026-11-28",
+    "measured_dimensions_cm": null,
+    "measured_weight_kg": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded to 2000 px with metadata removed"
+  },
+  {
+    "lot": "TL-403",
+    "reference_id": "CMA-1915.524",
+    "identity": [
+      "wall tile",
+      "ceramic tile",
+      "luster wall tile"
+    ],
+    "source": "https://www.clevelandart.org/art/1915.524",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/94963",
+    "licence": "CC0 1.0",
+    "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "credit": "Cleveland Museum of Art Open Access",
+    "material": [
+      "fritware with luster-painted design"
+    ],
+    "period": "1266",
+    "documentary_dimensions": "Overall: 19.5 x 16 cm (7 11/16 x 6 5/16 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1915.524/1915.524_web.jpg",
+        "source_page": "https://www.clevelandart.org/art/1915.524",
+        "sha256": "6eb5bd6a91d3c3561da1891b249a67b101eb62652ed8eeac40fe3d7c5375dd9e"
+      }
+    ],
+    "checked_on": "2026-11-28",
+    "measured_dimensions_cm": null,
+    "measured_weight_kg": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded to 2000 px with metadata removed"
+  },
+  {
+    "lot": "TL-404",
+    "reference_id": "CMA-1987.158",
+    "identity": [
+      "vessel ornament",
+      "vessel attachment",
+      "vessel ornament of banqueter"
+    ],
+    "source": "https://www.clevelandart.org/art/1987.158",
+    "source_record": "https://openaccess-api.clevelandart.org/api/artworks/153632",
+    "licence": "CC0 1.0",
+    "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "credit": "Cleveland Museum of Art Open Access",
+    "material": [
+      "bronze"
+    ],
+    "period": "probably 400–375 BCE",
+    "documentary_dimensions": "Overall: 2 cm (13/16 in.)",
+    "photos": [
+      {
+        "url": "https://openaccess-cdn.clevelandart.org/1987.158/1987.158_web.jpg",
+        "source_page": "https://www.clevelandart.org/art/1987.158",
+        "sha256": "ef19e9e2d249e997aafc3a1ae495846338c0034c598e01b2bc8e06cf8a96fd24"
+      }
+    ],
+    "checked_on": "2026-11-28",
+    "measured_dimensions_cm": null,
+    "measured_weight_kg": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded to 2000 px with metadata removed"
+  },
+  {
+    "lot": "TL-405",
+    "reference_id": "NIKON-D90-BODY",
+    "identity": [
+      "DSLR camera body",
+      "digital SLR camera body",
+      "DSLR camera"
+    ],
+    "brand": [
+      "Nikon"
+    ],
+    "model": [
+      "D90",
+      "Nikon D90"
+    ],
+    "source": "https://www.nikonusa.com/p/d90/25446",
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "credit": "PascalHD / Wikimedia Commons",
+    "documentary_dimensions": {
+      "width_mm": 132,
+      "height_mm": 103,
+      "depth_mm": 77
+    },
+    "documentary_weight": {
+      "camera_body_nominal_g": 620
+    },
+    "photos": [
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/7/77/Nikon_D90_%28Body_Only%2C_Front%29.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File:Nikon_D90_%28Body_Only%2C_Front%29.jpg",
+        "sha256": "5f236372f66463a36ef18ad6ac4909d216bfcd0f7a41f9f30b10dc06f99c5224"
+      },
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/b/bf/Nikon_D90_%28Body_Only%2C_Rear%29.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File:Nikon_D90_%28Body_Only%2C_Rear%29.jpg",
+        "sha256": "1f23a70e7d711f13f140e65b97261afade7fbef58938e29189a5fc9438a871e7"
+      }
+    ],
+    "checked_on": "2026-11-28",
+    "measured_dimensions_cm": null,
+    "measured_weight_kg": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded to 2000 px with metadata removed"
+  },
+  {
+    "lot": "TL-406",
+    "reference_id": "SONY-PS-VITA-PCH-1101",
+    "identity": [
+      "handheld game console",
+      "handheld gaming console",
+      "PlayStation Vita"
+    ],
+    "brand": [
+      "Sony"
+    ],
+    "model": [
+      "PCH-1101",
+      "PlayStation Vita PCH-1101"
+    ],
+    "source": "https://www.playstation.com/content/dam/global_pdc/en/corporate/support/manuals/psvita-docs/PCH-1001_1101-1.6_2.pdf",
+    "licence": "Public domain",
+    "licence_url": "https://commons.wikimedia.org/wiki/Commons:Public_domain",
+    "credit": "Evan-Amos / Wikimedia Commons",
+    "documentary_dimensions": {
+      "width_mm": 182,
+      "height_mm": 18.6,
+      "depth_mm": 83.5
+    },
+    "documentary_weight": {
+      "pch_1101_nominal_g": 279
+    },
+    "photos": [
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/b/b4/PlayStation-Vita-1101-FL.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File:PlayStation-Vita-1101-FL.jpg",
+        "sha256": "d58e09d95693fad6d926d6418fdcea80f44fa86a622b8fac7224ba7d11d10327"
+      },
+      {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/b/b6/PlayStation-Vita-1101-BR.jpg",
+        "source_page": "https://commons.wikimedia.org/wiki/File:PlayStation-Vita-1101-BR.jpg",
+        "sha256": "c963a1a9bc93fd63d892c21fbfc4d392f799e8bd568d2c2cadca9962751cbd63"
+      }
+    ],
+    "checked_on": "2026-11-28",
+    "measured_dimensions_cm": null,
+    "measured_weight_kg": null,
+    "leaf_category_id": null,
+    "completed_sale": null,
+    "photo_transform": "JPEG re-encoded to 2000 px with metadata removed"
+  }
+]

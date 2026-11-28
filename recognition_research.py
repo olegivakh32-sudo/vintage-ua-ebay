@@ -66,3 +66,102 @@ UNCONFIRMED_SCOPE = (
     'offered, shipping measurements, price or market comparables for an unconfirmed sale unit. '
     'Leave each market and shipping JSON block empty with null prices.'
 )
+
+
+# A supplementary search can fill this short list. Identity, market and shipping
+# remain owned by the primary stages.
+DOCUMENTARY_DETAILS = ('material', 'period', 'weight_kg', 'length_cm', 'width_cm', 'height_cm')
+DETAILS_RESEARCH_PREFIX = 'Find missing documentary specifications for the locked item.'
+
+
+def details_request(evidence, scope_confirmed, product_photos, *, include_existing=False):
+    """Authorize a supplement only for a maker and an exact code on the item."""
+    from listing_review import DIRECT, DOCUMENTED, evidence_value
+
+    if not scope_confirmed:
+        return None
+    brand = evidence_value(evidence, 'brand', {'PHOTO_OBSERVATION'})
+    model = evidence_value(evidence, 'model', {'PHOTO_OBSERVATION'})
+    if (not brand or not model or not any(char.isdigit() for char in model)
+            or evidence_value(evidence, 'brand', DIRECT) != brand or evidence_value(evidence, 'model', DIRECT) != model
+            or any(row['status'] in DIRECT | DOCUMENTED | {'CONTESTED'}
+                   and normalized_claim(row['value']) != normalized_claim(value)
+                   for field, value in (('brand', brand), ('model', model)) for row in evidence.get(field, []))):
+        return None
+    model_slots = {slot for row in evidence.get('model', [])
+                   if row['status'] == 'PHOTO_OBSERVATION' and normalized_claim(row['value']) == normalized_claim(model)
+                   for slot in row['photos']}
+    marked = {slot for row in evidence.get('marking', [])
+              if row['status'] == 'PHOTO_OBSERVATION' and row.get('marking_kind') == 'MODEL_NUMBER'
+              and normalized_claim(row['value']) == normalized_claim(model)
+              for slot in row['photos']}
+    slots = sorted(model_slots & marked & set(product_photos))
+    if not slots:
+        return None
+    blocking = DIRECT | DOCUMENTED | {'PHOTO_MEASUREMENT', 'CONTESTED'}
+    fields = [field for field in DOCUMENTARY_DETAILS
+              if include_existing or not any(row['status'] in blocking for row in evidence.get(field, []))]
+    return {'brand': brand, 'model': model, 'photos': slots[:1], 'fields': fields} if fields else None
+
+
+def check_documentary_details(packet, request, photo_count, source_host):
+    """Revalidate the photo anchor and require every surviving source to quote it."""
+    from identity_evidence import PRIMARY, TYPED_MEASUREMENT, identity_claims
+    from measurement_units import metric_value
+
+    if not (request and isinstance(packet, dict) and packet.get('status') == 'COMPLETE'):
+        return []
+    if packet.get('anchor') != {key: request[key] for key in ('brand', 'model', 'photos')}:
+        return []
+    fields = packet.get('requested_fields')
+    if not isinstance(fields, list) or not fields or any(field not in request['fields'] for field in fields):
+        return []
+    known = packet.get('urls')
+    urls = {url for url in known if isinstance(url, str)} if isinstance(known, list) else set()
+    rows = packet.get('claims')
+    if not isinstance(rows, list):
+        return []
+
+    def literal(text, value):
+        return re.search(r'(?<![\w-])' + re.escape(normalized_claim(value)) + r'(?![\w-])',
+                         normalized_claim(text)) is not None
+
+    def supports(source, claim):
+        excerpt, field, value = source['excerpt'], claim['field'], claim['value']
+        if not literal(excerpt, request['model']):
+            return False
+        if field in ('material', 'period'):
+            return literal(excerpt, value)
+        if field == 'weight_kg':
+            if (not re.search(r'\b(?:net|body only|tool only|item only)\b', excerpt, re.I)
+                    or re.search(r'\b(?:gross|package|packaged|shipping|cipa|with (?:the )?batter(?:y|ies))\b',
+                                 excerpt, re.I)):
+                return False
+            if sum(unit.lower() in {'kg', 'g'} for _, unit in TYPED_MEASUREMENT.findall(excerpt)) != 1:
+                return False
+        if re.search(r'\b(?:package size|packaging|packed dimensions)\b', excerpt, re.I):
+            return False
+        if field != 'weight_kg':
+            axis = field.split('_', 1)[0]
+            labelled = re.search(r'\b' + axis + r'\s*[:=]?\s*(' + TYPED_MEASUREMENT.pattern + r')\b',
+                                 excerpt, re.I)
+            if not labelled:
+                return False
+            excerpt = labelled[1]
+        for quantity, unit in TYPED_MEASUREMENT.findall(excerpt):
+            try:
+                if metric_value(quantity, unit, weight=field == 'weight_kg') == value:
+                    return True
+            except ValueError:
+                continue
+        return False
+
+    candidates = [row for row in rows[:18] if isinstance(row, dict) and row.get('field') in fields]
+    result = []
+    for claim in identity_claims(candidates, urls, photo_count, source_host):
+        if claim['status'] != 'CORROBORATED_REFERENCE' or claim['photos'] != request['photos']:
+            continue
+        proven = [source for source in claim['references'] if supports(source, claim)]
+        if len(proven) >= 2 and any(source['kind'] in PRIMARY for source in proven):
+            result.append(claim | {'references': proven})
+    return result

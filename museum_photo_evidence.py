@@ -129,8 +129,9 @@ def museum_claims(candidate, observed_urls, photo_digests, *, markings=(), load=
         fields.append(('material', None, technique))
     fields.append(('period', None, data.get('creation_date')))
     kind = candidate.get('type') if proposed in matched_keys else None
-    title_head = re.split(r'\s+(?:of|with|commemorating|depicting|showing)\s+', data['title'], maxsplit=1, flags=re.I)[0]
-    type_labels = {normalized_claim(label) for label in (title_head, data.get('type')) if isinstance(label, str)}
+    title = re.sub(r'\s+\([^()]+\)$', '', data['title'])
+    title_head = re.split(r'\s+(?:of|with|commemorating|depicting|showing)\s+', title, maxsplit=1, flags=re.I)[0]
+    type_labels = {normalized_claim(label) for label in (title, title_head, data.get('type')) if isinstance(label, str)}
     if matched_keys & marked and isinstance(data.get('type'), str):
         head = normalized_claim(title_head)
         if normalized_claim(data['type']) in {head, head + 's'}:

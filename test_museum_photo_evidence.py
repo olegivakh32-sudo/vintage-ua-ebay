@@ -92,3 +92,12 @@ class MuseumPhotoEvidenceTests(unittest.TestCase):
         self.assertEqual(museum.museum_claims(proposal, [proposal['url']], {1: 'another'},
                                              markings=['80.124'], load=load), [])
         self.assertEqual(museum.museum_claims(proposal, [], {1: 'matched'}, markings=['80.124'], load=load), [])
+
+    def test_exact_asset_preserves_function_in_a_compound_catalogue_title(self):
+        url = 'https://www.clevelandart.org/art/1980.124'
+        record = {'accession_number': '1980.124', 'title': 'Handle of a Storage Jar (Excavation fragment)',
+                  'type': 'Ceramics'}
+        load = lambda _: (record, {'matched'})
+        for kind, expected in [('Handle of a Storage Jar', True), ('Storage Jar', False)]:
+            claims = museum.museum_claims({'url': url, 'type': kind}, [url], {1: 'matched'}, load=load)
+            self.assertEqual(any(row['field'] == 'type' and row['value'] == kind for row in claims), expected)
