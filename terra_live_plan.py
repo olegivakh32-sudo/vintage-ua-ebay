@@ -2,6 +2,7 @@
 import argparse
 from datetime import date
 from decimal import Decimal
+from hashlib import sha256
 import json
 import os
 import re
@@ -26,6 +27,13 @@ ARCHIVE_SHA = '3a088e9789aeb3315c82384c00256231cd6de2bd696bee5c3667269de0abf1a1'
 REFERENCE_SHA = '3e64c8f6b7c96c8c38663e172d58088faf501df8bd9f395c697ef741d3f9c024'
 PHOTO_COUNTS = {f'TL-{lot}': 1 if lot <= 404 else 2 for lot in range(401, 407)}
 TAG = 'refs/tags/p094-lotnexo-live6'
+CONTINUATION_TAG = TAG + '-continuation'
+PRIOR_RUN = 46138015708
+PRIOR_REVISION = '0bdd73e3d94a0d79886a0cf3435aeb2f5f4cedda'
+PRIOR_ARCHIVE = ARTIFACTS / f'lotnexo-live6-{PRIOR_RUN}-evidence.zip'
+PRIOR_SHA = '0ba2677ae1ca8f01d6c2cf8941b3f1a215e258a676d4cb00d382767848c1f23f'
+PRIOR_SPEND = Decimal('0.004749')
+PAID_STEP = ('TL-401', 'photos')
 REPOSITORY = 'olegivakh32-sudo/vintage-ua-ebay'
 TERRA = 'gpt-6.1-terra'
 LUNA = 'gpt-6-luna'
@@ -86,6 +94,22 @@ def quote():
 
 
 CAP = Decimal(quote()['max_run_usd'])
+
+
+def paid_checkpoint(path=PRIOR_ARCHIVE):
+    if sha(path) != PRIOR_SHA:
+        raise StopRun('PAID_ARCHIVE_CHECKSUM_MISMATCH')
+    with ZipFile(path) as archive:
+        prior = json.loads(archive.read('results/run.json'))
+        completed = json.loads(archive.read('results/TL-401-photos-response.json'))
+    attempts = prior['attempts']
+    if (prior['algorithm_revision'] != PRIOR_REVISION or prior['blind_sha256'] != ARCHIVE_SHA
+            or prior['reference_sha256'] != REFERENCE_SHA or prior['status'] != 'STOPPED'
+            or prior['reason'] != 'UNEXPECTED_USAGE' or len(attempts) != 1
+            or (attempts[0]['lot'], attempts[0]['step']) != PAID_STEP or attempts[0]['http_status'] != 200
+            or completed['status'] != 'completed'):
+        raise StopRun('PAID_CHECKPOINT_INVALID')
+    return attempts[0], completed
 
 
 def sealed_photos(root):
@@ -206,13 +230,17 @@ class Live6Budget(StageBudget):
         details = usage.get('input_tokens_details') or {}
         tools = result.get('tool_usage') or {}
         web_usage = tools.get('web_search')
+        output_items = result.get('output')
         model, _, _, output, limit = STEPS[step]
         if web_usage is not None:
             searches = web_usage.get('num_requests')
-        elif limit and result.get('status') != 'completed':
-            raise RuntimeError('Unsettled search usage')
         else:
-            searches = sum(item.get('type') == 'web_search_call' for item in result.get('output', []))
+            if limit and (result.get('status') != 'completed' or not isinstance(output_items, list)):
+                raise RuntimeError('Unsettled search usage')
+            search_items = [item for item in (output_items or []) if item.get('type') == 'web_search_call']
+            if limit and (not search_items or any(item.get('status') != 'completed' for item in search_items)):
+                raise RuntimeError('Unsettled search usage')
+            searches = len(search_items)
         if (result.get('model') != model or result.get('service_tier') != 'default'
                 or tools.keys() - {'web_search', 'image_gen'}
                 or ('image_gen' in tools and not unbilled_image_usage(tools['image_gen']))
@@ -234,9 +262,46 @@ class Live6Budget(StageBudget):
         return None if isinstance(claims, list) else 'INVALID_RESEARCH_SCHEMA'
 
 
+class Live6Continuation(Live6Budget):
+    def __init__(self, destination, revision, taxonomy_token=None):
+        self.paid_attempt, self.saved_photo_reply = paid_checkpoint()
+        super().__init__(destination, revision, taxonomy_token)
+        self.state.update(previous_run=PRIOR_RUN, previous_spend_usd=str(PRIOR_SPEND),
+                          max_additional_usd=str(CAP - PRIOR_SPEND))
+        self.save()
+
+    def send(self, request, session, kwargs):
+        if self.status != 'RUNNING' or not self.pending:
+            return super().send(request, session, kwargs)
+        lot, step, payload = self.pending
+        if (lot, step) != PAID_STEP:
+            if not self.attempts or self.attempts[0].get('reused') is not True:
+                self.stop('PAID_PHOTO_MUST_BE_RESTORED_FIRST')
+            return super().send(request, session, kwargs)
+
+        self.pending = None
+        if self.attempts or kwargs.get('json') != payload:
+            self.stop('PAID_PHOTO_REPLAY_BINDING_INVALID')
+        count = self.paid_attempt['input_tokens_counted']
+        usage = self.metered_usage(self.saved_photo_reply, step, payload, count)
+        reply_file = self.paid_attempt['response_file']
+        request_digest = sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+        if (Decimal(usage['metered_usd']) != PRIOR_SPEND or request_digest != self.paid_attempt['request_sha256']
+                or self.check_response(self.saved_photo_reply, step, {'lot': lot, **usage})):
+            self.stop('PAID_PHOTO_REPLAY_MISMATCH')
+        durable_report(self.path.parent / reply_file, self.saved_photo_reply)
+        self.attempts.append(self.paid_attempt | usage | {'status': 'COMPLETE', 'reused': True,
+                                                        'service_tier': 'default', 'source_run': PRIOR_RUN})
+        self.save()
+        restored = requests.Response()
+        restored.status_code = 200
+        restored._content = json.dumps(self.saved_photo_reply).encode()
+        return restored
+
+
 def approved_environment(*, execute):
     revision = os.environ.get('GITHUB_SHA', '')
-    if (os.environ.get('GITHUB_REPOSITORY') != REPOSITORY or os.environ.get('GITHUB_REF') != TAG
+    if (os.environ.get('GITHUB_REPOSITORY') != REPOSITORY or os.environ.get('GITHUB_REF') not in {TAG, CONTINUATION_TAG}
             or os.environ.get('GITHUB_RUN_ATTEMPT') != '1' or not re.fullmatch(r'[a-f0-9]{40}', revision)
             or os.environ.get('ENABLE_LIVE_PUBLISH') != '0' or os.environ.get('ALLOW_PAID_AI') != '0'
             or os.environ.get('LOTNEXO_LIVE6_APPROVED_USD') != str(CAP) or date.today() > RATES_EXPIRE
@@ -251,6 +316,9 @@ def approved_environment(*, execute):
 def preflight(secret, output, revision):
     report = {'revision': revision, 'blind_sha256': ARCHIVE_SHA, 'budget_usd': str(CAP), 'models': {},
               'token_count': {}, 'taxonomy': {'taxonomy': 'NOT_RUN'}, 'status': 'UNAVAILABLE'}
+    if os.environ.get('GITHUB_REF') == CONTINUATION_TAG:
+        report.update(previous_run=PRIOR_RUN, paid_archive_sha256=PRIOR_SHA,
+                      previous_spend_usd=str(PRIOR_SPEND), max_additional_usd=str(CAP - PRIOR_SPEND))
     try:
         available = model_metadata(secret, tuple(RATES))
         report['models'] = available
@@ -292,15 +360,20 @@ def main():
         print(json.dumps(validate(), indent=2))
         return 0
     revision, secret = approved_environment(execute=bool(args.execute))
+    continuation = os.environ.get('GITHUB_REF') == CONTINUATION_TAG
     with TemporaryDirectory() as root:
         lots = sealed_photos(Path(root))
+        if continuation:
+            paid_checkpoint()
         if args.preflight:
             preflight(secret, args.preflight, revision)
             return 0
         receipt = json.loads((args.execute.parent / 'preflight.json').read_bytes())
         if (receipt.get('status') != 'AUTHORIZED_UNMETERED' or receipt.get('revision') != revision
                 or receipt.get('blind_sha256') != ARCHIVE_SHA or receipt.get('budget_usd') != str(CAP)
-                or set(receipt.get('token_count', {})) != set(RATES) or not taxonomy_ready(receipt.get('taxonomy'))):
+                or set(receipt.get('token_count', {})) != set(RATES) or not taxonomy_ready(receipt.get('taxonomy'))
+                or (continuation and (receipt.get('paid_archive_sha256') != PRIOR_SHA
+                                      or receipt.get('previous_spend_usd') != str(PRIOR_SPEND)))):
             raise StopRun('PREFLIGHT_RECEIPT_MISMATCH')
         try:
             taxonomy_token = production_taxonomy_token(os.environ)
@@ -312,7 +385,8 @@ def main():
         import app
 
         app.OPENAI_API_KEY = secret
-        run_lots(Live6Budget(args.execute, revision, taxonomy_token), lots, args.execute)
+        budget_class = Live6Continuation if continuation else Live6Budget
+        run_lots(budget_class(args.execute, revision, taxonomy_token), lots, args.execute)
     return 0
 
 

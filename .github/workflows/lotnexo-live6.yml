@@ -2,7 +2,7 @@ name: LOTNEXO Live 6
 
 on:
   push:
-    tags: [p094-lotnexo-live6]
+    tags: [p094-lotnexo-live6, p094-lotnexo-live6-continuation]
 
 concurrency:
   group: lotnexo-live6
@@ -12,7 +12,7 @@ jobs:
   live6:
     if: >-
       github.repository == 'olegivakh32-sudo/vintage-ua-ebay' &&
-      github.ref == 'refs/tags/p094-lotnexo-live6' &&
+      (github.ref == 'refs/tags/p094-lotnexo-live6' || github.ref == 'refs/tags/p094-lotnexo-live6-continuation') &&
       github.event.created && !github.event.deleted && github.run_attempt == 1
     runs-on: ubuntu-24.04
     timeout-minutes: 50
@@ -35,7 +35,14 @@ jobs:
           archive=test_artifacts/recognition/lotnexo-terra-live6-blind.zip
           git show "$GITHUB_SHA:$archive" > "$pilot/blind.zip"
           install -D -m 600 "$pilot/blind.zip" "$pilot/runtime/$archive"
-          test "$(find "$pilot/runtime/test_artifacts" -type f | wc -l)" -eq 1
+          expected=1
+          if [[ "$GITHUB_REF" == 'refs/tags/p094-lotnexo-live6-continuation' ]]; then
+            checkpoint=test_artifacts/recognition/lotnexo-live6-46138015708-evidence.zip
+            git show "$GITHUB_SHA:$checkpoint" > "$pilot/paid.zip"
+            install -D -m 600 "$pilot/paid.zip" "$pilot/runtime/$checkpoint"
+            expected=2
+          fi
+          test "$(find "$pilot/runtime/test_artifacts" -type f | wc -l)" -eq "$expected"
           python3 -m venv "$pilot/.venv"
           timeout 180s "$pilot/.venv/bin/python" -m pip install -q -r "$pilot/runtime/requirements.txt"
       - name: Verify OpenAI access and read the current eBay taxonomy without generation
@@ -54,8 +61,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          if [[ "$GITHUB_REF" == 'refs/tags/p094-lotnexo-live6-continuation' ]]; then
+            source_sha=$(timeout 25s gh api --method GET "repos/$GITHUB_REPOSITORY/git/ref/tags/p094-lotnexo-live6-reserved" --jq '.object.sha')
+            test "$source_sha" = '0bdd73e3d94a0d79886a0cf3435aeb2f5f4cedda'
+          fi
           timeout 25s gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-            -f ref=refs/tags/p094-lotnexo-live6-reserved -f sha="$GITHUB_SHA" >/dev/null
+            -f ref="${GITHUB_REF}-reserved" -f sha="$GITHUB_SHA" >/dev/null
       - name: Execute the approved pilot and retain metered evidence
         env:
           LOTNEXO_LIVE6_APPROVED_USD: ${{ vars.LOTNEXO_LIVE6_APPROVED_USD }}
