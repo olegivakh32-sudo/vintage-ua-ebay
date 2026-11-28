@@ -13,7 +13,7 @@ import requests
 
 from acceptance_stage import sha
 from blind_live_pilot import API, SEARCH_TOKENS, SHORT_THRESHOLD, WEB_PRICE, model_metadata
-from ebay_sandbox_probe import production_taxonomy_token
+from ebay_sandbox_probe import production_taxonomy, production_taxonomy_token
 from multiview_acceptance import ARTIFACTS, blind_inputs
 from recognition_research import DETAILS_RESEARCH_PREFIX
 from s1_acceptance import RATES_EXPIRE, StageBudget, StopRun, durable_report, run_lots
@@ -234,7 +234,7 @@ def approved_environment(*, execute):
 
 def preflight(secret, output, revision):
     report = {'revision': revision, 'blind_sha256': ARCHIVE_SHA, 'budget_usd': str(CAP), 'models': {},
-              'token_count': {}, 'status': 'UNAVAILABLE'}
+              'token_count': {}, 'taxonomy': {'taxonomy': 'NOT_RUN'}, 'status': 'UNAVAILABLE'}
     try:
         available = model_metadata(secret, tuple(RATES))
         report['models'] = available
@@ -250,9 +250,20 @@ def preflight(secret, output, revision):
                 if type(count) is not int or count <= 0:
                     raise StopRun('TOKEN_COUNT_UNAVAILABLE')
                 report['token_count'][model] = count
+        report['taxonomy'] = production_taxonomy(connect=True)
+        if not taxonomy_ready(report['taxonomy']):
+            raise StopRun('EBAY_TAXONOMY_ACCESS_UNAVAILABLE')
         report['status'] = 'AUTHORIZED_UNMETERED'
+    except StopRun as error:
+        report['reason'] = str(error)
+        raise
     finally:
         durable_report(output, report)
+
+
+def taxonomy_ready(report):
+    return (isinstance(report, dict) and report.get('taxonomy') == 'OK' and report.get('marketplace') == 'EBAY_US'
+            and bool(report.get('tree_id')) and bool(report.get('tree_version')))
 
 
 def main():
@@ -273,12 +284,15 @@ def main():
         receipt = json.loads((args.execute.parent / 'preflight.json').read_bytes())
         if (receipt.get('status') != 'AUTHORIZED_UNMETERED' or receipt.get('revision') != revision
                 or receipt.get('blind_sha256') != ARCHIVE_SHA or receipt.get('budget_usd') != str(CAP)
-                or set(receipt.get('token_count', {})) != set(RATES)):
+                or set(receipt.get('token_count', {})) != set(RATES) or not taxonomy_ready(receipt.get('taxonomy'))):
             raise StopRun('PREFLIGHT_RECEIPT_MISMATCH')
         try:
             taxonomy_token = production_taxonomy_token(os.environ)
-        except (ValueError, requests.RequestException):
-            taxonomy_token = None
+            current_taxonomy = production_taxonomy(connect=True, config={'VINTAGE_EBAY_TAXONOMY_TOKEN': taxonomy_token})
+        except (ValueError, requests.RequestException) as error:
+            raise StopRun('EBAY_TAXONOMY_RECHECK_FAILED') from error
+        if not taxonomy_ready(current_taxonomy):
+            raise StopRun('EBAY_TAXONOMY_RECHECK_FAILED')
         import app
 
         app.OPENAI_API_KEY = secret

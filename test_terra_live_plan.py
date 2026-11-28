@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 import requests
 
 from s1_acceptance import StopRun, run_lots
-from terra_live_plan import API, CAP, Live6Budget, approved_environment, sealed_photos, validate
+from terra_live_plan import API, CAP, LUNA, TERRA, Live6Budget, approved_environment, main, preflight, sealed_photos, validate
 from test_blind_live_pilot import response
 from test_mobile import m
 from test_s1_acceptance import RESEARCH, VISUAL
@@ -17,6 +17,63 @@ from visual_protocol import VISUAL_TEXT
 
 
 class TerraLive6Tests(unittest.TestCase):
+    def test_preflight_requires_valid_ebay_taxonomy_without_generation(self):
+        calls = []
+        ebay_status = 200
+
+        def transport(session, method, url, **kwargs):
+            method = method.upper()
+            calls.append((method, url))
+            self.assertFalse(kwargs['allow_redirects'])
+            if method == 'GET' and url.startswith(API + '/models/'):
+                return response({'id': url.rsplit('/', 1)[1]})
+            if method == 'POST' and url == API + '/responses/input_tokens':
+                return response({'input_tokens': 5})
+            self.assertEqual((method, url), ('GET', 'https://api.ebay.com/commerce/taxonomy/v1/'
+                                                   'get_default_category_tree_id'))
+            self.assertEqual(kwargs['params'], {'marketplace_id': 'EBAY_US'})
+            return response({'categoryTreeId': '0', 'categoryTreeVersion': '112'}, status=ebay_status)
+
+        with (TemporaryDirectory() as temp, patch.object(requests.Session, 'request', autospec=True,
+                                                          side_effect=transport)):
+            out = Path(temp) / 'preflight.json'
+            with patch.dict('os.environ', {}, clear=True):
+                with self.assertRaisesRegex(StopRun, 'EBAY_TAXONOMY_ACCESS_UNAVAILABLE'):
+                    preflight('fixture-openai-key', out, 'a' * 40)
+            self.assertEqual(json.loads(out.read_text())['taxonomy']['taxonomy'], 'NOT_RUN')
+            self.assertEqual(len(calls), 4)
+            with patch.dict('os.environ', {'VINTAGE_EBAY_TAXONOMY_TOKEN': 'fixture-ebay-key'}, clear=True):
+                ebay_status = 401
+                with self.assertRaisesRegex(StopRun, 'EBAY_TAXONOMY_ACCESS_UNAVAILABLE'):
+                    preflight('fixture-openai-key', out, 'a' * 40)
+                self.assertEqual(json.loads(out.read_text())['taxonomy']['taxonomy'], 'REVIEW')
+                ebay_status = 200
+                preflight('fixture-openai-key', out, 'a' * 40)
+            report = json.loads(out.read_text())
+            self.assertEqual(report['status'], 'AUTHORIZED_UNMETERED')
+            self.assertEqual(report['taxonomy']['tree_version'], '112')
+            self.assertEqual(set(report['token_count']), {TERRA, LUNA})
+            self.assertNotIn('fixture-', out.read_text())
+            self.assertNotIn(('POST', API + '/responses'), calls)
+
+    def test_stale_ebay_access_stops_before_the_first_model_request(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = validate() | {'status': 'AUTHORIZED_UNMETERED', 'revision': 'a' * 40,
+                                   'budget_usd': str(CAP), 'token_count': {TERRA: 5, LUNA: 5},
+                                   'taxonomy': {'taxonomy': 'OK', 'marketplace': 'EBAY_US',
+                                                'tree_id': '0', 'tree_version': '112'}}
+            (root / 'preflight.json').write_text(json.dumps(report))
+            with (patch('sys.argv', ['terra_live_plan.py', '--execute', str(root / 'results')]),
+                  patch('terra_live_plan.approved_environment', return_value=('a' * 40, 'fixture')),
+                  patch('terra_live_plan.production_taxonomy_token', return_value='expired-ebay-token'),
+                  patch('terra_live_plan.production_taxonomy', return_value={'taxonomy': 'REVIEW'}),
+                  patch('terra_live_plan.run_lots') as execute):
+                with self.assertRaisesRegex(StopRun, 'EBAY_TAXONOMY_RECHECK_FAILED'):
+                    main()
+                execute.assert_not_called()
+                self.assertFalse((root / 'results').exists())
+
     def test_guard_blocks_unsigned_over_budget_and_duplicate_requests(self):
         self.assertEqual(Decimal(validate()['max_run_usd']), Decimal('5.74778'))
         with patch.dict('os.environ', {}, clear=True), self.assertRaises(StopRun):

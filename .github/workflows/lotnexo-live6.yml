@@ -38,10 +38,13 @@ jobs:
           test "$(find "$pilot/runtime/test_artifacts" -type f | wc -l)" -eq 1
           python3 -m venv "$pilot/.venv"
           timeout 180s "$pilot/.venv/bin/python" -m pip install -q -r "$pilot/runtime/requirements.txt"
-      - name: Check access to both models and token counting without generation
+      - name: Verify OpenAI access and read the current eBay taxonomy without generation
         env:
           LOTNEXO_LIVE6_APPROVED_USD: ${{ vars.LOTNEXO_LIVE6_APPROVED_USD }}
           P094_PILOT_OPENAI_API_KEY: ${{ secrets.P094_PILOT_OPENAI_API_KEY }}
+          VINTAGE_EBAY_TAXONOMY_CLIENT_ID: ${{ secrets.VINTAGE_EBAY_TAXONOMY_CLIENT_ID }}
+          VINTAGE_EBAY_TAXONOMY_CLIENT_SECRET: ${{ secrets.VINTAGE_EBAY_TAXONOMY_CLIENT_SECRET }}
+          VINTAGE_EBAY_TAXONOMY_TOKEN: ${{ secrets.VINTAGE_EBAY_TAXONOMY_TOKEN }}
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/lotnexo-live6"
