@@ -39,6 +39,17 @@ class IdentityEvidenceTests(unittest.TestCase):
         self.assertTrue(m._p089_research_handoff(draft, self.consensus([self.claim]), {}))
         self.assertIn('Reference identification: Camera M-1', draft['description'])
 
+    def test_rejected_alternative_is_distinct_from_evidence_against_the_claim(self):
+        rows = [source | {'excerpt': 'Portable film viewer with recessed prism window'} for source in self.sources]
+        claim = {'field': 'type', 'value': 'Portable film viewer; visual_anchor: recessed prism window',
+                 'photos': [1, 2], 'sources': rows, 'alternatives': ['Slide carrier lacks the prism window.']}
+        confirmed, = self.consensus([claim])['identity_claims']
+        self.assertEqual((confirmed['status'], confirmed['value'], confirmed['visual_anchor']),
+                         ('CORROBORATED_REFERENCE', 'Portable film viewer', 'recessed prism window'))
+        self.assertEqual(confirmed['alternatives'], claim['alternatives'])
+        disputed, = self.consensus([claim | {'contradictions': ['Photographed controls differ from both records.']}])['identity_claims']
+        self.assertEqual(disputed['status'], 'CONTESTED')
+
     def test_claims_without_auto_specs_preserve_citations_and_decisions(self):
         rejected = [
             {**self.sources[1], 'document_id': '0'},

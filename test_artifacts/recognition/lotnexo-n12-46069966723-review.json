@@ -1,0 +1,1291 @@
+{
+  "fields": {
+    "identity": {
+      "eligible": 12,
+      "filled": 6,
+      "correct": 4,
+      "incorrect": 0,
+      "unconfirmed": 2,
+      "unknown": 6,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.5,
+      "confirmed_completeness": 0.3333333333333333,
+      "accuracy_of_answers": 0.6666666666666666
+    },
+    "primary_source": {
+      "eligible": 12,
+      "filled": 5,
+      "correct": 2,
+      "incorrect": 2,
+      "unconfirmed": 1,
+      "unknown": 7,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.4166666666666667,
+      "confirmed_completeness": 0.16666666666666666,
+      "accuracy_of_answers": 0.4
+    },
+    "brand": {
+      "eligible": 2,
+      "filled": 2,
+      "correct": 2,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 0,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 1.0,
+      "confirmed_completeness": 1.0,
+      "accuracy_of_answers": 1.0
+    },
+    "model": {
+      "eligible": 2,
+      "filled": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 2,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.0,
+      "confirmed_completeness": 0.0,
+      "accuracy_of_answers": null
+    },
+    "material": {
+      "eligible": 10,
+      "filled": 1,
+      "correct": 1,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 9,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.1,
+      "confirmed_completeness": 0.1,
+      "accuracy_of_answers": 1.0
+    },
+    "period": {
+      "eligible": 10,
+      "filled": 1,
+      "correct": 1,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 9,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.1,
+      "confirmed_completeness": 0.1,
+      "accuracy_of_answers": 1.0
+    },
+    "documentary_dimensions": {
+      "eligible": 11,
+      "filled": 1,
+      "correct": 1,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 10,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.09090909090909091,
+      "confirmed_completeness": 0.09090909090909091,
+      "accuracy_of_answers": 1.0
+    },
+    "documentary_weight": {
+      "eligible": 1,
+      "filled": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "unconfirmed": 0,
+      "unknown": 1,
+      "pending": 0,
+      "asserted_without_reference": 0,
+      "reported_coverage": 0.0,
+      "confirmed_completeness": 0.0,
+      "accuracy_of_answers": null
+    }
+  },
+  "lots": {
+    "MV-301": {
+      "identity": {
+        "reference": [
+          "hanging lamp",
+          "mosque lamp",
+          "oil lamp"
+        ],
+        "reported": "Decorative handled vessel",
+        "status": "UNCONFIRMED",
+        "review": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The final handled-vessel description leaves the essential hanging lamp function unknown."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1981.10",
+          "https://openaccess-api.clevelandart.org/api/artworks/150188"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "glass with enameled and gilded decoration"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "late 1800s",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 39.5 cm (15 9/16 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-302": {
+      "identity": {
+        "reference": [
+          "sideboard",
+          "buffet cabinet"
+        ],
+        "reported": "Carved wooden cabinet",
+        "status": "UNCONFIRMED",
+        "review": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The final carved cabinet label is broader than the documented sideboard at CMA 1985.72. The intermediate sideboard hypothesis was not accepted."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1985.72",
+          "https://openaccess-api.clevelandart.org/api/artworks/152834"
+        ],
+        "reported": [
+          "https://high.org/collection/sideboard-3/?ver=2.0.1",
+          "https://hudsonheritage.org/wp-content/uploads/2016/03/HHA-DecorativeArts-Class3-2016.pdf"
+        ],
+        "status": "INCORRECT",
+        "review": {
+          "verdict": "INCORRECT",
+          "evidence": "The High Museum entry is a different object. A secondary teaching slide does not replace the official CMA accession record."
+        }
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "walnut"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "c. 1855",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 290.4 x 211.4 x 69.4 cm (114 5/16 x 83 1/4 x 27 5/16 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-303": {
+      "identity": {
+        "reference": [
+          "tea bowl",
+          "ceramic bowl",
+          "bowl"
+        ],
+        "reported": "Glazed ceramic bowl",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "The glazed ceramic bowl is consistent with the frozen bowl/tea bowl labels, without accepting a tentative ware attribution."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1948.206",
+          "https://openaccess-api.clevelandart.org/api/artworks/125978"
+        ],
+        "reported": [
+          "https://asia-archive.si.edu/object/F1906.28/",
+          "https://www.metmuseum.org/art/collection/search/48112"
+        ],
+        "status": "INCORRECT",
+        "review": {
+          "verdict": "INCORRECT",
+          "evidence": "The cited museum comparators are not the photographed Cleveland bowl from accession 1948.206."
+        }
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "Stoneware with black “hare’s fur” glaze and metal-bound rim, Jian ware"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "1100s–1200s",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Diameter: 17.8 cm (7 in.); Overall: 8.7 cm (3 7/16 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-304": {
+      "identity": {
+        "reference": [
+          "earrings",
+          "pair of earrings"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1915.338",
+          "https://openaccess-api.clevelandart.org/api/artworks/94681"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "Gold set with precious and semi-precious stones"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "1600s or 1700s",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 9.5 x 6.9 cm (3 3/4 x 2 11/16 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-305": {
+      "identity": {
+        "reference": [
+          "mirror",
+          "bronze mirror"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1973.74",
+          "https://openaccess-api.clevelandart.org/api/artworks/147576"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "bronze with silver and gold inlaid lacquer"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "700s",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Diameter: 19.2 cm (7 9/16 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-306": {
+      "identity": {
+        "reference": [
+          "lamellophone",
+          "thumb piano",
+          "chisanji"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1915.495",
+          "https://openaccess-api.clevelandart.org/api/artworks/94940"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "Wood, iron, and wire"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "late 1800s",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 19.1 x 10.2 x 6.4 cm (7 1/2 x 4 x 2 1/2 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-307": {
+      "identity": {
+        "reference": [
+          "clothing chest",
+          "storage chest",
+          "chest"
+        ],
+        "reported": "Decorative storage chest",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "Decorative storage chest matches the frozen type and CMA accession 1975.10."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1975.10",
+          "https://openaccess-api.clevelandart.org/api/artworks/148009"
+        ],
+        "reported": [
+          "https://www.clevelandart.org/art/1975.10",
+          "https://www.clevelandart.org/print/art/1975.10"
+        ],
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "Both URLs identify Cleveland accession 1975.10, confirmed by exact image fingerprint."
+        }
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "lacquered wood with mother-of-pearl inlay"
+        ],
+        "reported": "lacquered wood with mother-of-pearl inlay",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "Lacquered wood with mother-of-pearl inlay matches the Cleveland record."
+        }
+      },
+      "period": {
+        "reference": "1400s",
+        "reported": "1400s",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "1400s matches the catalogue date."
+        }
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 43 x 56 x 54.7 cm (16 15/16 x 22 1/16 x 21 9/16 in.)",
+        "reported": [
+          "Overall: 43 x 56 x 54.7 cm (16 15/16 x 22 1/16 x 21 9/16 in.)"
+        ],
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "The 43 × 56 × 54.7 cm overall catalogue dimensions match the Cleveland record and are attributed as documentary values."
+        }
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-308": {
+      "identity": {
+        "reference": [
+          "wall charger",
+          "decorative plate",
+          "charger"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1985.69",
+          "https://openaccess-api.clevelandart.org/api/artworks/152818"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "cloisonné and painted enamel mounted in gilt metal frame"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "1879",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Framed: 50.7 x 50.7 cm (19 15/16 x 19 15/16 in.); Diameter: 28.9 cm (11 3/8 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-309": {
+      "identity": {
+        "reference": [
+          "brush",
+          "writing brush",
+          "calligraphy brush"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/1967.194",
+          "https://openaccess-api.clevelandart.org/api/artworks/143249"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "carved bamboo"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "1573–1619",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 24.2 cm (9 1/2 in.); Handle: 21 cm (8 1/4 in.); Top: 16.8 cm (6 5/8 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-310": {
+      "identity": {
+        "reference": [
+          "curtain panel",
+          "curtain",
+          "textile panel"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "primary_source": {
+        "reference": [
+          "https://clevelandart.org/art/2000.5",
+          "https://openaccess-api.clevelandart.org/api/artworks/161684"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "brand": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "model": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "material": {
+        "reference": [
+          "Linen, undyed; wool: dyed; tapestry weave with supplementary weft wrapping"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "period": {
+        "reference": "500s",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": "Overall: 144.2 x 57.1 cm (56 3/4 x 22 1/2 in.); Mounted: 153.7 x 66 x 3.2 cm (60 1/2 x 26 x 1 1/4 in.)",
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    },
+    "MV-311": {
+      "identity": {
+        "reference": [
+          "DSLR camera",
+          "digital SLR camera",
+          "camera body"
+        ],
+        "reported": "Digital camera body",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "The frozen type list explicitly accepts camera body. The interchangeable lens mount supports the digital camera body label."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://gdlp01.c-wss.com/gds/3/0300008673/02/EOS_650D_Instruction_Manual_EN.pdf"
+        ],
+        "reported": [
+          "https://gdlp01.c-wss.com/gds/3/0300008673/02/EOS_650D_Instruction_Manual_EN.pdf"
+        ],
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "The exact frozen Canon 650D instruction manual appears in the card evidence, although the original card left the model unresolved."
+        }
+      },
+      "brand": {
+        "reference": [
+          "Canon"
+        ],
+        "reported": "Canon",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "Canon is visible on the front and matches the manufacturer reference."
+        }
+      },
+      "model": {
+        "reference": [
+          "EOS 650D",
+          "EOS Rebel T4i",
+          "EOS Kiss X6i"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "material": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "period": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": {
+          "width_mm": 133.1,
+          "height_mm": 99.8,
+          "depth_mm": 78.8
+        },
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": {
+          "body_only_g": 520,
+          "CIPA_g": 575
+        },
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      }
+    },
+    "MV-312": {
+      "identity": {
+        "reference": [
+          "handheld game console",
+          "handheld gaming console"
+        ],
+        "reported": "Handheld video game console",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "Handheld video game console matches the frozen Nintendo Game Boy type."
+        }
+      },
+      "primary_source": {
+        "reference": [
+          "https://www.nintendo.com/en-gb/Hardware/Nintendo-History/Game-Boy/Game-Boy-627031.html",
+          "https://www.nintendo.com/eu/media/downloads/support_1/game_boy_advance_4/GBA_Manual_UK_DE_FR.pdf"
+        ],
+        "reported": [
+          "https://collection.sciencemuseumgroup.org.uk/objects/co8184133/nintendo-game-boy",
+          "https://collection.sciencemuseumgroup.org.uk/objects/co8184133/nintendo-game-boy-games-console",
+          "https://www.mplus.org.hk/en/collection/objects/game-boy-portable-video-game-console-model-dmg-01-2016545/",
+          "https://www.mplus.org.hk/en/collection/objects/game-boy-portable-video-game-console-model-dmg-01-2016546/",
+          "https://www.pagetable.com/docs/gameboy-slides/Game%20Boy%2033c3.pdf"
+        ],
+        "status": "UNCONFIRMED",
+        "review": {
+          "verdict": "UNCONFIRMED",
+          "evidence": "The cited museum records are for other units with DMG-01 and do not establish the exact model notation in the frozen Nintendo reference."
+        }
+      },
+      "brand": {
+        "reference": [
+          "Nintendo"
+        ],
+        "reported": "Nintendo",
+        "status": "CORRECT",
+        "review": {
+          "verdict": "CORRECT",
+          "evidence": "Nintendo appears in the front product mark and is supported by the documented product line."
+        }
+      },
+      "model": {
+        "reference": [
+          "Game Boy DMG-001",
+          "DMG-001"
+        ],
+        "reported": null,
+        "status": "UNKNOWN",
+        "review": null
+      },
+      "material": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "period": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "documentary_dimensions": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      },
+      "documentary_weight": {
+        "reference": null,
+        "reported": null,
+        "status": "NO_REFERENCE",
+        "review": null
+      }
+    }
+  },
+  "cost": {
+    "metered_usd": "0.1812181",
+    "unsettled_reserve_usd": "0",
+    "lots": {
+      "MV-301": {
+        "metered_usd": "0.0343285",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 3,
+        "web_calls": 3,
+        "elapsed_request_ms": 25600,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "alternate": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      },
+      "MV-302": {
+        "metered_usd": "0.0249697",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 3,
+        "web_calls": 2,
+        "elapsed_request_ms": 23899,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "alternate": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      },
+      "MV-303": {
+        "metered_usd": "0.0346555",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 3,
+        "web_calls": 3,
+        "elapsed_request_ms": 23333,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "alternate": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      },
+      "MV-304": {
+        "metered_usd": "0.000639",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 1,
+        "web_calls": 0,
+        "elapsed_request_ms": 5218,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          },
+          "alternate": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          }
+        }
+      },
+      "MV-305": {
+        "metered_usd": "0.000748",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 1,
+        "web_calls": 0,
+        "elapsed_request_ms": 5963,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          },
+          "alternate": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          }
+        }
+      },
+      "MV-306": {
+        "metered_usd": "0.0007431",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 1,
+        "web_calls": 0,
+        "elapsed_request_ms": 6872,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          },
+          "alternate": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          }
+        }
+      },
+      "MV-307": {
+        "metered_usd": "0.0126810",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 2,
+        "web_calls": 1,
+        "elapsed_request_ms": 14527,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "alternate": {
+            "status": "SKIPPED",
+            "reason": "OPTIONAL_SEARCH_NOT_NEEDED"
+          }
+        }
+      },
+      "MV-308": {
+        "metered_usd": "0.0006878",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 1,
+        "web_calls": 0,
+        "elapsed_request_ms": 5615,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          },
+          "alternate": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          }
+        }
+      },
+      "MV-309": {
+        "metered_usd": "0.000751",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 1,
+        "web_calls": 0,
+        "elapsed_request_ms": 7530,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          },
+          "alternate": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          }
+        }
+      },
+      "MV-310": {
+        "metered_usd": "0.0005886",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 1,
+        "web_calls": 0,
+        "elapsed_request_ms": 4737,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          },
+          "alternate": {
+            "status": "SKIPPED",
+            "reason": "APPLICATION_STAGE_FAILED"
+          }
+        }
+      },
+      "MV-311": {
+        "metered_usd": "0.0350396",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 3,
+        "web_calls": 3,
+        "elapsed_request_ms": 29531,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "alternate": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      },
+      "MV-312": {
+        "metered_usd": "0.0353863",
+        "unsettled_reserve_usd": "0",
+        "metered_responses": 3,
+        "web_calls": 3,
+        "elapsed_request_ms": 26687,
+        "step_statuses": {
+          "photos": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "research": {
+            "status": "COMPLETE",
+            "reason": null
+          },
+          "alternate": {
+            "status": "COMPLETE",
+            "reason": null
+          }
+        }
+      }
+    }
+  },
+  "stage_outcomes": {
+    "MV-301": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD",
+      "elapsed_ms": 27682
+    },
+    "MV-302": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD",
+      "elapsed_ms": 26151
+    },
+    "MV-303": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD",
+      "elapsed_ms": 26842
+    },
+    "MV-304": {
+      "http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "messages": [
+        "Дослідження зупинилося. Доступні фото й попередні результати."
+      ],
+      "draft_status": "NO_DRAFT",
+      "elapsed_ms": 5847
+    },
+    "MV-305": {
+      "http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "messages": [
+        "Дослідження зупинилося. Доступні фото й попередні результати."
+      ],
+      "draft_status": "NO_DRAFT",
+      "elapsed_ms": 6652
+    },
+    "MV-306": {
+      "http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "messages": [
+        "Дослідження зупинилося. Доступні фото й попередні результати."
+      ],
+      "draft_status": "NO_DRAFT",
+      "elapsed_ms": 7401
+    },
+    "MV-307": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD",
+      "elapsed_ms": 17208
+    },
+    "MV-308": {
+      "http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "messages": [
+        "Дослідження зупинилося. Доступні фото й попередні результати."
+      ],
+      "draft_status": "NO_DRAFT",
+      "elapsed_ms": 6291
+    },
+    "MV-309": {
+      "http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "messages": [
+        "Дослідження зупинилося. Доступні фото й попередні результати."
+      ],
+      "draft_status": "NO_DRAFT",
+      "elapsed_ms": 7999
+    },
+    "MV-310": {
+      "http": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "messages": [
+        "Дослідження зупинилося. Доступні фото й попередні результати."
+      ],
+      "draft_status": "NO_DRAFT",
+      "elapsed_ms": 5391
+    },
+    "MV-311": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD",
+      "elapsed_ms": 31863
+    },
+    "MV-312": {
+      "http": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "messages": [],
+      "draft_status": "HOLD",
+      "elapsed_ms": 29011
+    }
+  },
+  "admitted": [],
+  "actual_measurement_claims_requiring_review": {},
+  "pilot_identity_checkpoint_met": false,
+  "paid_run_status": "AWAIT_INDEPENDENT_REVIEW",
+  "launch_acceptance_decided": false
+}

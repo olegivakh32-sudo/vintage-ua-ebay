@@ -16,8 +16,8 @@ import requests
 
 from ai_pilot import PilotLimits, run, write_report
 from identity_evidence import (ALTERNATE_OUTPUT_TOKENS, ALTERNATE_SEARCH_CALLS, RESEARCH_FIELD_GUIDANCE,
-                               RESEARCH_QUERY_GUIDANCE, TYPE_ANCHOR_GUIDANCE, normalized_claim)
-from listing_review import DOCUMENTED, corrected_ocr, export_review
+                               RESEARCH_QUERY_GUIDANCE, TYPE_ANCHOR_GUIDANCE)
+from listing_review import DOCUMENTED, corrected_ocr, evidence_value, export_review
 from openai_auth_diagnostic import safe_error
 from visual_protocol import VISUAL_TEXT, machine_object, visual_response_issue
 
@@ -183,7 +183,7 @@ JSON objects, in this order, with no prose, fences or duplicated field values. C
 starting the next. Use null/empty arrays for unknowns. Each source URL must come from the tool results.
 === IDENTIFICATION ===
 IDENTITY_JSON {"type":null,"brand":null,"model":null,"country":null,"period":null,"material":null,"exact_model_confirmed":false}
-IDENTITY_CLAIMS_JSON {"claims":[{"field":"","value":null,"photos":[1],"specimen_basis":"NET|ITEM","contradictions":[],"sources":[{"url":"","kind":"CATALOG|MANUAL|MUSEUM|ARCHIVE|OTHER","document_id":"","match":"EXACT|ANALOG","excerpt":""}]}]}
+IDENTITY_CLAIMS_JSON {"claims":[{"field":"","value":null,"photos":[1],"visual_anchor":null,"specimen_basis":"NET|ITEM","alternatives":[],"contradictions":[],"sources":[{"url":"","kind":"CATALOG|MANUAL|MUSEUM|ARCHIVE|OTHER","document_id":"","match":"EXACT|ANALOG","excerpt":""}]}]}
 REFERENCE_OBJECT_JSON {"url":null,"type":null,"photos":[]}
 Provide an exact object candidate and matching frames for an observed primary museum record. Preserve the accession as source attribution.
 For market-only research use the identity template with null fields and an empty claims list.
@@ -435,13 +435,6 @@ def prediction(result, attempts):
     evidence = (result.get('review_card') or {}).get('evidence') or {}
     export = export_review(evidence, result.get('identity'))
 
-    def verified_value(field, statuses):
-        rows = evidence.get(field, [])
-        if any(row['status'] == 'CONTESTED' for row in rows):
-            return None
-        values = {normalized_claim(str(row['value'])): row['value'] for row in rows if row['status'] in statuses}
-        return next(iter(values.values())) if len(values) == 1 else None
-
     observed = {'PHOTO_OBSERVATION', 'SELLER_VERIFIED'}
     documented = observed | DOCUMENTED
     billed = [attempt.get('metered_usd') for attempt in attempts if attempt['lot'] == result['lot']]
@@ -452,13 +445,13 @@ def prediction(result, attempts):
            'title': (result.get('review_card') or {}).get('title'),
            'product_photos': result['ebay_photo_order'],
            'evidence_photos': [slot for slot, role in result['photo_roles'].items() if role == 'EVIDENCE_ONLY'],
-           'measurement': {field: verified_value(field, {'PHOTO_MEASUREMENT', 'SELLER_VERIFIED'})
+           'measurement': {field: evidence_value(evidence, field, {'PHOTO_MEASUREMENT', 'SELLER_VERIFIED'})
                            for field in ('weight_kg', 'length_cm', 'width_cm', 'height_cm')},
            'cost_usd': float(sum(Decimal(cost) for cost in billed)) if billed and all(billed) else None}
-    row.update({field: verified_value(field, documented) for field in ('brand', 'model', 'material', 'country', 'period')})
+    row.update({field: evidence_value(evidence, field, documented) for field in ('brand', 'model', 'material', 'country', 'period')})
     if export['model_marking']:
         row['model'] = export['model_marking']['code']
-    row.update({field: verified_value(field, observed) for field in ('condition', 'completeness')})
+    row.update({field: evidence_value(evidence, field, observed) for field in ('condition', 'completeness')})
     return row
 
 

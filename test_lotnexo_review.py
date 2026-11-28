@@ -13,7 +13,7 @@ import requests
 
 from ai_pilot import PilotLimits, run
 from blind_live_pilot import API, CAP, LiveBudget, frozen_inputs, prediction, read_paid_checkpoint
-from listing_review import canonical_product_type, export_review, hold_seo_preview
+from listing_review import DIRECT, canonical_product_type, evidence_value, export_review, hold_seo_preview
 from market_evidence import completed_sale_valuation
 from recognition_benchmark import score
 from test_blind_live_pilot import RECOGNITION, response
@@ -79,6 +79,18 @@ def saved_replay(root):
 
 
 class LotnexoReviewTests(unittest.TestCase):
+    def test_same_value_research_dispute_cannot_erase_a_readable_model_plate(self):
+        observation = {'value': 'ZX-270', 'status': 'PHOTO_OBSERVATION', 'photos': [2]}
+        evidence = {'type': [{'value': 'Optical reader', 'status': 'PHOTO_OBSERVATION', 'photos': [1]}],
+                    'model': [observation, {'value': 'ZX-270', 'status': 'CONTESTED'}],
+                    'marking': [observation | {'marking_kind': 'MODEL_NUMBER'}]}
+        self.assertEqual(evidence_value(evidence, 'model', DIRECT), 'ZX-270')
+        self.assertEqual(hold_seo_preview(export_review(evidence))['item_specifics']['Model'], 'ZX-270')
+        missing_frame = evidence | {'marking': [evidence['marking'][0] | {'photos': [1]}]}
+        self.assertIsNone(evidence_value(missing_frame, 'model', DIRECT))
+        different_value = evidence | {'model': [observation, {'value': 'ZX-271', 'status': 'CONTESTED'}]}
+        self.assertIsNone(evidence_value(different_value, 'model', DIRECT))
+
     def test_research_packet_excludes_initial_identity_but_keeps_numbered_evidence(self):
         analysis = ('Narrative with invented date 1588 and Sewing frame\n'
                     'PRODUCT_OBSERVATIONS_JSON {"fields":[{"field":"type","value":"Sewing frame",'

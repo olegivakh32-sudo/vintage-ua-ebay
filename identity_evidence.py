@@ -20,11 +20,13 @@ MEASUREMENT_FIELDS = {
     **{axis + '_mm': (axis + '_cm', 'mm') for axis in ('length', 'width', 'height')},
 }
 TYPED_MEASUREMENT = re.compile(r'([0-9]+(?:[.,][0-9]+)?)\s*(kg|g|cm|mm)', re.I)
+INLINE_TYPE_ANCHOR = re.compile(r'([^;\n]+);\s*visual_anchor\s*:\s*(.+)', re.I)
 UNCERTAIN_CLAIM = re.compile(r'\b(?:possibly|probably|likely|hypothesis|undetermined|unconfirmed|unknown)\b', re.I)
 RESEARCH_FIELD_GUIDANCE = (
     'Use exactly one field per claim and only these field names: '
     + ', '.join(sorted(FIELDS))
-    + '. Put alternative identifications in contradictions. Keep depicted subjects, tentative matches and '
+    + '. Use alternatives for competing identifications and why they were ruled out. Use contradictions only '
+      'for current evidence against this claim. Keep depicted subjects, tentative matches and '
       'market notes out of the type field. Use scalar numbers in kg or cm for measurements, with NET '
       'for item weight and ITEM for dimensions of the item. Exclude packaging, capacity, and operating ranges.'
 )
@@ -38,6 +40,8 @@ RESEARCH_QUERY_GUIDANCE = (
     'If a distinctive model or inventory marking is legible even in part, use that literal string in the first '
     'search. Preserve its punctuation and keep any uncertain digits separate. Otherwise search for visible '
     'construction and interfaces without putting an unverified model or product family in the query. '
+    'Do not constrain the first query by inferred material, origin or date. Test those properties separately. '
+    'Exclude individual serial numbers from searches and model identification, even if visible in a photo. '
     'Check what connectors, mounts, or controls are designed to attach to and compare alternate functions '
     'against all available views. If no exact candidate fits a visible discriminator, spend the next search '
     'on a competing identification or on the unused marking before pricing. Cite exact records, '
@@ -137,6 +141,10 @@ def identity_claims(records, source_urls, photo_count, source_host, *, decisions
             if len(direct) < 2 or not any(source['kind'] in PRIMARY for source in direct):
                 reasons.append('MODEL_VALUE_NOT_IN_CITATIONS')
         anchor = record.get('visual_anchor') if field == 'type' else None
+        if field == 'type' and (inline := INLINE_TYPE_ANCHOR.fullmatch(value)):
+            value = inline[1].strip()
+            if anchor is None:
+                anchor = inline[2].strip().strip('"“”‘’')
         if anchor is not None:
             if (not isinstance(anchor, str) or not 6 <= len(anchor.strip()) <= 120
                     or sum(_supports_anchor(source['excerpt'], anchor) for source in sources) < 2
@@ -151,6 +159,11 @@ def identity_claims(records, source_urls, photo_count, source_host, *, decisions
             status = 'HYPOTHESIS' if reasons else 'CORROBORATED_REFERENCE'
         decision.update(status=status, photos=photos)
         entry = dict(field=field, value=value, photos=photos, references=sources, contradictions=conflicts, status=status)
+        alternatives = record.get('alternatives')
+        if isinstance(alternatives, list):
+            notes = [text.strip()[:300] for text in alternatives[:8] if isinstance(text, str) and text.strip()]
+            if notes:
+                entry['alternatives'] = notes
         if field == 'research_note':
             entry['name'] = raw_field
         if anchor is not None:

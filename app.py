@@ -4827,7 +4827,9 @@ def _scope_from_analysis(text):
         parsed['components'] = obj['components']
     photos = _research_machine_json(text, 'PHOTO_ROLES_JSON').get('roles')
     observations = _research_machine_json(text, 'PRODUCT_OBSERVATIONS_JSON').get('fields')
-    return resolve_scope(parsed, observations, len(photos) if isinstance(photos, dict) else 0)
+    photo_count = len(photos) if isinstance(photos, dict) else 0
+    product_photos = {slot for slot in range(1, photo_count + 1) if photos.get(str(slot)) in EBAY_PHOTO_ROLES}
+    return resolve_scope(parsed, observations, photo_count, product_photos=product_photos)
 
 
 def _ebay_photo_indices(items, picker_id=None):
@@ -5202,7 +5204,7 @@ and assumptions about hidden components. Do not search for sales or pricing in t
 {TYPE_ANCHOR_GUIDANCE}
 Return only the following JSON lines with URLs present in your own tool results:
 IDENTITY_JSON {{"type":null,"brand":null,"model":null,"exact_model_confirmed":false}}
-IDENTITY_CLAIMS_JSON {{"claims":[{{"field":"type","value":"","photos":[1],"visual_anchor":null,"contradictions":[],"specimen_basis":"ITEM","sources":[{{"url":"","kind":"MANUAL|CATALOG|MUSEUM|ARCHIVE","document_id":"","excerpt":"","match":"EXACT|ANALOG"}}]}}]}}
+IDENTITY_CLAIMS_JSON {{"claims":[{{"field":"type","value":"","photos":[1],"visual_anchor":null,"alternatives":[],"contradictions":[],"specimen_basis":"ITEM","sources":[{{"url":"","kind":"MANUAL|CATALOG|MUSEUM|ARCHIVE","document_id":"","excerpt":"","match":"EXACT|ANALOG"}}]}}]}}
 REFERENCE_OBJECT_JSON {{"url":null,"type":null,"photos":[]}}
 '''
     alternate = {'status': 'INCOMPLETE'}
@@ -5305,7 +5307,7 @@ Return exactly these two blocks:
 
 === IDENTIFICATION ===
 IDENTITY_JSON {{"identity_status":"UNKNOWN","exact_model_confirmed":false,"confidence":0,"evidence_strength":0,"type":"UNKNOWN","brand":"UNKNOWN","model":"UNKNOWN","country":"UNKNOWN","period":"UNKNOWN","material":"UNKNOWN","match_count":0,"sources_summary":""}}
-IDENTITY_CLAIMS_JSON {{"claims":[{{"field":"model","value":"","photos":[1],"specimen_basis":null,"contradictions":[],"sources":[{{"url":"","kind":"CATALOG|MANUAL|MUSEUM|ARCHIVE|OTHER","document_id":"","match":"EXACT|ANALOG","excerpt":""}}]}}]}}
+IDENTITY_CLAIMS_JSON {{"claims":[{{"field":"model","value":"","photos":[1],"visual_anchor":null,"specimen_basis":null,"alternatives":[],"contradictions":[],"sources":[{{"url":"","kind":"CATALOG|MANUAL|MUSEUM|ARCHIVE|OTHER","document_id":"","match":"EXACT|ANALOG","excerpt":""}}]}}]}}
 {RESEARCH_FIELD_GUIDANCE}
 {TYPE_ANCHOR_GUIDANCE}
 REFERENCE_OBJECT_JSON {{"url":null,"type":null,"photos":[]}}

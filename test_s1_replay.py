@@ -79,6 +79,18 @@ def replay(root):
 
 
 class S1ReplayTests(unittest.TestCase):
+    def test_two_product_views_can_resolve_count_without_resolving_function(self):
+        product = {'label': 'Cylindrical body or holder', 'role': 'PRODUCT', 'quantity': 1, 'photos': [1, 2]}
+        cap = {'label': 'Removable cap', 'role': 'COMPONENT', 'quantity': 1, 'photos': [1, 2]}
+        scope = {'scope': 'ONE_PHYSICAL_ITEM', 'physical_item_count': 1, 'confidence': 97,
+                 'components': [product, cap], 'note': ''}
+        observations = [{'field': 'type', 'value': 'Capped implement or holder', 'confidence': 77,
+                         'photos': [1, 2], 'basis': 'Same body and removable cap in both views'}]
+        self.assertEqual(resolve_scope(scope, observations, 2, product_photos={1, 2})['physical_item_count'], 1)
+        self.assertEqual(resolve_scope(scope, observations, 2, product_photos={1})['scope'], 'UNCERTAIN')
+        distinct = scope | {'components': [product, cap | {'role': 'PRODUCT'}]}
+        self.assertEqual(resolve_scope(distinct, observations, 2, product_photos={1, 2})['physical_item_count'], 2)
+
     def test_single_subject_can_be_counted_before_its_exact_identity_is_known(self):
         component = {'label': 'Iron pressure vessel with flange', 'role': 'PRODUCT', 'quantity': 1, 'photos': [1, 2]}
         scope = {'scope': 'ONE_PHYSICAL_ITEM', 'physical_item_count': 1, 'confidence': 96,

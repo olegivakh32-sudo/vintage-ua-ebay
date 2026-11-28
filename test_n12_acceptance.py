@@ -23,6 +23,11 @@ class N12AcceptanceTests(unittest.TestCase):
     def test_wrong_cohort_or_missing_protected_claim_cannot_reach_preflight(self):
         with self.assertRaisesRegex(StopRun, 'FROZEN_PHOTOS_CHANGED'):
             n12.sealed_plan(archive=n12.ARTIFACTS / 'lotnexo-f50-blind.zip')
+        plan = n12.sealed_plan(verify_runtime=False)
+        original_sha = n12.sha
+        with patch.object(n12, 'sha', side_effect=lambda path: 'modified' if path.name == 'app.py' else original_sha(path)):
+            with self.assertRaisesRegex(StopRun, 'FROZEN_ALGORITHM_CHANGED'):
+                n12.sealed_plan()
         with TemporaryDirectory() as folder:
             target = Path(folder) / 'results'
             env = {'GITHUB_REF': n12.APPROVAL_REF, 'GITHUB_RUN_ATTEMPT': '1', 'ENABLE_LIVE_PUBLISH': '0',
@@ -31,11 +36,13 @@ class N12AcceptanceTests(unittest.TestCase):
                               env | {'LOTNEXO_N12_APPROVED_USD': '3.43'}, env | {'LOTNEXO_N12_RESERVED': 'changed'}):
                 with (patch.dict('os.environ', candidate, clear=True),
                       patch('sys.argv', ['n12_acceptance.py', '--execute', str(target)]),
-                      patch('builtins.print'), patch('n12_acceptance.authorize') as authorize):
+                      patch('builtins.print'), patch.object(n12, 'sealed_plan', return_value=plan),
+                      patch('n12_acceptance.authorize') as authorize):
                     self.assertEqual(n12.main(), 1)
                     authorize.assert_not_called()
             with (patch.dict('os.environ', env, clear=True),
                   patch('sys.argv', ['n12_acceptance.py', '--preflight', str(target)]),
+                  patch.object(n12, 'sealed_plan', return_value=plan),
                   patch('n12_acceptance.authorize') as authorize, patch('n12_acceptance.execute') as execute):
                 self.assertEqual(n12.main(), 0)
                 authorize.assert_called_once_with(None, target)
@@ -94,7 +101,7 @@ class N12AcceptanceTests(unittest.TestCase):
             }
             return response(reply(output_text=json.dumps(visual)))
 
-        plan = n12.sealed_plan()
+        plan = n12.sealed_plan(verify_runtime=False)
         capability = available_fields(plan)
         self.assertEqual(sum('model' in row for row in capability.values()), 2)
         self.assertEqual(sum('documentary_weight' in row for row in capability.values()), 1)

@@ -1,4 +1,4 @@
-"""Reproduce the M12 application path without sending any provider API requests."""
+"""Reproduce a saved multiview run without sending any provider API requests."""
 import argparse
 from collections import Counter
 import json
@@ -13,17 +13,20 @@ import requests
 from acceptance_stage import sha
 from ai_pilot import _public_catalogue_url
 from blind_live_pilot import API
-from multiview_acceptance import ARCHIVE, ARTIFACTS, MANIFEST, STAGE, MultiviewBudget, blind_inputs, frozen_inputs
+from multiview_acceptance import ARCHIVE, ARTIFACTS, CAP, MANIFEST, STAGE, MultiviewBudget, blind_inputs, frozen_inputs
+import n12_acceptance
 from s1_acceptance import LotFailure, run_lots
 
 
 RECEIPTS = ARTIFACTS / 'lotnexo-m12-46062461677-evidence.zip'
 RECEIPT_SHA = '9d7fc7baf43dd457b65c4f193d5b7dc8637eb2d8b8aa38efd7f750e860357869'
+N12_RECEIPTS = ARTIFACTS / 'lotnexo-n12-46069966723-evidence.zip'
+N12_RECEIPT_SHA = '25bd4654285960c1a424756eef3a29feec956a8f279116cf6692ada1976f3080'
 
 
 class ArchivedBudget(MultiviewBudget):
-    def __init__(self, plan, output, recorded):
-        super().__init__(plan, output)
+    def __init__(self, plan, output, recorded, *, stage=STAGE, cap=CAP):
+        super().__init__(plan, output, stage=stage, cap=cap)
         self.recorded = recorded
         self.used = []
         self.missing = set()
@@ -60,13 +63,20 @@ class ArchivedBudget(MultiviewBudget):
         return response
 
 
-def replay(output, *, public=False):
-    if sha(RECEIPTS) != RECEIPT_SHA:
+def replay(output, *, public=False, stage=STAGE):
+    if stage == n12_acceptance.STAGE:
+        plan = n12_acceptance.sealed_plan(verify_runtime=False)
+        receipts, digest, archive, cap = N12_RECEIPTS, N12_RECEIPT_SHA, n12_acceptance.ARCHIVE, n12_acceptance.CAP
+    elif stage == STAGE:
+        plan = frozen_inputs(MANIFEST, ARCHIVE)
+        receipts, digest, archive, cap = RECEIPTS, RECEIPT_SHA, ARCHIVE, CAP
+    else:
+        raise ValueError('No recorded application path for this stage')
+    if sha(receipts) != digest:
         raise ValueError('Archived evidence checksum mismatch')
-    plan = frozen_inputs(MANIFEST, ARCHIVE)
-    with ZipFile(RECEIPTS) as bundle:
+    with ZipFile(receipts) as bundle:
         ledger = json.loads(bundle.read('results/run.json'))
-        if ledger['stage'] != STAGE or ledger['blind_sha256'] != plan['stages'][STAGE]['blind_sha256']:
+        if ledger['stage'] != stage or ledger['blind_sha256'] != plan['stages'][stage]['blind_sha256']:
             raise ValueError('Archived evidence is from another cohort')
         recorded = {(row['lot'], row['step']): (row['input_tokens_counted'],
                     json.loads(bundle.read('results/' + row['response_file'])))
@@ -85,17 +95,18 @@ def replay(output, *, public=False):
             return response
         raise AssertionError('Non-catalogue external request in archive replay')
 
-    budget = ArchivedBudget(plan, output, recorded)
-    with TemporaryDirectory(prefix='lotnexo-m12-replay-') as directory, patch.dict(os.environ, {
+    budget = ArchivedBudget(plan, output, recorded, stage=stage, cap=cap)
+    with TemporaryDirectory(prefix='lotnexo-archive-replay-') as directory, patch.dict(os.environ, {
         'ENABLE_LIVE_PUBLISH': '0', 'ALLOW_PAID_AI': '0', 'APP_SECRET': 'archived-m12-local',
-        'VINTAGE_RESEARCH_ALTERNATE': '0', 'ACTIVE_LOT_CHECKPOINT_DIR': directory, 'HOLD_QUEUE_DIR': directory,
+        'VINTAGE_RESEARCH_ALTERNATE': '1' if plan.get('allow_alternate_identity_search') else '0',
+        'ACTIVE_LOT_CHECKPOINT_DIR': directory, 'HOLD_QUEUE_DIR': directory,
         'VINTAGE_ACCEPTANCE_SERVER': '0', 'VINTAGE_OPERATOR_PASSWORD': '', 'RENDER': '',
     }), patch.object(requests.Session, 'request', side_effect=reject_network):
         import app
         import museum_photo_evidence
 
         museum_photo_evidence.verified_record.cache_clear()
-        lots = blind_inputs(ARCHIVE, plan['stages'][STAGE], Path(directory))
+        lots = blind_inputs(archive, plan['stages'][stage], Path(directory))
         with patch.multiple(app, OPENAI_API_KEY='archived-transport', EBAY_CLIENT_ID=None,
                             EBAY_CLIENT_SECRET=None, EBAY_REFRESH_TOKEN=None):
             run_lots(budget, lots, output)
@@ -109,6 +120,7 @@ def replay(output, *, public=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--stage', choices=(STAGE, n12_acceptance.STAGE), default=STAGE)
     parser.add_argument('--public-catalogue', action='store_true', help='Allow free reads of exact public museum records.')
     args = parser.parse_args()
-    print(json.dumps(replay(args.output, public=args.public_catalogue)))
+    print(json.dumps(replay(args.output, public=args.public_catalogue, stage=args.stage)))

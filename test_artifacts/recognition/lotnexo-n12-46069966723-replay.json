@@ -1,0 +1,253 @@
+{
+  "lots": {
+    "MV-301": {
+      "original_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "original_type": "Decorative handled vessel",
+      "replay_type": "Decorative handled vessel",
+      "original_model": null,
+      "replay_model": null,
+      "search_response_missing": false,
+      "hold_saved": true
+    },
+    "MV-302": {
+      "original_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "original_type": "Carved wooden cabinet",
+      "replay_type": "Carved wooden cabinet",
+      "original_model": null,
+      "replay_model": null,
+      "search_response_missing": false,
+      "hold_saved": true
+    },
+    "MV-303": {
+      "original_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "original_type": "Glazed ceramic bowl",
+      "replay_type": "Glazed ceramic bowl",
+      "original_model": null,
+      "replay_model": null,
+      "search_response_missing": false,
+      "hold_saved": true
+    },
+    "MV-304": {
+      "original_stage": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "original_type": null,
+      "replay_type": null,
+      "original_model": null,
+      "replay_model": null,
+      "search_response_missing": false,
+      "hold_saved": false
+    },
+    "MV-305": {
+      "original_stage": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 500,
+        "draft": null
+      },
+      "original_type": null,
+      "replay_type": null,
+      "original_model": null,
+      "replay_model": null,
+      "search_response_missing": true,
+      "hold_saved": false
+    },
+    "MV-306": {
+      "original_stage": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 500,
+        "draft": null
+      },
+      "original_type": null,
+      "replay_type": null,
+      "original_model": null,
+      "replay_model": null,
+      "search_response_missing": true,
+      "hold_saved": false
+    },
+    "MV-307": {
+      "original_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "original_type": "Decorative storage chest",
+      "replay_type": "Decorative storage chest",
+      "original_model": null,
+      "replay_model": null,
+      "search_response_missing": false,
+      "hold_saved": true
+    },
+    "MV-308": {
+      "original_stage": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 500,
+        "draft": null
+      },
+      "original_type": null,
+      "replay_type": null,
+      "original_model": null,
+      "replay_model": null,
+      "search_response_missing": true,
+      "hold_saved": false
+    },
+    "MV-309": {
+      "original_stage": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 500,
+        "draft": null
+      },
+      "original_type": null,
+      "replay_type": null,
+      "original_model": null,
+      "replay_model": null,
+      "search_response_missing": true,
+      "hold_saved": false
+    },
+    "MV-310": {
+      "original_stage": {
+        "visual": 200,
+        "research": 409,
+        "draft": null
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 500,
+        "draft": null
+      },
+      "original_type": null,
+      "replay_type": null,
+      "original_model": null,
+      "replay_model": null,
+      "search_response_missing": true,
+      "hold_saved": false
+    },
+    "MV-311": {
+      "original_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "original_type": "Digital camera body",
+      "replay_type": "Digital camera body",
+      "original_model": null,
+      "replay_model": "EOS 650D",
+      "search_response_missing": false,
+      "hold_saved": true
+    },
+    "MV-312": {
+      "original_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "replay_stage": {
+        "visual": 200,
+        "research": 200,
+        "draft": 200
+      },
+      "original_type": "Handheld video game console",
+      "replay_type": "Handheld video game console",
+      "original_model": null,
+      "replay_model": null,
+      "search_response_missing": false,
+      "hold_saved": true
+    }
+  },
+  "archived_responses": 23,
+  "missing_responses": [
+    [
+      "MV-305",
+      "research"
+    ],
+    [
+      "MV-306",
+      "research"
+    ],
+    [
+      "MV-308",
+      "research"
+    ],
+    [
+      "MV-309",
+      "research"
+    ],
+    [
+      "MV-310",
+      "research"
+    ]
+  ],
+  "public_catalogue_requests": 8,
+  "new_provider_requests": 0,
+  "new_provider_cost_usd": "0",
+  "source_run": 46069966723,
+  "sealed_correct_types": 4,
+  "replayed_correct_types": 4,
+  "sealed_correct_exact_models": 0,
+  "replayed_correct_exact_models": 1,
+  "mode": "archived responses, free public catalogue verification",
+  "independent_acceptance": false
+}

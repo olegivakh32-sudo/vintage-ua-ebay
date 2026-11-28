@@ -18,10 +18,24 @@ TITLE_FEATURE = re.compile(r'^(pierced|engraved|embossed|scalloped|folding|retra
 
 def evidence_value(evidence, field, statuses):
     rows = evidence.get(field, [])
-    if any(row['status'] == 'CONTESTED' for row in rows):
-        return None
     values = {normalized_claim(str(row['value'])): row['value'] for row in rows if row['status'] in statuses}
-    return next(iter(values.values())) if len(values) == 1 else None
+    if len(values) != 1:
+        return None
+    key, value = next(iter(values.items()))
+    disputed = [row for row in rows if row['status'] == 'CONTESTED']
+    if not disputed:
+        return value
+    if (field != 'model' or 'PHOTO_OBSERVATION' not in statuses
+            or any(normalized_claim(str(row['value'])) != key for row in disputed)):
+        return None
+    photographed = {slot for row in rows if row['status'] == 'PHOTO_OBSERVATION'
+                    and normalized_claim(str(row['value'])) == key for slot in row.get('photos', [])}
+    # A disputed research row for the same model cannot erase an independently visible model marking.
+    if any(row['status'] == 'PHOTO_OBSERVATION' and row.get('marking_kind') == 'MODEL_NUMBER'
+           and normalized_claim(str(row['value'])) == key and photographed.intersection(row.get('photos', []))
+           for row in evidence.get('marking', [])):
+        return value
+    return None
 
 
 def canonical_product_type(evidence, suggested=''):

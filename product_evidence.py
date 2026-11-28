@@ -126,7 +126,7 @@ def build_product_evidence(observations, references, seller, measurement, photo_
         field = reference['field']
         if field in facts:
             entry = {key: reference[key] for key in ('value', 'status', 'photos', 'references', 'contradictions')}
-            entry.update({key: reference[key] for key in ('name', 'visual_anchor', 'catalogue_photo_match')
+            entry.update({key: reference[key] for key in ('name', 'visual_anchor', 'catalogue_photo_match', 'alternatives')
                           if reference.get(key)})
             if field in PHYSICAL_FIELDS:
                 entry['unit'] = 'kg' if field == 'weight_kg' else 'cm'

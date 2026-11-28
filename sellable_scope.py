@@ -73,7 +73,7 @@ def product_anchor(label, observations, photos):
     return False
 
 
-def _single_subject_anchor(component, observations):
+def _single_subject_anchor(component, observations, product_photos, *, require_two_views=False):
     """Corroborate a single visible subject without requiring its exact identification."""
     if not isinstance(observations, list):
         return False
@@ -83,8 +83,13 @@ def _single_subject_anchor(component, observations):
     row = types[0]
     confidence, photos, basis = row.get('confidence'), row.get('photos'), row.get('basis')
     if (type(confidence) is not int or not 70 <= confidence <= 100 or not isinstance(photos, list)
-            or not set(component['photos']).intersection(photo for photo in photos if type(photo) is int)
             or not isinstance(basis, str) or not basis.strip()):
+        return False
+    shared = set(component['photos']).intersection(photo for photo in photos if type(photo) is int)
+    # Counting the same subject across two item views does not require a final name for it.
+    if len(shared & product_photos) >= 2:
+        return True
+    if not shared or require_two_views:
         return False
     def name_words(text):
         name = re.split(r'\b(?:for|with)\b|[;.!,]', str(text or '').casefold(), 1)[0]
@@ -99,7 +104,7 @@ def _single_subject_anchor(component, observations):
             or any(seen[i:i + 2] == label[-2:] for i in range(len(seen) - 1)))
 
 
-def resolve_scope(scope, observations, photo_count):
+def resolve_scope(scope, observations, photo_count, *, product_photos=frozenset()):
     """Count a documented product with its packaging or attached parts as one."""
     components = scope_components(scope.get('components'), photo_count)
     if 'components' not in scope and scope['scope'] == 'MULTIPLE_PHYSICAL_ITEMS':
@@ -111,9 +116,13 @@ def resolve_scope(scope, observations, photo_count):
     count = sum(part['quantity'] for part in products)
     if count >= 2:
         return result | {'scope': 'MULTIPLE_PHYSICAL_ITEMS', 'physical_item_count': count}
-    single_subject = (count == 1 and len(components) == 1 and scope['scope'] == 'ONE_PHYSICAL_ITEM'
+    attached_only = count == 1 and all(part['role'] in {'PRODUCT', 'COMPONENT'}
+                                      and set(part['photos']) <= set(products[0]['photos']) for part in components)
+    single_subject = (attached_only and scope['scope'] == 'ONE_PHYSICAL_ITEM'
                       and scope['physical_item_count'] == 1 and scope['confidence'] >= 90
-                      and _single_subject_anchor(products[0], observations))
+                      and _single_subject_anchor(products[0], observations,
+                                                 product_photos if scope['confidence'] >= 95 else frozenset(),
+                                                 require_two_views=len(components) > 1))
     if (count != 1 or scope['scope'] == 'UNCERTAIN' or scope['confidence'] < 70
             or any(part['role'] == 'UNKNOWN' for part in components)
             or not (single_subject or product_anchor(products[0]['label'], observations, products[0]['photos']))):
