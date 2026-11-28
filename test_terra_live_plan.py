@@ -222,7 +222,8 @@ class TerraLive6Tests(unittest.TestCase):
             self.assertFalse(kwargs['allow_redirects'])
             if url == API + '/responses/input_tokens':
                 token_counts.append(url)
-                return response({'input_tokens': 1400})
+                next_step = budget.sequence[len(budget.attempts)]
+                return response({'input_tokens': 6608 if next_step == ('TL-402', 'details') else 1400})
             self.assertEqual(url, API + '/responses')
             wire = kwargs['json']
             self.assertEqual(wire['prompt_cache_options'], {'mode': 'explicit'})
@@ -270,11 +271,16 @@ class TerraLive6Tests(unittest.TestCase):
             self.assertTrue(ledger['attempts'][0]['reused'])
             self.assertEqual(ledger['attempts'][0]['metered_usd'], str(PRIOR_SPEND))
             self.assertEqual(ledger['max_additional_usd'], '5.743031')
-            self.assertEqual(stages, ['research'] + ['photos', 'research', 'details'] * 2 + ['photos', 'research'] * 3)
-            self.assertEqual(len(token_counts), len(stages))
+            self.assertEqual(stages, ['research', 'photos', 'research'] + ['photos', 'research', 'details'] * 2
+                             + ['photos', 'research'] * 2)
+            self.assertEqual(len(token_counts), len(stages) + 1)
+            skipped = ledger['attempts'][5]
+            self.assertEqual(skipped, {'lot': 'TL-402', 'step': 'details', 'status': 'SKIPPED',
+                                       'reason': 'OPTIONAL_TOKEN_COUNT_OUTSIDE_APPROVAL', 'input_tokens_counted': 6608})
             predictions = json.loads((budget.path.parent / 'predictions.json').read_text())
             self.assertEqual([Decimal(str(row['cost_usd'])) for row in predictions],
-                             [Decimal('0.016999')] + [Decimal('0.024725')] * 2 + [Decimal('0.01450')] * 3)
+                             [Decimal('0.016999'), Decimal('0.01450')] + [Decimal('0.024725')] * 2
+                             + [Decimal('0.01450')] * 2)
             self.assertTrue(taxonomy)
             for lot in lots:
                 card = json.loads((budget.path.parent / f'{lot}-card.json').read_text())

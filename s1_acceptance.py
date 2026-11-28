@@ -170,6 +170,9 @@ class StageBudget:
     def check_response(self, result, step, row):
         return response_issue(result, step, row, photo_count=self.photo_counts.get(row['lot'], 1))
 
+    def reject_gate(self, reason, lot, step):
+        self.stop(reason)
+
     def bind(self, lot, original):
         if self.status != 'RUNNING':
             raise StopRun(self.reason or 'STAGE_FINISHED')
@@ -232,7 +235,7 @@ class StageBudget:
         self.state['free_input_count'] = {'lot': lot, 'step': step, 'input_tokens': size}
         decision = self.progress()
         if 'next' not in decision:
-            self.stop(decision.get('stop', 'BUDGET_GATE_CLOSED'))
+            self.reject_gate(decision.get('stop', 'BUDGET_GATE_CLOSED'), lot, step)
         row = {'lot': lot, 'step': step,
             'reserved_usd': decision['next']['reserve_usd'], 'status': 'IN_FLIGHT',
             'input_tokens_counted': size,

@@ -17,7 +17,7 @@ from blind_live_pilot import API, SEARCH_TOKENS, SHORT_THRESHOLD, WEB_PRICE, mod
 from ebay_sandbox_probe import production_taxonomy, production_taxonomy_token
 from multiview_acceptance import ARTIFACTS, blind_inputs
 from recognition_research import DETAILS_RESEARCH_PREFIX
-from s1_acceptance import RATES_EXPIRE, StageBudget, StopRun, durable_report, run_lots
+from s1_acceptance import RATES_EXPIRE, LotFailure, StageBudget, StopRun, durable_report, run_lots
 from visual_protocol import VISUAL_TEXT, machine_object
 
 
@@ -223,6 +223,19 @@ class Live6Budget(StageBudget):
         if spent + reserve > self.cap:
             return {'stop': 'APPROVED_BUDGET_EXCEEDED'}
         return {'next': {'reserve_usd': str(reserve)}}
+
+    def reject_gate(self, reason, lot, step):
+        count = self.state.get('free_input_count') or {}
+        size = count.get('input_tokens')
+        if (reason == 'TOKEN_COUNT_OUTSIDE_APPROVAL' and step == 'details'
+                and (count.get('lot'), count.get('step')) == (lot, step)
+                and type(size) is int and size > STEPS[step][2]):
+            reason = 'OPTIONAL_TOKEN_COUNT_OUTSIDE_APPROVAL'
+            self.attempts.append({'lot': lot, 'step': step, 'status': 'SKIPPED', 'reason': reason,
+                                  'input_tokens_counted': size})
+            self.save()
+            raise LotFailure(reason)
+        super().reject_gate(reason, lot, step)
 
     def metered_usage(self, result, step, payload, counted):
         usage = result['usage']
