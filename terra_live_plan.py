@@ -43,6 +43,20 @@ def billable_input(count, output, searches):
     return (searches + 1) * (count + SEARCH_TOKENS) + searches * output if searches else count
 
 
+def unbilled_image_usage(usage):
+    """Responses may include zero image-generation counters when no image tool was used."""
+    counters = {'input_tokens', 'output_tokens', 'total_tokens'}
+    breakdowns = {'input_tokens_details', 'output_tokens_details'}
+    if not isinstance(usage, dict) or not counters <= usage.keys() <= counters | breakdowns:
+        return False
+    for key in breakdowns & usage.keys():
+        breakdown = usage[key]
+        if (not isinstance(breakdown, dict) or breakdown.keys() - {'image_tokens', 'text_tokens'}
+                or any(type(value) is not int or value != 0 for value in breakdown.values())):
+            return False
+    return all(type(usage[key]) is int and usage[key] == 0 for key in counters)
+
+
 def cost(model, inputs, outputs, searches):
     input_rate, output_rate = RATES[model]
     if inputs > SHORT_THRESHOLD:
@@ -190,16 +204,18 @@ class Live6Budget(StageBudget):
         usage = result['usage']
         inputs, outputs = usage['input_tokens'], usage['output_tokens']
         details = usage.get('input_tokens_details') or {}
-        tool_usage = (result.get('tool_usage') or {}).get('web_search')
+        tools = result.get('tool_usage') or {}
+        web_usage = tools.get('web_search')
         model, _, _, output, limit = STEPS[step]
-        if tool_usage is not None:
-            searches = tool_usage.get('num_requests')
+        if web_usage is not None:
+            searches = web_usage.get('num_requests')
         elif limit and result.get('status') != 'completed':
             raise RuntimeError('Unsettled search usage')
         else:
             searches = sum(item.get('type') == 'web_search_call' for item in result.get('output', []))
         if (result.get('model') != model or result.get('service_tier') != 'default'
-                or (result.get('tool_usage') or {}).keys() - {'web_search'}
+                or tools.keys() - {'web_search', 'image_gen'}
+                or ('image_gen' in tools and not unbilled_image_usage(tools['image_gen']))
                 or details.get('cached_tokens', 0) != 0 or details.get('cache_write_tokens', 0) != 0
                 or any(type(value) is not int or value < 0 for value in (inputs, outputs, searches))
                 or not 0 < inputs <= billable_input(counted, output, limit) or outputs > output or searches > limit):

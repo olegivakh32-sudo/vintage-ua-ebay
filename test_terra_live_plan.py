@@ -5,18 +5,55 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import Mock, patch
+from zipfile import ZipFile
 
 import requests
 
+from acceptance_stage import sha
+from ai_pilot import PilotLimits, run
 from s1_acceptance import StopRun, run_lots
 from terra_live_plan import API, CAP, LUNA, TERRA, Live6Budget, approved_environment, main, preflight, sealed_photos, validate
-from test_blind_live_pilot import response
+from test_blind_live_pilot import RECOGNITION, response
 from test_mobile import m
 from test_s1_acceptance import RESEARCH, VISUAL
 from visual_protocol import VISUAL_TEXT
 
 
 class TerraLive6Tests(unittest.TestCase):
+    def test_real_archived_terra_reply_passes_the_ledger_and_visual_handoff_offline(self):
+        evidence = RECOGNITION / 'lotnexo-live6-46138015708-evidence.zip'
+        self.assertEqual(sha(evidence), '0ba2677ae1ca8f01d6c2cf8941b3f1a215e258a676d4cb00d382767848c1f23f')
+        with ZipFile(evidence) as archive:
+            recorded = json.loads(archive.read('results/TL-401-photos-response.json'))
+            attempt = json.loads(archive.read('results/run.json'))['attempts'][0]
+        count = attempt['input_tokens_counted']
+        urls = []
+
+        def substitute(session, method, url, **kwargs):
+            self.assertEqual(method, 'POST')
+            urls.append(url)
+            if url == API + '/responses/input_tokens':
+                return response({'input_tokens': count})
+            self.assertEqual(url, API + '/responses')
+            return response(recorded)
+
+        with (TemporaryDirectory() as temporary, patch.dict('sys.modules', {'app': m}),
+              patch.object(m, 'OPENAI_API_KEY', 'offline-fixture'), patch.object(m, 'OPENAI_CREDITS_EXHAUSTED', False),
+              patch.object(requests.Session, 'request', autospec=True, side_effect=substitute)):
+            root = Path(temporary)
+            photos = sealed_photos(root)['TL-401']
+            budget = Live6Budget(root / 'results', 'a' * 40)
+            card = run({'lot': 'TL-401'}, photos, PilotLimits(CAP, vision_only=True), live_web=budget)
+            self.assertEqual(card['stage_http'], {'visual': 200, 'research': None, 'draft': None})
+            self.assertEqual(card['identity'], 'Decorative ewer')
+            self.assertEqual(budget.attempts[0]['metered_usd'], '0.004749')
+            self.assertEqual(urls, [API + '/responses/input_tokens', API + '/responses'])
+            for field, value in [('total_tokens', 1), ('output_tokens_details', {'image_tokens': 1})]:
+                changed = deepcopy(recorded)
+                changed['tool_usage']['image_gen'][field] = value
+                with self.assertRaisesRegex(RuntimeError, 'Unexpected provider model, tier or usage'):
+                    budget.metered_usage(changed, 'photos', {}, count)
+
     def test_preflight_requires_valid_ebay_taxonomy_without_generation(self):
         calls = []
         ebay_status = 200
@@ -177,6 +214,9 @@ class TerraLive6Tests(unittest.TestCase):
             self.assertEqual(run['status'], 'AWAIT_INDEPENDENT_REVIEW')
             self.assertEqual(run['unsettled_reserve_usd'], '0')
             self.assertEqual(stages, ['photos', 'research', 'details'] * 2 + ['photos', 'research'] * 4)
+            predictions = json.loads((budget.path.parent / 'predictions.json').read_text())
+            self.assertEqual([Decimal(str(row['cost_usd'])) for row in predictions],
+                             [Decimal('0.024725')] * 2 + [Decimal('0.01450')] * 4)
             self.assertTrue(taxonomy)
             for lot in lots:
                 card = json.loads((budget.path.parent / f'{lot}-card.json').read_text())

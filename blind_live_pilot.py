@@ -437,7 +437,8 @@ def prediction(result, attempts):
 
     observed = {'PHOTO_OBSERVATION', 'SELLER_VERIFIED'}
     documented = observed | DOCUMENTED
-    billed = [attempt.get('metered_usd') for attempt in attempts if attempt['lot'] == result['lot']]
+    billed = [attempt.get('metered_usd') for attempt in attempts
+              if attempt['lot'] == result['lot'] and attempt.get('status') != 'SKIPPED']
     row = {'lot': result['lot'], 'identity': export['type'] or None, 'product_export': export,
            'ocr': corrected_ocr(result['ocr'], export['ocr_corrections']) or None,
            'ocr_raw': result['ocr'] or None, 'defects': result['defects'], 'category_id': result['category_id'],
